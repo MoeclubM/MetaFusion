@@ -3,7 +3,6 @@
 import React, { useCallback } from "react";
 import { markConversationRead } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
-import { UserRoleBadge } from "@/lib/roles";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Clock, X } from "lucide-react";
 import MessageThread, { MessageThreadPeer } from "./MessageThread";
@@ -50,7 +49,6 @@ export default function DirectMessageModal({
                 <span className="font-semibold text-emphasis text-sm truncate">
                   {peerUser.username}
                 </span>
-                <UserRoleBadge role={peerUser.role} t={t} />
               </div>
               {/* 注册时间只有在账号服务真的给了 created_at 时才显示；字段缺席就不渲染这一行，
                   不能把 undefined 送进 Date 造出 "Invalid Date"。 */}

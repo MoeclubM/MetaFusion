@@ -658,7 +658,7 @@ function AdminInner() {
             <LocaleSwitcher compact />
             <ThemePicker />
             <span className="hidden sm:inline-flex px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-              {user.username} ({user.role})
+              {user.username}
             </span>
           </div>
         </PageContainer>

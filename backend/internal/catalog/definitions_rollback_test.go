@@ -231,7 +231,7 @@ func TestPostgresDefinitionRollback(t *testing.T) {
 		if _, err := f.s.RollbackDefinitions(ctx, 99999999, f.u); !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("不存在的定义版本应返回 sql.ErrNoRows（HTTP 404），得到 %v", err)
 		}
-		other := User{ID: uuid.NewString(), Username: "catalog-editor", Role: "member", Permissions: []string{PermissionEntityEdit}}
+		other := User{ID: uuid.NewString(), Username: "catalog-editor", Permissions: []string{PermissionEntityEdit}}
 		if _, err := f.s.RollbackDefinitions(ctx, targetID, other); !errors.Is(err, errForbidden) {
 			t.Fatalf("无 catalog.definitions.manage 应返回 errForbidden（HTTP 403），得到 %v", err)
 		}
@@ -328,8 +328,8 @@ func TestRollbackEndpointHTTP(t *testing.T) {
 		engine(u).ServeHTTP(w, httptest.NewRequest(method, path, nil))
 		return w
 	}
-	defsUser := &User{ID: uuid.NewString(), Username: "catalog-admin", Role: "member", Permissions: []string{PermissionDefinitionsManage}}
-	otherUser := &User{ID: uuid.NewString(), Username: "catalog-editor", Role: "member", Permissions: []string{PermissionEntityEdit}}
+	defsUser := &User{ID: uuid.NewString(), Username: "catalog-admin", Permissions: []string{PermissionDefinitionsManage}}
+	otherUser := &User{ID: uuid.NewString(), Username: "catalog-editor", Permissions: []string{PermissionEntityEdit}}
 
 	seed, err := f.s.Definitions(ctx)
 	if err != nil {

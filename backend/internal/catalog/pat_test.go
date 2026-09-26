@@ -130,8 +130,7 @@ func TestPATIntrospectOutcomes(t *testing.T) {
 	down := patToken('e')
 	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
 	f, srv := newFakeAuth(t, map[string]fakeAuthDoc{
-		valid: {Valid: true, UserID: "u-pat", Username: "kana", Role: "editor",
-			Permissions: []string{PermissionEntityEdit, "community.post.create"}, ExpiresAt: expires},
+		valid: {Valid: true, UserID: "u-pat", Username: "kana", Permissions: []string{PermissionEntityEdit, "community.post.create"}, ExpiresAt: expires},
 	})
 	p := NewPATIntrospector(srv.URL)
 	ctx := context.Background()
@@ -140,7 +139,7 @@ func TestPATIntrospectOutcomes(t *testing.T) {
 	if err != nil || ident == nil {
 		t.Fatalf("有效 PAT 应返回身份: ident=%v err=%v", ident, err)
 	}
-	if ident.UserID != "u-pat" || ident.Role != "editor" || len(ident.Permissions) != 2 || ident.ExpiresAt.IsZero() {
+	if ident.UserID != "u-pat" || len(ident.Permissions) != 2 || ident.ExpiresAt.IsZero() {
 		t.Fatalf("身份字段不符: %+v", ident)
 	}
 
@@ -282,13 +281,10 @@ func TestPATEndToEnd(t *testing.T) {
 	adminNoScope := patToken('d') // 管理员但 scopes 为空
 	fresh := patToken('f')        // 只在最后阶段用：账号服务届时已下线
 	f, srv := newFakeAuth(t, map[string]fakeAuthDoc{
-		editor: {Valid: true, UserID: "44444444-4444-4444-4444-444444444444", Username: "pat-editor", Role: "editor",
-			Permissions: []string{PermissionRelationEdit}},
-		outsider: {Valid: true, UserID: "55555555-5555-5555-5555-555555555555", Username: "pat-outsider", Role: "user",
-			Permissions: []string{"community.post.create"}},
-		adminNoScope: {Valid: true, UserID: "66666666-6666-6666-6666-666666666666", Username: "pat-admin", Role: "admin"},
-		fresh: {Valid: true, UserID: "77777777-7777-7777-7777-777777777777", Username: "pat-fresh", Role: "user",
-			Permissions: []string{PermissionEntityEdit}},
+		editor:       {Valid: true, UserID: "44444444-4444-4444-4444-444444444444", Username: "pat-editor", Permissions: []string{PermissionRelationEdit}},
+		outsider:     {Valid: true, UserID: "55555555-5555-5555-5555-555555555555", Username: "pat-outsider", Permissions: []string{"community.post.create"}},
+		adminNoScope: {Valid: true, UserID: "66666666-6666-6666-6666-666666666666", Username: "pat-admin"},
+		fresh:        {Valid: true, UserID: "77777777-7777-7777-7777-777777777777", Username: "pat-fresh", Permissions: []string{PermissionEntityEdit}},
 	})
 	// Verifier 刻意留空：PAT 路径不依赖本地验签材料。
 	s := &Store{DB: testutil.Database(t), PAT: NewPATIntrospector(srv.URL)}

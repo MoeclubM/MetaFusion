@@ -32,10 +32,10 @@ func gateEngine(u *User) *gin.Engine {
 func TestProtectedRouteGates(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	// 持另一个目录码：能证明被拒的原因是"缺这个码"，而不是"没有权限声明"。
-	otherCode := &User{ID: "u-other", Role: "member", Permissions: []string{PermissionEntityEdit}}
-	importUser := &User{ID: "u-imp", Role: "member", Permissions: []string{PermissionImportSubmit}}
-	relationUser := &User{ID: "u-rel", Role: "member", Permissions: []string{PermissionRelationEdit}}
-	wildcard := &User{ID: "u-admin", Role: "admin", Permissions: []string{permissionWildcard}}
+	otherCode := &User{ID: "u-other", Permissions: []string{PermissionEntityEdit}}
+	importUser := &User{ID: "u-imp", Permissions: []string{PermissionImportSubmit}}
+	relationUser := &User{ID: "u-rel", Permissions: []string{PermissionRelationEdit}}
+	wildcard := &User{ID: "u-admin", Permissions: []string{permissionWildcard}}
 	id := "00000000-0000-0000-0000-000000000001"
 
 	for _, tc := range []struct {
@@ -98,7 +98,6 @@ func TestModuleToggleRetiredGate(t *testing.T) {
 	}
 	// 非管理员（editor 只带 catalog.entity.edit）：403。
 	editor := signTestToken(t, key, func(c Claims) Claims {
-		c.Role = "editor"
 		c.Permissions = []string{PermissionEntityEdit}
 		return c
 	})
@@ -107,21 +106,19 @@ func TestModuleToggleRetiredGate(t *testing.T) {
 	}
 	// 管理员（admin 组的 * 通配）：才拿到 409 与 hint。
 	admin := signTestToken(t, key, func(c Claims) Claims {
-		c.Role = "admin"
 		c.Permissions = []string{permissionWildcard}
 		return c
 	})
 	if w := put(admin); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "module_toggle_retired") || !strings.Contains(w.Body.String(), "hint") {
 		t.Fatalf("管理员应拿到 409 + hint: status=%d body=%s", w.Code, w.Body.String())
 	}
-	// 老令牌（没有 permissions 声明）按角色兜底：admin 仍放行，与 permission.go 的口径一致。
+	// 没有 permissions 的旧令牌不可借角色获得管理权限。
 	legacy := signTestToken(t, key, func(c Claims) Claims {
-		c.Role = "admin"
 		c.Permissions = nil
 		return c
 	})
-	if w := put(legacy); w.Code != http.StatusConflict {
-		t.Fatalf("角色兜底的 admin 应放行: status=%d body=%s", w.Code, w.Body.String())
+	if w := put(legacy); w.Code != http.StatusForbidden {
+		t.Fatalf("无权限码的令牌应拒绝: status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 
@@ -142,7 +139,7 @@ func TestImporterPreviewIsRateLimited(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resetPreviewBucket()
 	defer resetPreviewBucket()
-	u := &User{ID: "u-rl", Role: "member", Permissions: []string{PermissionImportSubmit}}
+	u := &User{ID: "u-rl", Permissions: []string{PermissionImportSubmit}}
 	engine := gateEngine(u)
 	for i := 0; i < 10; i++ {
 		w := httptest.NewRecorder()
@@ -166,7 +163,7 @@ func TestImporterPreviewIsRateLimited(t *testing.T) {
 func TestImporterPreviewRejectsMediaTypeHint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resetPreviewBucket()
-	u := &User{ID: "u-hint", Role: "member", Permissions: []string{PermissionImportSubmit}}
+	u := &User{ID: "u-hint", Permissions: []string{PermissionImportSubmit}}
 	w := httptest.NewRecorder()
 	body := strings.NewReader(`{"url_or_id":"7","media_type_hint":"music"}`)
 	gateEngine(u).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/importer/preview", body))
@@ -206,7 +203,7 @@ func TestTagsEndpointReportsQueryFailure(t *testing.T) {
 // 避免把闸门加宽的改动顺手扩到实体草稿这类既有入口。
 func TestLoginOnlyRouteStaysOpen(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	plain := &User{ID: "u-plain", Role: "user", Permissions: []string{"community.post.create"}}
+	plain := &User{ID: "u-plain", Permissions: []string{"community.post.create"}}
 	w := httptest.NewRecorder()
 	gateEngine(plain).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/catalog/entities", strings.NewReader("{")))
 	if w.Code != http.StatusBadRequest {

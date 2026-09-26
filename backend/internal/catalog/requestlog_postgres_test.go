@@ -42,7 +42,7 @@ func TestPostgresRequestLogsContract(t *testing.T) {
 	// 中间件端到端：注入身份走真实路由即落行。
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	me := &User{ID: uid1, Username: "log-user", Role: "member", Permissions: []string{PermissionEntityEdit}}
+	me := &User{ID: uid1, Username: "log-user", Permissions: []string{PermissionEntityEdit}}
 	r.Use(func(c *gin.Context) { c.Set("catalog_user", me); c.Next() })
 	HTTP{Store: f.s}.Register(r)
 	before, _ := ListRequestLogs(ctx, f.s.DB, uid1, "", 50)

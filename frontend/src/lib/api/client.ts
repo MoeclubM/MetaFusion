@@ -14,7 +14,6 @@ export interface User {
   /** 账号服务没绑邮箱时整字段缺席（不要造 `用户名@metafusion.local` 之类的假值）；
    *  展示端用 settings.unboundEmail 兜底。 */
   email?: string;
-  role: string;
   /** 账号服务给的组与权限码：授权判定以 permissions 为准（见 lib/permissions.ts）。
    *  原始响应到 User 的映射只有一处：lib/api/auth.ts 的 normalizeSessionUser。 */
   groups?: string[];

@@ -9,7 +9,6 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
 import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
-import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
 import { DirectMessagePrivacyCard } from "@/components/settings/DirectMessagePrivacyCard";
@@ -331,7 +330,6 @@ export default function SettingsPage() {
                     <span className="font-semibold text-text-strong text-base truncate">
                       {displayNameOf(user as unknown as { username: string; display_name?: string })}
                     </span>
-                    <UserRoleBadge role={user.role} t={t} showIcon />
                     {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
                       <span className="font-mono text-xs text-text-faint">@{user.username}</span>
                     )}
@@ -406,9 +404,9 @@ export default function SettingsPage() {
                 <div className="p-2.5 rounded-md bg-background border border-line-subtle flex items-center justify-between text-xs font-mono">
                   <span className="text-text-faint flex items-center gap-1.5">
                     <Shield className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.5} />
-                    <span>{t("settings.accountRole")}</span>
+					<span>{t("settings.accountGroups")}</span>
                   </span>
-                  <UserRoleBadge role={user.role} t={t} showIcon />
+				  <span className="text-text-strong">{user.groups?.join(", ") || "—"}</span>
                 </div>
 
                 {!!(user as unknown as { invite_code?: string }).invite_code && (

@@ -33,7 +33,7 @@ export function revisionChanges(before: any = {}, after: any = {}) {
 
 export function canEditRevision(
   entity: Entity,
-  user?: { id: string; role: string; permissions?: string[]; groups?: string[] },
+  user?: { id: string; permissions?: string[]; groups?: string[] },
 ): boolean {
   // 授权口径收敛到 lib/permissions.ts（与后端 permission.go 一致）：
   // 前端不再自己比较 role 字符串，否则"给了权限组却看不到编辑入口"。

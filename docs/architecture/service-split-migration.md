@@ -61,8 +61,8 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 ### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
 
 - **网关矩阵**：唯一生效的是 `deploy/nginx.conf`。2026-09 已把 `metafusion-api-gateway` 仓库里的旧矩阵移入 `examples/pre-cutover/` 并标注不参与部署（该仓库现在只有脚本），`cutover-check.sh` 改为**断言服务标记头**、新增离线 `--self-check`。矩阵的自动校验在主仓库：`scripts/check_gateway_matrix.py`（条数、每条 `/api/*` 必须挂限流、矩阵↔本文 §2 表的登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。**仍未做**的是“把矩阵本体搬进网关仓库、主仓库只引用”，见 [审计文档](./decoupling-audit-2026-09.md) §6。
-- **密钥边界**：签发私钥只在账号服务。目录侧已改成按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，compose 不再向 backend 注入 `AUTH_JWT_PRIVATE_KEY`；该变量在目录侧只剩兼容兜底路径（启动会告警、待移除）。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
-- **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/会话兜底/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；两处语义差异（SDK 拒收私钥配置、`offset<0` 收敛为 0）进契约前需核对存量令牌与调用方。
+- **密钥边界**：签发私钥只在账号服务。目录侧按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，不再从 `AUTH_JWT_PRIVATE_KEY` 派生公钥。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
+- **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；接入前需核对各服务现行的分页语义。
 - **UI 归属**：三个服务各自的管理台（账号 / 互动 / 存储，各自仓库的 `admin/` 目录）已由网关与主编排接入。普通用户页面仍跨主仓库 `frontend/` 与账号服务的 `user/` 应用；社区与资源区块仍耦合在目录详情页。逐域独立发布、共享 UI 层与嵌入契约仍是目标，见 [审计文档](./decoupling-audit-2026-09.md) §7。
 
 ## 3. 数据归属与边界
@@ -90,9 +90,7 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
 - 各服务的 JWKS 地址用环境变量注入，现在都指向账号服务：catalog 的 `AUTH_JWKS_URL`、community 的 `COMMUNITY_JWKS_URL`、storage 的
   `STORAGE_JWKS_URL` = `http://auth:8081/api/oidc/jwks`（catalog/community/storage 都不提供 JWKS，只验签；catalog 也可用静态公钥 `AUTH_JWT_PUBLIC_KEY`）。
-- 主仓库 `Store.Authenticate` **只做 RS256 验签**：
-  目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
-  续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
+- 主仓库 `Store.Authenticate` **只做 RS256 验签**；社区和存储服务也在本地验签会话 JWT，PAT 则经账号服务内省。目录不读账号服务的表；续期走账号服务的 `/api/auth/refresh`。
 - 业务权限（谁能编辑哪个实体）仍由 catalog 自己判断：auth 只负责把权限码装进组、随令牌下发
   `permissions`；目录侧按码判定（`backend/internal/catalog/permission.go`），令牌没带
   `permissions` 时按历史 `role` 兜底。auth 不介入具体判定。

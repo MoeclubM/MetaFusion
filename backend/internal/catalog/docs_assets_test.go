@@ -69,8 +69,8 @@ func TestDocsAssetsMatchPinnedDigests(t *testing.T) {
 // 资源与页面同一道闸门（匿名 401 / 无管理码 403 / 管理员 200），且带 nosniff 与 ETag；
 // 白名单外的名字一律 404——包括路径穿越写法：白名单是键比对，不做任何路径拼接。
 func TestDocsAssetsServedBehindGate(t *testing.T) {
-	admin := &User{ID: "u-admin", Role: "admin", Permissions: []string{PermissionLifecycleManage}}
-	editor := &User{ID: "u-editor", Role: "editor", Permissions: []string{PermissionEntityEdit}}
+	admin := &User{ID: "u-admin", Permissions: []string{PermissionLifecycleManage}}
+	editor := &User{ID: "u-editor", Permissions: []string{PermissionEntityEdit}}
 	first := "/api/docs/assets/swagger-ui.css"
 	w := httptest.NewRecorder()
 	gateEngine(nil).ServeHTTP(w, httptest.NewRequest(http.MethodGet, first, nil))

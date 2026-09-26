@@ -199,7 +199,7 @@
   "settings.tabProfile": "Profile",
   "settings.tabPassword": "Security & Password",
   "settings.unboundEmail": "No email bound",
-  "settings.accountRole": "Role",
+  "settings.accountGroups": "Account groups",
   "settings.inviteCodeLabel": "Invite Code",
   "settings.interfaceLanguage": "Language",
   "settings.oldPassword": "Current password",

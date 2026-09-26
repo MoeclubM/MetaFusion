@@ -559,7 +559,7 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 // “改了没记、记了没改”的半成品。通用访问审计（audit.Recorder）是进程内有界队列异步落库，
 // 满则丢行计数（尽力而为），只做访问日志，不承担业务留痕。
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
-	// actor_name/actor_role 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
+	// actor_name 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
 	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
 	// definition_version 取同一事务内的已发布定义：definitions.published 事件的 audit
 	// 调用发生在发布事务提交前，读到的是本事务刚发布的版本，引用即自身；无已发布行
@@ -569,7 +569,7 @@ func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, no
 	if err := tx.QueryRowContext(ctx, "SELECT id FROM catalog.definitions WHERE state='published'").Scan(&publishedID); err == nil {
 		defVersion = &publishedID
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,actor_role,edit_note,sources,snapshot,definition_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)", id, version, u.ID, u.Username, u.Role, note, encode(sources), encode(snapshot), defVersion); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,edit_note,sources,snapshot,definition_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", id, version, u.ID, u.Username, note, encode(sources), encode(snapshot), defVersion); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
@@ -1302,7 +1302,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
 	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at, r.definition_version
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), r.edit_note, r.sources, r.snapshot, r.created_at, r.definition_version
 		FROM catalog.revisions r
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
@@ -1314,11 +1314,11 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	out := []map[string]any{}
 	for rows.Next() {
 		var revID, version int64
-		var actorID, actorName, actorRole, note string
+		var actorID, actorName, note string
 		var sources, snapshot json.RawMessage
 		var at time.Time
 		var defVersion sql.NullInt64
-		if err = rows.Scan(&revID, &version, &actorID, &actorName, &actorRole, &note, &sources, &snapshot, &at, &defVersion); err != nil {
+		if err = rows.Scan(&revID, &version, &actorID, &actorName, &note, &sources, &snapshot, &at, &defVersion); err != nil {
 			return nil, err
 		}
 		// 实体修订的 snapshot 是 Entity，逐行按实体可见性过滤；
@@ -1343,7 +1343,6 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 			"version":            version,
 			"actor_id":           actorID,
 			"actor_name":         actorName,
-			"actor_role":         actorRole,
 			"edit_note":          note,
 			"sources":            sources,
 			"snapshot":           snapshot,

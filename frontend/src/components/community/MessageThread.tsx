@@ -15,7 +15,6 @@ import { MessageCircle, Send, Loader2, AlertCircle, LogIn } from "lucide-react";
 export interface MessageThreadPeer {
   id: string;
   username: string;
-  role: string;
   avatar_url?: string;
   created_at?: string;
 }

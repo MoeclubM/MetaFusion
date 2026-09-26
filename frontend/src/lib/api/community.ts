@@ -67,7 +67,6 @@ export interface ForumPost {
   user_id: string;
   content: string;
   reply_to_post_number?: number | null;
-  reply_to_post_id?: string | null;
   created_at: string;
   updated_at?: string;
   user?: User;
@@ -97,7 +96,7 @@ export interface CreateTopicPayload {
   board_code: string;
   title: string;
   content: string;
-  work_id?: string;
+  entity_id?: string;
   tag_ids?: number[];
   tag_names?: string[];
 }
@@ -105,14 +104,11 @@ export interface CreateTopicPayload {
 export interface CreatePostPayload {
   content: string;
   reply_to_post_number?: number | null;
-  reply_to_post_id?: string | null;
 }
 
 export interface Comment {
   id: string;
   topic_id?: string;
-  work_id?: string;
-  release_id?: string;
   user_id: string;
   parent_id?: string;
   content: string;

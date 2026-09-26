@@ -14,8 +14,8 @@ import (
 // deliverEvent 是带稳定事件身份与可选事件时间的跨服务投递（A04 验收口径）。
 func (f *notifyFixture) deliverEvent(t *testing.T, recipientID, entityID, eventID, excerpt, eventTime string) *httptest.ResponseRecorder {
 	t.Helper()
-	body := fmt.Sprintf("{\"recipient_id\":\"%s\",\"type\":\"comment.replied\",\"subject_type\":\"entity\",\"subject_id\":\"%s\",\"dedupe_key\":\"comment.replied:entity:%s\",\"event_id\":\"%s\",\"event_time\":\"%s\",\"payload\":{\"entity_id\":\"%s\",\"excerpt\":\"%s\"}}",
-		recipientID, entityID, entityID, eventID, eventTime, entityID, excerpt)
+	body := fmt.Sprintf("{\"recipient_id\":\"%s\",\"type\":\"comment.replied\",\"subject_type\":\"entity\",\"subject_id\":\"%s\",\"dedupe_key\":\"comment.replied:entity:%s\",\"event_id\":\"%s\",\"event_time\":\"%s\",\"actor_id\":\"%s\",\"actor_name\":\"%s\",\"payload\":{\"entity_id\":\"%s\",\"excerpt\":\"%s\"}}",
+		recipientID, entityID, entityID, eventID, eventTime, f.owner.ID, f.owner.Username, entityID, excerpt)
 	return f.do(f.engine(&f.owner, testInternalToken), http.MethodPost, "/api/notifications/internal", body,
 		map[string]string{InternalTokenHeader: testInternalToken})
 }

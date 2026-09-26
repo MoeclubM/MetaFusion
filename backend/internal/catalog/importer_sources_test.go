@@ -108,7 +108,7 @@ func TestImporterSourcesEndpointGateAndShape(t *testing.T) {
 	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "authentication_required") {
 		t.Fatalf("匿名：status=%d body=%s，want 401 authentication_required", w.Code, w.Body.String())
 	}
-	other := &User{ID: "u-other", Role: "member", Permissions: []string{PermissionEntityEdit}}
+	other := &User{ID: "u-other", Permissions: []string{PermissionEntityEdit}}
 	w = httptest.NewRecorder()
 	gateEngine(other).ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "forbidden") {
@@ -116,7 +116,7 @@ func TestImporterSourcesEndpointGateAndShape(t *testing.T) {
 	}
 
 	// Store{} 没有库：元数据走种子，正好覆盖"未接库也能给出清单"这一路径。
-	importer := &User{ID: "u-imp", Role: "member", Permissions: []string{PermissionImportSubmit}}
+	importer := &User{ID: "u-imp", Permissions: []string{PermissionImportSubmit}}
 	w = httptest.NewRecorder()
 	gateEngine(importer).ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 	if w.Code != http.StatusOK {

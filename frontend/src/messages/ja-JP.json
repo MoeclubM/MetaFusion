@@ -199,7 +199,7 @@
   "settings.tabProfile": "アカウント情報",
   "settings.tabPassword": "セキュリティとパスワード",
   "settings.unboundEmail": "メール未登録",
-  "settings.accountRole": "アカウントの役割",
+  "settings.accountGroups": "アカウントの権限グループ",
   "settings.inviteCodeLabel": "招待コード",
   "settings.interfaceLanguage": "表示言語",
   "settings.oldPassword": "現在のパスワード",

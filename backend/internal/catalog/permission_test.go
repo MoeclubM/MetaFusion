@@ -26,56 +26,36 @@ func TestCatalogPermissionCodesMatchAccountService(t *testing.T) {
 
 // 令牌带 permissions 时以码为准：放行、拒绝、* 通配各一条。
 func TestCanHonoursTokenPermissions(t *testing.T) {
-	editor := User{Role: "member", Permissions: []string{PermissionEntityEdit, PermissionRelationEdit}}
+	editor := User{Permissions: []string{PermissionEntityEdit, PermissionRelationEdit}}
 	if !editor.Can(PermissionEntityEdit) {
 		t.Fatal("granted permission code must pass")
 	}
 	if editor.Can(PermissionDefinitionsManage) || editor.Can(PermissionLifecycleManage) {
 		t.Fatalf("ungranted permission code must be denied: %+v", editor)
 	}
-	wildcard := User{Role: "member", Permissions: []string{permissionWildcard}}
+	wildcard := User{Permissions: []string{permissionWildcard}}
 	for _, code := range catalogPermissionCodes {
 		if !wildcard.Can(code) {
 			t.Fatalf("wildcard must grant %q", code)
 		}
 	}
 	// 其它子系统的码与本服务无关：没声明 catalog 码就不放行目录能力。
-	foreign := User{Role: "admin", Permissions: []string{"community.post.moderate"}}
+	foreign := User{Permissions: []string{"community.post.moderate"}}
 	if foreign.Can(PermissionEntityEdit) {
 		t.Fatal("foreign-service codes must not grant catalog capabilities")
 	}
 }
 
-// 老令牌（没有 permissions 声明）按历史角色兜底：未按权限组配置的实例与有效期内
-// 的老令牌都不能被这次改动打死。
-func TestCanLegacyRoleFallback(t *testing.T) {
-	admin := User{Role: "admin"}
+func TestCanDeniesEmptyPermissions(t *testing.T) {
+	plain := User{}
 	for _, code := range catalogPermissionCodes {
-		if !admin.Can(code) {
-			t.Fatalf("legacy admin must pass %q", code)
+		if plain.Can(code) {
+			t.Fatalf("empty permissions must deny %q", code)
 		}
 	}
-	if admin.Can("community.post.moderate") {
-		t.Fatal("role fallback must stay inside catalog codes")
-	}
-	editor := User{Role: "editor"}
-	if !editor.Can(PermissionEntityEdit) {
-		t.Fatal("legacy editor must keep entity editing")
-	}
-	for _, code := range []string{PermissionRelationEdit, PermissionDefinitionsManage, PermissionLifecycleManage, PermissionImportSubmit, PermissionShelvesManage} {
-		if editor.Can(code) {
-			t.Fatalf("legacy editor must stay out of admin-only code %q", code)
-		}
-	}
-	for _, legacy := range []User{{Role: "user"}, {Role: ""}} {
-		if legacy.Can(PermissionEntityEdit) {
-			t.Fatalf("non-editor legacy role must not gain catalog capabilities: %+v", legacy)
-		}
-	}
-	// 令牌一旦带了 permissions 就以码为准：角色不再额外放行，否则兜底会变成绕过权限组的后门。
-	limited := User{Role: "admin", Permissions: []string{PermissionEntityEdit}}
+	limited := User{Permissions: []string{PermissionEntityEdit}}
 	if !limited.Can(PermissionEntityEdit) || limited.Can(PermissionLifecycleManage) {
-		t.Fatalf("explicit permissions must win over the legacy role: %+v", limited)
+		t.Fatalf("permission set must be authoritative: %+v", limited)
 	}
 }
 
@@ -83,9 +63,9 @@ func TestCanLegacyRoleFallback(t *testing.T) {
 // 缺键老令牌（nil、无标记、非 PAT、非第三方）保持历史兜底（见 TestCanLegacyRoleFallback）。
 func TestCanDeniesExplicitEmptyAdmin(t *testing.T) {
 	for _, u := range []User{
-		{Role: "admin", Permissions: []string{}, PermissionsSet: true},
-		{Role: "admin", Permissions: []string{}},
-		{Role: "admin", PermissionsSet: true},
+		{Permissions: []string{}},
+		{Permissions: []string{}},
+		{},
 	} {
 		for _, code := range catalogPermissionCodes {
 			if u.Can(code) {
@@ -93,19 +73,15 @@ func TestCanDeniesExplicitEmptyAdmin(t *testing.T) {
 			}
 		}
 	}
-	// 对照：缺键老令牌的 admin 兜底必须保持（历史令牌兼容）。
-	if !(User{Role: "admin"}).Can(PermissionLifecycleManage) {
-		t.Fatal("缺键老令牌的 admin 兜底必须保持")
-	}
 }
 
 // S01：第三方 OAuth 身份在治理码上直接拒绝，即使带 * 通配或显式持有该码，
 // 即使令牌形态像老令牌（缺 permissions 键）——第三方标记优先于一切兜底。
 func TestCanDeniesThirdPartyGovernance(t *testing.T) {
 	for _, u := range []User{
-		{Role: "admin", Permissions: []string{permissionWildcard}, IsThirdParty: true, PermissionsSet: true},
-		{Role: "user", Permissions: []string{PermissionEntityEdit}, IsThirdParty: true, PermissionsSet: true},
-		{Role: "admin", IsThirdParty: true},
+		{Permissions: []string{permissionWildcard}, IsThirdParty: true},
+		{Permissions: []string{PermissionEntityEdit}, IsThirdParty: true},
+		{IsThirdParty: true},
 	} {
 		for _, code := range catalogPermissionCodes {
 			if u.Can(code) {
@@ -115,24 +91,13 @@ func TestCanDeniesThirdPartyGovernance(t *testing.T) {
 	}
 }
 
-// S01：载荷的 permissions 键存在性决定分支（缺键老令牌 vs 显式空声明）；
-// 第三方判定与互动 internal/auth/auth.go 同契约：仅 oauth/id_token 判第三方，
-// session/空用途为第一方（空用途下仍带 scope/client_id/token_type 才算第三方）。
-func TestClaimsPresenceAndThirdPartyMapping(t *testing.T) {
+func TestClaimsThirdPartyMapping(t *testing.T) {
 	var c Claims
-	if err := json.Unmarshal([]byte(`{"sub":"u-1","permissions":[]}`), &c); err != nil || !c.permissionsPresent || c.Permissions == nil {
-		t.Fatalf("显式空数组应记存在且非 nil：%v %+v", err, c)
-	}
-	var missing Claims
-	if err := json.Unmarshal([]byte(`{"sub":"u-1"}`), &missing); err != nil || missing.permissionsPresent || missing.Permissions != nil {
-		t.Fatalf("缺键应记不存在且 nil：%v %+v", err, missing)
-	}
-	var nul Claims
-	if err := json.Unmarshal([]byte(`{"sub":"u-1","permissions":null}`), &nul); err != nil || !nul.permissionsPresent || nul.Permissions != nil {
-		t.Fatalf("显式 null 应记存在但 nil：%v %+v", err, nul)
+	if err := json.Unmarshal([]byte(`{"sub":"u-1","token_use":"session","permissions":[]}`), &c); err != nil {
+		t.Fatalf("decode permissions: %v", err)
 	}
 	var tp Claims
-	if err := json.Unmarshal([]byte(`{"sub":"u-1","scope":"openid profile","client_id":"third-party-app"}`), &tp); err != nil {
+	if err := json.Unmarshal([]byte(`{"sub":"u-1","token_use":"oauth","scope":"openid profile","client_id":"third-party-app"}`), &tp); err != nil {
 		t.Fatal(err)
 	}
 	u := ClaimsToUser(&tp)
@@ -140,8 +105,8 @@ func TestClaimsPresenceAndThirdPartyMapping(t *testing.T) {
 		t.Fatalf("带 OAuth 标记的载荷应为第三方：%+v", u)
 	}
 	session := ClaimsToUser(&c)
-	if session == nil || session.IsThirdParty || !session.PermissionsSet {
-		t.Fatalf("会话载荷不应标第三方且应带存在标记：%+v", session)
+	if session == nil || session.IsThirdParty {
+		t.Fatalf("会话载荷不应标第三方：%+v", session)
 	}
 	if ClaimsToUser(nil) != nil {
 		t.Fatal("nil 载荷应得 nil 用户")
@@ -156,13 +121,13 @@ func TestEditingDecidedByPermissionCode(t *testing.T) {
 		e    Entity
 		want bool
 	}{
-		{"entity.edit maintains foreign published", User{ID: "self", Role: "member", Permissions: []string{PermissionEntityEdit}}, Entity{Status: "published", CreatedBy: "other"}, true},
-		{"no code cannot maintain foreign published", User{ID: "self", Role: "member", Permissions: []string{"community.post.create"}}, Entity{Status: "published", CreatedBy: "other"}, false},
-		{"no code may still edit own draft", User{ID: "self", Role: "member", Permissions: []string{"community.post.create"}}, Entity{Status: "draft", CreatedBy: "self"}, true},
-		{"own published needs the code", User{ID: "self", Role: "member", Permissions: []string{"community.post.create"}}, Entity{Status: "published", CreatedBy: "self"}, false},
-		{"entity.edit stays out of foreign drafts", User{ID: "self", Role: "member", Permissions: []string{PermissionEntityEdit}}, Entity{Status: "draft", CreatedBy: "other"}, false},
-		{"lifecycle.manage reaches foreign drafts", User{ID: "self", Role: "member", Permissions: []string{PermissionLifecycleManage}}, Entity{Status: "draft", CreatedBy: "other"}, true},
-		{"terminated status stays closed", User{ID: "self", Role: "member", Permissions: []string{permissionWildcard}}, Entity{Status: "merged", CreatedBy: "self"}, false},
+		{"entity.edit maintains foreign published", User{ID: "self", Permissions: []string{PermissionEntityEdit}}, Entity{Status: "published", CreatedBy: "other"}, true},
+		{"no code cannot maintain foreign published", User{ID: "self", Permissions: []string{"community.post.create"}}, Entity{Status: "published", CreatedBy: "other"}, false},
+		{"no code may still edit own draft", User{ID: "self", Permissions: []string{"community.post.create"}}, Entity{Status: "draft", CreatedBy: "self"}, true},
+		{"own published needs the code", User{ID: "self", Permissions: []string{"community.post.create"}}, Entity{Status: "published", CreatedBy: "self"}, false},
+		{"entity.edit stays out of foreign drafts", User{ID: "self", Permissions: []string{PermissionEntityEdit}}, Entity{Status: "draft", CreatedBy: "other"}, false},
+		{"lifecycle.manage reaches foreign drafts", User{ID: "self", Permissions: []string{PermissionLifecycleManage}}, Entity{Status: "draft", CreatedBy: "other"}, true},
+		{"terminated status stays closed", User{ID: "self", Permissions: []string{permissionWildcard}}, Entity{Status: "merged", CreatedBy: "self"}, false},
 	} {
 		if got := canEditEntity(tc.u, tc.e); got != tc.want {
 			t.Errorf("%s: canEditEntity=%v want=%v", tc.name, got, tc.want)
@@ -173,10 +138,10 @@ func TestEditingDecidedByPermissionCode(t *testing.T) {
 	}
 	// 关系目标端否决权：持实体编辑权可挂他人公开条目，无码者不可。
 	published := Entity{Status: "published", CreatedBy: "other"}
-	if !canAttachToTarget(User{ID: "self", Role: "member", Permissions: []string{PermissionEntityEdit}}, published) {
+	if !canAttachToTarget(User{ID: "self", Permissions: []string{PermissionEntityEdit}}, published) {
 		t.Fatal("catalog.entity.edit must attach to published targets")
 	}
-	if canAttachToTarget(User{ID: "self", Role: "member", Permissions: []string{"community.post.create"}}, published) {
+	if canAttachToTarget(User{ID: "self", Permissions: []string{"community.post.create"}}, published) {
 		t.Fatal("member without catalog code must not attach to foreign published targets")
 	}
 }
@@ -190,14 +155,13 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 		want int
 	}{
 		{"anonymous", nil, http.StatusUnauthorized},
-		{"ungranted code", &User{Role: "member", Permissions: []string{"community.post.create"}}, http.StatusForbidden},
-		{"granted code", &User{Role: "member", Permissions: []string{PermissionDefinitionsManage}}, http.StatusOK},
-		{"wildcard", &User{Role: "member", Permissions: []string{permissionWildcard}}, http.StatusOK},
-		{"legacy admin token", &User{Role: "admin"}, http.StatusOK},
-		{"legacy member token", &User{Role: "user"}, http.StatusForbidden},
-		{"explicit empty admin", &User{Role: "admin", Permissions: []string{}, PermissionsSet: true}, http.StatusForbidden},
-		{"third-party admin wildcard", &User{Role: "admin", Permissions: []string{permissionWildcard}, IsThirdParty: true}, http.StatusForbidden},
-		{"third-party explicit code", &User{Role: "user", Permissions: []string{PermissionDefinitionsManage}, IsThirdParty: true}, http.StatusForbidden},
+		{"ungranted code", &User{Permissions: []string{"community.post.create"}}, http.StatusForbidden},
+		{"granted code", &User{Permissions: []string{PermissionDefinitionsManage}}, http.StatusOK},
+		{"wildcard", &User{Permissions: []string{permissionWildcard}}, http.StatusOK},
+		{"no permission", &User{}, http.StatusForbidden},
+		{"explicit empty admin", &User{Permissions: []string{}}, http.StatusForbidden},
+		{"third-party admin wildcard", &User{Permissions: []string{permissionWildcard}, IsThirdParty: true}, http.StatusForbidden},
+		{"third-party explicit code", &User{Permissions: []string{PermissionDefinitionsManage}, IsThirdParty: true}, http.StatusForbidden},
 	} {
 		r := gin.New()
 		r.GET("/x", func(c *gin.Context) {
@@ -213,7 +177,7 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 	}
 	// code 为空只要求登录：任意登录用户都能过（含第三方，自助草稿走所有权判定）。
 	r := gin.New()
-	r.GET("/x", func(c *gin.Context) { c.Set("catalog_user", &User{Role: "member"}) }, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+	r.GET("/x", func(c *gin.Context) { c.Set("catalog_user", &User{}) }, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
 	if w.Code != http.StatusOK {
@@ -221,7 +185,7 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 	}
 	r2 := gin.New()
 	r2.GET("/x", func(c *gin.Context) {
-		c.Set("catalog_user", &User{Role: "user", IsThirdParty: true})
+		c.Set("catalog_user", &User{IsThirdParty: true})
 	}, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	w2 := httptest.NewRecorder()
 	r2.ServeHTTP(w2, httptest.NewRequest(http.MethodGet, "/x", nil))
@@ -234,8 +198,8 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 // 第三方建草稿（POST）403，会话仍 200；读（GET）仍对第三方开放。
 func TestRequiredWriteDeniesThirdParty(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	third := &User{ID: "third", Role: "user", IsThirdParty: true}
-	session := &User{ID: "self", Role: "user"}
+	third := &User{ID: "third", IsThirdParty: true}
+	session := &User{ID: "self"}
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
 		r := gin.New()
 		r.Handle(method, "/x", func(c *gin.Context) {

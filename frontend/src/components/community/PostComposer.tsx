@@ -372,7 +372,7 @@ export default function PostComposer({
         board_code: newBoardCode,
         title: newTitle.trim(),
         content: newContent.trim(),
-        work_id: selectedWork?.id,
+        entity_id: selectedWork?.id,
         tag_ids: selectedTagIds.length ? selectedTagIds : undefined,
         tag_names: customTagNames.length ? customTagNames : undefined,
       });

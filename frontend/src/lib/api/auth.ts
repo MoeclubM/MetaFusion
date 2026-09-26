@@ -16,7 +16,6 @@ export function normalizeSessionUser(raw: unknown): User {
     ...rest,
     id: String(u.id ?? ""),
     username: String(u.username ?? ""),
-    role: String(u.role ?? ""),
     ...(typeof email === "string" && email.trim() !== "" ? { email: email.trim() } : {}),
     ...(typeof display_name === "string" && display_name.trim() !== "" ? { display_name } : {}),
     // 账号服务按 omitempty 发这两个数组：给了就带住（空数组也是真实值），缺席才留空。
@@ -147,16 +146,9 @@ function normalizePersonalAccessToken(raw: unknown): PersonalAccessToken {
 
 function normalizeCreatedToken(raw: unknown): CreatedPersonalAccessToken {
   const r = (raw || {}) as Record<string, unknown>;
-  const nested = typeof r.token === "object" && r.token !== null ? (r.token as Record<string, unknown>) : null;
-  const plain =
-    (typeof r.token === "string" && r.token) ||
-    strField(r.plaintext) ||
-    strField(r.plaintext_token) ||
-    strField(r.secret) ||
-    "";
+  const plain = strField(r.token) || "";
   if (!plain) throw new Error("pat_plaintext_missing");
-  const meta = (nested || (r.item as Record<string, unknown>) || (r.pat as Record<string, unknown>) || r) as unknown;
-  return { token: plain, item: normalizePersonalAccessToken(meta) };
+  return { token: plain, item: normalizePersonalAccessToken(r.item) };
 }
 
 /** GET /auth/tokens：只列当前登录身份自己的令牌（含已撤销的，界面靠 revoked_at 打标）。 */
@@ -165,11 +157,9 @@ export async function fetchPersonalAccessTokens(): Promise<{ items: PersonalAcce
   // 契约漂移必须能与"没有令牌"分开：这里原来把"既不是数组、也没有 items 数组"的响应也归一成
   // { items: [] }，界面上就成了"暂无令牌"——把取不到讲成了空列表，面板的失败分支永远进不去。
   // 现在按失败抛出（码留在 message 前缀里，面板的 patErrorText 会把码与明细一起显示出来）。
-  const list = Array.isArray(raw)
-    ? raw
-    : Array.isArray((raw as { items?: unknown })?.items)
-      ? ((raw as { items: unknown[] }).items)
-      : null;
+  const list = Array.isArray((raw as { items?: unknown })?.items)
+    ? ((raw as { items: unknown[] }).items)
+    : null;
   if (list === null) throw new Error("invalid_response: items");
   return { items: list.map(normalizePersonalAccessToken) };
 }

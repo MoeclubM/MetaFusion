@@ -206,9 +206,8 @@ function CommunityContent() {
  } else if (filterTagName) {
  params.append("tag", filterTagName);
  }
- // limit/offset 显式传：后端缺省 30 是「第一页」的意思，不传就只能取到前 30 条。
- params.set("limit", String(PAGE_SIZE));
- params.set("offset", String((page - 1) * PAGE_SIZE));
+ params.set("page", String(page));
+ params.set("page_size", String(PAGE_SIZE));
  const res = await fetchApi<{ items: DiscussionTopic[]; total: number }>(
  `/community/topics?${params.toString()}`,
  { signal: controller.signal }

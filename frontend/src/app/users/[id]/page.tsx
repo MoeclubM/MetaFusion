@@ -30,7 +30,6 @@ import { isoDate, isoTimestamp, localDateTime } from "@/lib/datetime";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import ReportButton from "@/components/report/ReportButton";
-import { UserRoleBadge } from "@/lib/roles";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
@@ -319,7 +318,6 @@ export default function UserDetailPage() {
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg font-bold text-text-strong">{u ? u.display_name || u.username : t("nav.userProfile")}</h1>
-                {u && <UserRoleBadge role={u.role} t={t} showIcon />}
                 {u?.banned && (
                   <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-sm bg-rose-500/10 text-rose-600 dark:text-danger border border-rose-500/30 inline-flex items-center gap-1">
                     <ShieldAlert className="w-3 h-3" />

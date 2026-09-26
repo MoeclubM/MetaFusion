@@ -41,25 +41,12 @@ func clearSigningSources(t *testing.T) {
 	t.Helper()
 	t.Setenv("AUTH_JWT_PUBLIC_KEY", "")
 	t.Setenv("AUTH_JWKS_URL", "")
-	t.Setenv("AUTH_JWT_PRIVATE_KEY", "")
 }
 
-// testVerifier 走兼容兜底路径（AUTH_JWT_PRIVATE_KEY）：私钥只为派生公钥，私钥另存一份用于造令牌。
+// testVerifier 用静态公钥验签，私钥仅用于构造测试令牌。
 func testVerifier(t *testing.T, key *rsa.PrivateKey) *TokenVerifier {
 	t.Helper()
-	clearSigningSources(t)
-	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, key))
-	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
-	if err != nil {
-		t.Fatalf("verifier: %v", err)
-	}
-	if v.Ephemeral() {
-		t.Fatal("verifier fell back to ephemeral mode")
-	}
-	if got := v.Source(); got != SourcePrivateKey {
-		t.Fatalf("来源应为兼容兜底 %s，实际 %q", SourcePrivateKey, got)
-	}
-	return v
+	return testVerifierFromPublicKey(t, &key.PublicKey, publicPEM(t, &key.PublicKey))
 }
 
 // testVerifierFromPublicKey 走静态公钥路径（PKIX PEM），这是生产推荐配置。
@@ -137,7 +124,7 @@ func signTestToken(t *testing.T, key *rsa.PrivateKey, mutate func(Claims) Claims
 	t.Helper()
 	claims := Claims{
 		Subject: "11111111-1111-1111-1111-111111111111", Username: "kana", Email: "kana@example.com",
-		Role: "editor", Issuer: "https://example.test/api", Audience: "metafusion",
+		Issuer: "https://example.test/api", Audience: "metafusion", TokenUse: TokenUseSession,
 		IssuedAt: time.Now().Unix(), Expires: time.Now().Add(10 * time.Minute).Unix(), JTI: "test-jti",
 	}
 	if mutate != nil {
@@ -169,7 +156,7 @@ func TestVerifyRestoresIdentity(t *testing.T) {
 		t.Fatalf("verify: %v", err)
 	}
 	u := ClaimsToUser(claims)
-	if u.ID != "11111111-1111-1111-1111-111111111111" || u.Username != "kana" || u.Role != "editor" {
+	if u.ID != "11111111-1111-1111-1111-111111111111" || u.Username != "kana" {
 		t.Fatalf("claims mismatch: %+v", u)
 	}
 }
@@ -188,9 +175,9 @@ func TestVerifyRejectsTampering(t *testing.T) {
 	if _, err := v.Verify(bad); err == nil {
 		t.Fatal("tampered signature accepted")
 	}
-	// 改载荷：把角色提权成 admin
+	// 改载荷：篡改用户名但保留原签名。
 	payload, _ := base64.RawURLEncoding.DecodeString(parts[1])
-	escalated := strings.Replace(string(payload), `"editor"`, `"admin"`, 1)
+	escalated := strings.Replace(string(payload), `"kana"`, `"admin"`, 1)
 	bad2 := parts[0] + "." + base64.RawURLEncoding.EncodeToString([]byte(escalated)) + "." + parts[2]
 	if _, err := v.Verify(bad2); err == nil {
 		t.Fatal("tampered payload accepted")
@@ -263,49 +250,6 @@ func TestVerifyRejectsForeignKey(t *testing.T) {
 	}
 }
 
-// 兼容兜底路径（AUTH_JWT_PRIVATE_KEY）同样只验签：只保留公钥，别的密钥签的令牌一律拒绝。
-func TestPrivateKeyFallbackIsVerifyOnly(t *testing.T) {
-	key := testKey(t)
-	v := testVerifier(t, key)
-	if v.Source() != SourcePrivateKey {
-		t.Fatalf("来源应为兼容兜底，实际 %q", v.Source())
-	}
-	if v.PublicJWK() == nil || v.kid == "" || v.kid == "default" {
-		t.Fatalf("兜底路径应派生公钥与 kid")
-	}
-	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
-		t.Fatal("兜底路径接受了别的密钥签的令牌")
-	}
-}
-
-// 私钥兜底要能吃 PKCS#1、PKCS#8 与 base64 包裹的 PEM 三种写法。
-func TestVerifierPrivateKeyFallbackLoadsPEM(t *testing.T) {
-	key := testKey(t)
-	pkcs1 := pemText(t, key)
-	der8, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkcs8 := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der8}))
-	for name, raw := range map[string]string{"pkcs1": pkcs1, "pkcs8": pkcs8, "base64": base64.StdEncoding.EncodeToString([]byte(pkcs1))} {
-		clearSigningSources(t)
-		t.Setenv("AUTH_JWT_PRIVATE_KEY", raw)
-		v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if v.Ephemeral() {
-			t.Fatalf("%s: expected a real key", name)
-		}
-		if v.kid == "" || v.kid == "default" {
-			t.Fatalf("%s: no kid derived", name)
-		}
-		if _, err = v.Verify(signTestToken(t, key, nil)); err != nil {
-			t.Fatalf("%s verify: %v", name, err)
-		}
-	}
-}
-
 // 静态公钥三种写法都要能加载并验签。
 func TestVerifierStaticPublicKeyFormats(t *testing.T) {
 	key := testKey(t)
@@ -331,8 +275,7 @@ func TestVerifierPrefersStaticPublicKeyWithoutNetwork(t *testing.T) {
 
 	clearSigningSources(t)
 	t.Setenv("AUTH_JWT_PUBLIC_KEY", publicPEM(t, &key.PublicKey))
-	t.Setenv("AUTH_JWKS_URL", up.URL)                        // 同时配置也不该被用到
-	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, testKey(t))) // 私钥不该被用到
+	t.Setenv("AUTH_JWKS_URL", up.URL) // 同时配置也不该被用到
 	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 	if err != nil {
 		t.Fatal(err)
@@ -358,8 +301,8 @@ func TestVerifierRejectsPrivateKeyInPublicKeyEnv(t *testing.T) {
 	}
 }
 
-// JWKS 优先于私钥兜底：同一进程里两种变量都给时，只有 JWKS 里的钥匙能验签。
-func TestVerifierPrefersJWKSOverPrivateKey(t *testing.T) {
+// JWKS 来源只接受 JWKS 公钥。
+func TestVerifierUsesJWKS(t *testing.T) {
 	key := testKey(t)
 	var hits int64
 	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return []*rsa.PublicKey{&key.PublicKey} }))
@@ -367,13 +310,12 @@ func TestVerifierPrefersJWKSOverPrivateKey(t *testing.T) {
 
 	clearSigningSources(t)
 	t.Setenv("AUTH_JWKS_URL", up.URL)
-	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, testKey(t)))
 	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v.Source() != SourceJWKS {
-		t.Fatalf("JWKS 应优先于私钥兜底，实际来源 %q", v.Source())
+		t.Fatalf("应使用 JWKS，实际来源 %q", v.Source())
 	}
 	if _, err = v.Verify(signTestToken(t, key, nil)); err != nil {
 		t.Fatalf("JWKS 签名密钥应通过: %v", err)
@@ -513,7 +455,7 @@ func TestStoreAuthenticateIsVerifyOnly(t *testing.T) {
 		t.Fatal("garbage token accepted")
 	}
 	u, err := s.Authenticate(signTestToken(t, key, nil))
-	if err != nil || u == nil || u.Role != "editor" {
+	if err != nil || u == nil {
 		t.Fatalf("valid token rejected: %v %+v", err, u)
 	}
 }
@@ -654,30 +596,35 @@ func TestSessionTokenUseWalksAsFirstParty(t *testing.T) {
 		}
 		return ClaimsToUser(claims)
 	}
-	// 会话（缺 permissions 键的老形态，走 admin 角色兜底）：第一方且管理放行。
-	sessionLegacy := walk(func(c Claims) Claims { c.TokenUse = "session"; c.Role = "admin"; return c })
-	if sessionLegacy.IsThirdParty {
-		t.Fatalf("token_use=session 不得判第三方：%+v", sessionLegacy)
+	// 空权限会话是第一方，但不授予管理权限。
+	sessionEmpty := walk(func(c Claims) Claims { c.TokenUse = "session"; return c })
+	if sessionEmpty.IsThirdParty {
+		t.Fatalf("token_use=session 不得判第三方：%+v", sessionEmpty)
 	}
 	for _, code := range []string{PermissionEntityEdit, PermissionDefinitionsManage, PermissionLifecycleManage} {
-		if !sessionLegacy.Can(code) {
-			t.Fatalf("会话 admin 应放行 %s（否则编辑/管理 403）：%+v", code, sessionLegacy)
+		if sessionEmpty.Can(code) {
+			t.Fatalf("空权限会话不得放行 %s：%+v", code, sessionEmpty)
 		}
 	}
 	// 会话（显式 * 通配的新形态）：同样第一方放行。
 	sessionWildcard := walk(func(c Claims) Claims {
-		c.TokenUse = "session"; c.Role = "admin"; c.Permissions = []string{permissionWildcard}; return c
+		c.TokenUse = "session"
+		c.Permissions = []string{permissionWildcard}
+		return c
 	})
-	if sessionWildcard.IsThirdParty || !sessionWildcard.PermissionsSet {
-		t.Fatalf("会话通配应为第一方且带存在标记：%+v", sessionWildcard)
+	if sessionWildcard.IsThirdParty {
+		t.Fatalf("会话通配应为第一方：%+v", sessionWildcard)
 	}
 	if !sessionWildcard.Can(PermissionDefinitionsManage) {
 		t.Fatalf("会话通配应放行管理码：%+v", sessionWildcard)
 	}
 	// 第三方 oauth（仅 openid/profile/email 授权形态）：验签通过但判第三方，治理码全拒。
 	oauth := walk(func(c Claims) Claims {
-		c.TokenUse = "oauth"; c.Scope = "openid profile email"; c.ClientID = "third-party-app"
-		c.Role = "admin"; c.Permissions = []string{permissionWildcard}; return c
+		c.TokenUse = "oauth"
+		c.Scope = "openid profile email"
+		c.ClientID = "third-party-app"
+		c.Permissions = []string{permissionWildcard}
+		return c
 	})
 	if !oauth.IsThirdParty {
 		t.Fatalf("token_use=oauth 必须判第三方：%+v", oauth)
@@ -688,7 +635,7 @@ func TestSessionTokenUseWalksAsFirstParty(t *testing.T) {
 		}
 	}
 	// 第三方 id_token：同样判第三方。
-	idToken := walk(func(c Claims) Claims { c.TokenUse = "id_token"; c.Role = "admin"; return c })
+	idToken := walk(func(c Claims) Claims { c.TokenUse = "id_token"; return c })
 	if !idToken.IsThirdParty || idToken.Can(PermissionEntityEdit) {
 		t.Fatalf("token_use=id_token 必须判第三方且拒治理码：%+v", idToken)
 	}

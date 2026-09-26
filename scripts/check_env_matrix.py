@@ -99,7 +99,7 @@ KEYS = {
     "AUTH_JWT_AUDIENCE": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "cmd/server/main.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "metafusion", "safe": True},
     "AUTH_JWT_PUBLIC_KEY": {"readers": [("catalog", "internal/catalog/token.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 → 回退 JWKS 地址", "safe": True},
     "AUTH_JWKS_URL": {"readers": [("catalog", "internal/catalog/token.go")], "default": "http://auth:8081/api/oidc/jwks", "safe": True},
-    "AUTH_JWT_PRIVATE_KEY": {"readers": [("catalog", "internal/catalog/token.go"), ("auth", "internal/store/token.go")], "default": "账号服务：空 → 拒绝启动（fail closed）；目录服务：空 → 回退 JWKS", "safe": True, "note": "审计 S-9 已修：账号服务空值默认拒绝启动，只有显式开关 AUTH_JWT_ALLOW_EPHEMERAL_KEY 才回退临时密钥"},
+    "AUTH_JWT_PRIVATE_KEY": {"readers": [("auth", "internal/store/token.go")], "default": "账号服务：空 → 拒绝启动（fail closed）", "safe": True, "note": "审计 S-9 已修：账号服务空值默认拒绝启动，只有显式开关 AUTH_JWT_ALLOW_EPHEMERAL_KEY 才回退临时密钥"},
     "AUTH_JWT_ALLOW_EPHEMERAL_KEY": {"readers": [("auth", "internal/store/token.go")], "default": "空 = 关闭（未配置签发私钥即拒绝启动）", "safe": True},
     "CORS_ALLOWED_ORIGINS": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 = 不注册 CORS 中间件", "safe": True},
     "COMMUNITY_URL": {"readers": [("catalog", "internal/capabilities/registry.go")], "default": "空 = 能力判为未部署", "safe": True},
@@ -140,15 +140,6 @@ KEYS = {
     "STORAGE_SITE_CONCURRENT_UPLOADS": {"readers": [("storage", "internal/config/config.go")], "default": "0 = 不限制", "safe": False, "inject": [("deploy/docker-compose.yml", "storage")]},
     "STORAGE_PENDING_TTL_HOURS": {"readers": [("storage", "internal/config/config.go")], "default": "72", "safe": False, "inject": [("deploy/docker-compose.yml", "storage")]},
     "STORAGE_ORPHAN_RETENTION_DAYS": {"readers": [("storage", "internal/config/config.go")], "default": "7", "safe": False, "inject": [("deploy/docker-compose.yml", "storage")]},
-    # 旧名别名：拆分期两侧共用一份 .env 才保留，canonical 名（STORAGE_*）已在编排里注入，
-    # 因此"读了但没注入"在这里是安全的。
-    "ARCHIVE_PATH": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_ROOT", "safe": True},
-    "ARCHIVE_S3_ENDPOINT": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_ENDPOINT", "safe": True},
-    "ARCHIVE_S3_PUBLIC_ENDPOINT": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_PUBLIC_ENDPOINT", "safe": True},
-    "ARCHIVE_S3_ACCESS_KEY": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_ACCESS_KEY", "safe": True},
-    "ARCHIVE_S3_SECRET_KEY": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_SECRET_KEY", "safe": True},
-    "ARCHIVE_S3_BUCKET": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_BUCKET", "safe": True},
-    "ARCHIVE_S3_TLS": {"readers": [("storage", "internal/config/config.go")], "default": "空 → 用 STORAGE_S3_TLS", "safe": True},
 }
 
 # 已退役的编排变量：删掉之后不许再回来（它们是"注入了但全仓零读取"的死重量）。

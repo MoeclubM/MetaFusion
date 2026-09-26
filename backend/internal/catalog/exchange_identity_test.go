@@ -32,7 +32,7 @@ func TestExchangeRoutesCarryIdentityMiddleware(t *testing.T) {
 
 	owner := "22222222-2222-2222-2222-222222222222"
 	token := signTestToken(t, key, func(c Claims) Claims {
-		c.Subject, c.Username, c.Role = owner, "exchange-owner", "editor"
+		c.Subject, c.Username = owner, "exchange-owner"
 		c.Permissions = []string{PermissionEntityEdit}
 		return c
 	})
@@ -87,7 +87,7 @@ func TestEveryAPIRouteSeesIdentityMiddleware(t *testing.T) {
 	engine := gin.New()
 	HTTP{Store: s}.Register(engine)
 	token := signTestToken(t, key, func(c Claims) Claims {
-		c.Subject, c.Role = "33333333-3333-3333-3333-333333333333", "member"
+		c.Subject = "33333333-3333-3333-3333-333333333333"
 		c.Permissions = []string{"community.post.create"}
 		return c
 	})

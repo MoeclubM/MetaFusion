@@ -117,7 +117,7 @@ docker exec metafusion-gateway nginx -t && docker exec metafusion-gateway nginx 
 | 前提 | 判据 |
 | --- | --- |
 | 三个服务已部署且健康 | `curl -fsS http://auth:8081/ready`、`community:8083/ready`、`storage:8082/ready` 均 200 |
-| **验签公钥对齐** | catalog 按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务 JWKS）验签，二者必配其一（fail closed）；只有走兼容兜底 `AUTH_JWT_PRIVATE_KEY` 时才需要与 auth 同一把私钥——该路径启动会告警、待移除。公钥与签发密钥不一致会让已登录用户立刻掉线 |
+| **验签公钥对齐** | catalog 按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务 JWKS）验签，二者必配其一（fail closed）。公钥与签发密钥不一致会让已登录用户立刻掉线 |
 | issuer/audience 一致 | 两处 `AUTH_JWT_ISSUER=https://findverse.cc/api`、`AUTH_JWT_AUDIENCE=metafusion` |
 | 数据库可达 | 三个服务与单体连同一个 PostgreSQL 实例（各用自有 schema） |
 | 导入演练 | `docker compose run --rm community-migrate -direction forward -dry-run` 能打印各源表行数，且不写入 |

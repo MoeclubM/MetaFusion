@@ -31,8 +31,8 @@ func TestPostgresDefinitionDetailEndpoint(t *testing.T) {
 		HTTP{Store: f.s}.Register(r)
 		return r
 	}
-	defsUser := &User{ID: uuid.NewString(), Username: "catalog-admin", Role: "member", Permissions: []string{PermissionDefinitionsManage}}
-	otherUser := &User{ID: uuid.NewString(), Username: "catalog-editor", Role: "member", Permissions: []string{PermissionEntityEdit}}
+	defsUser := &User{ID: uuid.NewString(), Username: "catalog-admin", Permissions: []string{PermissionDefinitionsManage}}
+	otherUser := &User{ID: uuid.NewString(), Username: "catalog-editor", Permissions: []string{PermissionEntityEdit}}
 	do := func(u *User, path string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		engine(u).ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))

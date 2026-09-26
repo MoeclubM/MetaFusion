@@ -15,8 +15,8 @@ import (
 func TestDocsPagesRequireAdminPermission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	// editor 持另一个目录码：证明被拒的原因是"缺管理码"，而不是"没有权限声明"。
-	editor := &User{ID: "u-editor", Role: "editor", Permissions: []string{PermissionEntityEdit}}
-	admin := &User{ID: "u-admin", Role: "admin", Permissions: []string{PermissionLifecycleManage}}
+	editor := &User{ID: "u-editor", Permissions: []string{PermissionEntityEdit}}
+	admin := &User{ID: "u-admin", Permissions: []string{PermissionLifecycleManage}}
 
 	for _, path := range []string{"/api/docs", "/api/swagger"} {
 		w := httptest.NewRecorder()

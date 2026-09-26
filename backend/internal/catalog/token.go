@@ -10,8 +10,7 @@ package catalog
 // 验签来源按优先级（见 NewTokenVerifierFromEnv）：
 //  1. AUTH_JWT_PUBLIC_KEY —— 静态公钥（PEM 文本或其 base64）：少一条网络依赖，换钥匙要重启；
 //  2. AUTH_JWKS_URL —— 账号服务的 JWKS：按 kid 选钥、10 分钟缓存、未知 kid 强制刷新；
-//  3. AUTH_JWT_PRIVATE_KEY —— 兼容兜底：读私钥只为派生公钥，启动时告警，该路径待移除。
-// 三者都没有时 fail closed：验签器存在但拒绝一切令牌。
+// 两者都没有时 fail closed：验签器存在但拒绝一切令牌。
 //
 // 用标准库实现而不引入第三方 JWT 依赖：RS256 的验签只是 crypto/rsa 的
 // VerifyPKCS1v15 加一段 base64url，少一层供应链风险。
@@ -37,10 +36,9 @@ import (
 
 // 验签来源标识：Source() 与启动日志用，也是排查"目录拿的是谁的钥匙"的唯一依据。
 const (
-	SourcePublicKey  = "AUTH_JWT_PUBLIC_KEY"
-	SourceJWKS       = "AUTH_JWKS_URL"
-	SourcePrivateKey = "AUTH_JWT_PRIVATE_KEY" // 兼容兜底，待移除
-	SourceNone       = ""
+	SourcePublicKey = "AUTH_JWT_PUBLIC_KEY"
+	SourceJWKS      = "AUTH_JWKS_URL"
+	SourceNone      = ""
 )
 
 // jwksCacheTTL 是 JWKS 公钥缓存时长：访问令牌有效期只有 15 分钟，缓存必须明显短于它，
@@ -52,7 +50,6 @@ type Claims struct {
 	Subject  string `json:"sub"`
 	Username string `json:"preferred_username"`
 	Email    string `json:"email,omitempty"`
-	Role     string `json:"role"`
 	// Groups/Permissions 与账号服务的签发侧逐字一致（见 metafusion-auth 的 Claims）：
 	// groups 是组码（展示与审计用），permissions 是展开后的权限码集合——授权只看它。
 	Groups      []string `json:"groups,omitempty"`
@@ -62,43 +59,20 @@ type Claims struct {
 	// token_use=oauth（+scope/client_id），id_token 带 token_use=id_token（aud 指向
 	// 客户端，audience 收口已拒）。audience 收口（Verify 的 bad audience）拒掉 aud
 	// 指向客户端的令牌，这里再标记"aud 仍是平台但带 OAuth 标记"的那一种。
-	Scope     string `json:"scope,omitempty"`
-	ClientID  string `json:"client_id,omitempty"`
-	Cid       string `json:"cid,omitempty"`
-	TokenUse  string `json:"token_use,omitempty"`
-	TokenType string `json:"token_type,omitempty"`
-	Issuer    string `json:"iss"`
-	Audience  string `json:"aud"`
-	IssuedAt  int64  `json:"iat"`
-	Expires   int64  `json:"exp"`
-	JTI       string `json:"jti"`
-	// permissionsPresent 记录载荷里是否出现 permissions 键（含空数组与显式 null）：
-	// encoding/json 下缺字段与显式 null 都解成 nil，而 S01 要求这两者走不同分支
-	// （显式声明走以码为准，只有缺字段的老令牌才走历史角色兜底），因此多记一笔
-	// 键存在性（与社区 cabfa6c 同口径）。
-	permissionsPresent bool
-}
-
-// UnmarshalJSON 在标准 claims 解析之外多记一笔 permissions 键是否存在。
-func (c *Claims) UnmarshalJSON(raw []byte) error {
-	type plain Claims
-	var p plain
-	if err := json.Unmarshal(raw, &p); err != nil {
-		return err
-	}
-	*c = Claims(p)
-	var keys map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &keys); err != nil {
-		return nil
-	}
-	_, c.permissionsPresent = keys["permissions"]
-	return nil
+	Scope    string `json:"scope,omitempty"`
+	ClientID string `json:"client_id,omitempty"`
+	TokenUse string `json:"token_use,omitempty"`
+	Issuer   string `json:"iss"`
+	Audience string `json:"aud"`
+	IssuedAt int64  `json:"iat"`
+	Expires  int64  `json:"exp"`
+	JTI      string `json:"jti"`
 }
 
 // TokenVerifier 只持公钥：零值不可用，需经 NewTokenVerifierFromEnv。
 type TokenVerifier struct {
 	mu sync.RWMutex
-	// static 是本地持有的验签公钥：来自 AUTH_JWT_PUBLIC_KEY，或兼容兜底里从私钥派生的公钥。
+	// static 是本地持有的验签公钥：来自 AUTH_JWT_PUBLIC_KEY。
 	// 非空时不再请求 JWKS（静态公钥轮换要重启，换来少一条网络依赖）。
 	static *rsa.PublicKey
 	kid    string
@@ -127,7 +101,7 @@ func (t *TokenVerifier) clock() time.Time {
 	return time.Now()
 }
 
-// NewTokenVerifierFromEnv 按优先级装配验签来源：静态公钥 → JWKS → 私钥兜底（启动告警）。
+// NewTokenVerifierFromEnv 按优先级装配验签来源：静态公钥 → JWKS。
 // 都未配置时返回只能拒绝一切令牌的验签器（fail closed）：目录的公开读接口照常工作，
 // 写接口在验签失败时按未登录处理，不会静默放行。
 func NewTokenVerifierFromEnv(issuer, audience string) (*TokenVerifier, error) {
@@ -158,17 +132,6 @@ func newTokenVerifier(issuer, audience string, getenv func(string) string) (*Tok
 		t.jwksURL, t.source = jwks, SourceJWKS
 		return t, nil
 	}
-	raw := strings.TrimSpace(getenv("AUTH_JWT_PRIVATE_KEY"))
-	if raw == "" {
-		return t, nil
-	}
-	pub, err := publicKeyFromPrivatePEM(raw)
-	if err != nil {
-		return nil, fmt.Errorf("AUTH_JWT_PRIVATE_KEY: %w", err)
-	}
-	// 兼容兜底：只取公钥，私钥读完即丢——目录进程因此无法签发任何令牌。
-	t.static, t.kid, t.source = pub, keyID(pub), SourcePrivateKey
-	log.Print("AUTH_JWT_PRIVATE_KEY is deprecated for the catalog: it is read only to derive the public key (no signing path); set AUTH_JWT_PUBLIC_KEY or AUTH_JWKS_URL instead, this fallback will be removed")
 	return t, nil
 }
 
@@ -193,26 +156,6 @@ func parseStaticPublicKey(raw string) (*rsa.PublicKey, error) {
 		return pub, nil
 	}
 	return nil, errors.New("must be a PKIX or PKCS#1 RSA public key")
-}
-
-// publicKeyFromPrivatePEM 从私钥 PEM（PKCS#1 或 PKCS#8）派生公钥；私钥本身不再保留。
-func publicKeyFromPrivatePEM(raw string) (*rsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(decodeMaybeBase64PEM(raw)))
-	if block == nil {
-		return nil, errors.New("not a valid PEM")
-	}
-	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		return &key.PublicKey, nil
-	}
-	parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, errors.New("must be PKCS#1 or PKCS#8 RSA private key")
-	}
-	key, ok := parsed.(*rsa.PrivateKey)
-	if !ok {
-		return nil, errors.New("must be an RSA private key")
-	}
-	return &key.PublicKey, nil
 }
 
 // decodeMaybeBase64PEM 兼容"PEM 文本"与"base64 包裹的 PEM"两种写法（环境变量里写多行 PEM 很难）。
@@ -501,7 +444,7 @@ func isThirdPartyUse(use string) bool {
 // 令牌被当成已知用途放行（与签发侧 validTokenUse 同口径）。
 func validTokenUse(use string) bool {
 	switch use {
-	case "", TokenUseSession, TokenUseOAuth, TokenUseIDToken:
+	case TokenUseSession, TokenUseOAuth, TokenUseIDToken:
 		return true
 	default:
 		return false
@@ -518,22 +461,14 @@ func ClaimsToUser(c *Claims) *User {
 	if c == nil {
 		return nil
 	}
-	clientID := c.ClientID
-	if clientID == "" {
-		clientID = c.Cid
-	}
 	use := strings.TrimSpace(c.TokenUse)
 	thirdParty := isThirdPartyUse(use)
-	if use == "" && !thirdParty {
-		thirdParty = strings.TrimSpace(c.Scope) != "" || strings.TrimSpace(clientID) != "" ||
-			strings.TrimSpace(c.TokenType) != ""
-	}
 	if !validTokenUse(use) {
 		thirdParty = true
 	}
-	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role,
+	return &User{ID: c.Subject, Username: c.Username, Email: c.Email,
 		Groups: c.Groups, Permissions: c.Permissions,
-		IsThirdParty: thirdParty, PermissionsSet: c.permissionsPresent}
+		IsThirdParty: thirdParty}
 }
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }

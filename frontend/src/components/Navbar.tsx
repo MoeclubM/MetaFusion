@@ -10,8 +10,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf, fetchUnreadMessageCount, fetchUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from "@/lib/api";
-import { UserRoleBadge } from "@/lib/roles";
-import { canEnterAdmin } from "@/lib/permissions";
+import { ACCOUNT_CONSOLE_CODES, can, canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import { PageContainer } from "@/components/ui/PageShell";
 import {
@@ -103,7 +102,7 @@ export const Navbar: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "admin") {
+    if (!ACCOUNT_CONSOLE_CODES.some((code) => can(user, code))) {
       setAuthConsoleOnline(false);
       return;
     }
@@ -370,9 +369,6 @@ export const Navbar: React.FC = () => {
                         {displayNameOf(user as unknown as { username: string; display_name?: string })}
                       </div>
                       <div className="text-[10px] text-text-faint font-mono truncate">@{user.username}</div>
-                      <div className="pt-0.5">
-                        <UserRoleBadge role={user.role} t={t} showIcon />
-                      </div>
                     </div>
                   </div>
 

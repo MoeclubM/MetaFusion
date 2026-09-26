@@ -199,7 +199,7 @@
   "settings.tabProfile": "账户信息",
   "settings.tabPassword": "安全与修改密码",
   "settings.unboundEmail": "未绑定邮箱",
-  "settings.accountRole": "账户角色",
+  "settings.accountGroups": "账户权限组",
   "settings.inviteCodeLabel": "邀请码",
   "settings.interfaceLanguage": "界面语言",
   "settings.oldPassword": "原密码",

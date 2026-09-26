@@ -13,7 +13,6 @@ import { requireArray, safeCount } from "./fields";
 export interface PublicUser {
   id: string;
   username: string;
-  role: string;
   /** 空串=未设置，调用方回退用户名。 */
   display_name?: string;
   /** 空串=未设置，调用方不渲染简介区。 */

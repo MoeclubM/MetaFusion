@@ -17,14 +17,23 @@ func fixtureUser(role string) User {
 		role = "editor"
 	}
 	name := "fixture-" + role + "-" + uuid.NewString()[:8]
-	return User{ID: uuid.NewString(), Username: name, Email: name + "@example.com", Role: role}
+	permissions := []string{}
+	switch role {
+	case "admin":
+		permissions = []string{permissionWildcard}
+	case "editor":
+		permissions = []string{PermissionEntityEdit}
+	case "moderator":
+		permissions = []string{PermissionLifecycleManage}
+	}
+	return User{ID: uuid.NewString(), Username: name, Email: name + "@example.com", Permissions: permissions}
 }
 
 // 目录不再依赖 auth schema：这条用例把"夹具账号不必落库"钉死，
 // 免得以后有人为了省事又让目录往账号表里写行。
 func TestFixtureUserDoesNotTouchAuthSchema(t *testing.T) {
 	u := fixtureUser("admin")
-	if u.ID == "" || u.Role != "admin" {
+	if u.ID == "" {
 		t.Fatalf("fixture user malformed: %+v", u)
 	}
 	if u.Username == "" || u.Email == "" {

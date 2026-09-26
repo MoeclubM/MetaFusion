@@ -1,12 +1,12 @@
 package catalog
 
-// 目录侧授权的集中判定：以权限码为准，角色只在老令牌上兜底。
+// 目录侧授权的集中判定：仅以权限码为准。
 //
 // 权限码由**各子系统自己声明**、由账号服务（metafusion-auth）装进权限组并随访问令牌下发
 // （claims.permissions，admin 组带 * 通配）。码名必须与账号服务的权限清单逐字一致
 // （metafusion-auth/internal/store/access.go 的 PermissionCatalog 与 seed_groups.go 播种的
 // 系统组）：两边都只读令牌、谁也不查对方的库，唯一需要对齐的就是码的拼写。
-// 组名与角色不参与判定——散落的角色比较正是「后台分配了权限组、目录侧却不认」的成因。
+// 组名只供展示与审计，不参与判定。
 
 const (
 	// PermissionEntityEdit 编辑目录实体：维护自己创建的条目，并协作维护公开条目。
@@ -28,8 +28,7 @@ const (
 	permissionWildcard = "*"
 )
 
-// catalogPermissionCodes 是本服务声明的全部目录权限码：角色兜底只认这些码，
-// 不会因为角色是 admin 就放行别的子系统的码（community.* / storage.* / auth.* 归各自服务）。
+// catalogPermissionCodes 是本服务声明的全部目录权限码，用于区分治理操作。
 var catalogPermissionCodes = []string{
 	PermissionEntityEdit,
 	PermissionRelationEdit,
@@ -39,43 +38,17 @@ var catalogPermissionCodes = []string{
 	PermissionShelvesManage,
 }
 
-// HasPermission 是**纯权限码集合判定**：只看 permissions 里的码（* 通配即全权），
-// 不做任何角色兜底。PAT 身份（FromPAT）一律走它——PAT 的权限集合可能为空（scopes 不含
-// 本子系统的任何码），空集合必须表现为"什么都不许"，而不是回落到角色上拿权。
+// HasPermission 只看权限码；* 通配即全权，空集合不授予任何权限。
 func (u User) HasPermission(code string) bool {
 	return contains(u.Permissions, permissionWildcard) || contains(u.Permissions, code)
 }
 
-// Can 报告用户是否持有某权限码。
-//
-// 令牌显式携带 permissions 声明（含空数组与显式 null，以 PermissionsSet/非 nil
-// 区分，见 token.go）时一律以码为准（* 通配即全权）：拆服务后这是唯一的授权来源，
-// 此时角色不再额外放行，否则「角色兜底」会变成绕过权限组的后门——显式空集合的
-// admin 同样什么都不许（S01，与社区 cabfa6c、账号侧 Can 同口径）。
-// 第三方 OAuth 身份（IsThirdParty）在治理码上直接拒绝：站内管理能力默认不向第三方
-// 开放，即使签发侧把某治理码写进第三方令牌（目录侧全部自有码都是治理码，
-// 见 isGovernanceCode）。
-// 只有令牌完全没有 permissions 声明（缺键的老令牌，或尚未按权限组配置的实例），
-// 且非 PAT、非第三方时，才按历史角色兜底：admin 放行全部目录码；editor 放行实体编辑
-// （旧的受信任编辑员语义）；user 与匿名不放行。
-//
-// FromPAT（身份来自 PAT 内省）时**永不**回落到角色兜底：PAT 的权限就是账号服务算好的
-// "用户自身权限 ∩ scopes"，scopes 空时就是空。若把它当"没有 permissions 声明"处理，
-// 一个 scopes=[] 的管理员 PAT 会因为角色兜底拿到全权，收窄 scopes 形同虚设。
+// Can 报告用户是否持有某权限码。第三方 OAuth 身份不能执行目录治理操作。
 func (u User) Can(code string) bool {
 	if u.IsThirdParty && isGovernanceCode(code) {
 		return false
 	}
-	if u.PermissionsSet || u.Permissions != nil || len(u.Permissions) > 0 || u.FromPAT || u.IsThirdParty {
-		return u.HasPermission(code)
-	}
-	switch u.Role {
-	case "admin":
-		return contains(catalogPermissionCodes, code)
-	case "editor":
-		return code == PermissionEntityEdit
-	}
-	return false
+	return u.HasPermission(code)
 }
 
 // isGovernanceCode 报告是否为治理类（管理）权限码：目录侧全部自有码都是管理动作，

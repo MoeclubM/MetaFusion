@@ -159,7 +159,7 @@ func TestImporterRefParsing(t *testing.T) {
 	// Import 参数校验（触库前失败，无需 DB）。
 	ctx := context.Background()
 	s := &Store{}
-	me := User{ID: "00000000-0000-0000-0000-000000000000", Role: "admin"}
+	me := User{ID: "00000000-0000-0000-0000-000000000000"}
 	if _, err := s.Import(ctx, ImporterImportRequest{EntityType: "work", Source: "vndb", URLOrID: "1", Work: &ImporterWorkPreview{Title: "x"}}, me); err == nil || !strings.Contains(err.Error(), "not_supported") {
 		t.Fatalf("unsupported import accepted: %v", err)
 	}
@@ -413,7 +413,7 @@ func TestNormalizeImporterSourceSharedByBothEndpoints(t *testing.T) {
 	s := &Store{}
 	_, err := s.Import(context.Background(), ImporterImportRequest{
 		EntityType: "work", Source: "tmdb", URLOrID: "1", Work: &ImporterWorkPreview{Title: "x"},
-	}, User{ID: "u1", Role: "admin"})
+	}, User{ID: "u1"})
 	if err == nil || err.Error() != "not_supported" {
 		t.Fatalf("未知来源未被落库端点拒绝：%v", err)
 	}

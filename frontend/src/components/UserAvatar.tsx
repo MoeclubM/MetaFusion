@@ -8,7 +8,6 @@ export interface UserAvatarProps {
     username?: string;
     display_name?: string | null;
     avatar_url?: string | null;
-    role?: string;
   } | null;
   src?: string | null;
   alt?: string;

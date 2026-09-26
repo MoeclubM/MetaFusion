@@ -21,8 +21,8 @@ const unpublishPath = "/api/catalog/entities/00000000-0000-0000-0000-00000000000
 // invalid_payload——既证明闸门认的是权限码，也钉住"下架不接受 target_id"（拒绝而不是静默忽略）。
 func TestUnpublishRouteGateAndBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	lifecycle := &User{ID: "u-life", Role: "member", Permissions: []string{PermissionLifecycleManage}}
-	editor := &User{ID: "u-edit", Role: "member", Permissions: []string{PermissionEntityEdit}}
+	lifecycle := &User{ID: "u-life", Permissions: []string{PermissionLifecycleManage}}
+	editor := &User{ID: "u-edit", Permissions: []string{PermissionEntityEdit}}
 	validBody := `{"expected_version":1,"edit_note":"n","sources":[{"kind":"self","citation":"c"}]}`
 	for _, tc := range []struct {
 		name     string

@@ -31,12 +31,6 @@ export function Account() {
   // 未登录不渲染任何内容：AuthGate 已把未登录访问重定向到 /login?redirect=/account。
   if (!user) return null;
 
-  // 角色徽标：原来写死 rgba/#fb7185/#34d399，浅色下只有 2-3:1；改用状态语义色。
-  const roleBadge =
-    user.role === "admin"
-      ? "border-danger/30 bg-danger/10 text-danger"
-      : "border-success/30 bg-success/10 text-success";
-
   return (
     <div className="space-y-4">
       <h1 className="font-display text-lg font-bold tracking-tight text-text-strong">{t("catalog.account")}</h1>
@@ -47,9 +41,6 @@ export function Account() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xl font-bold text-text-strong break-all">{user.username}</span>
-              <span className={`px-2 py-0.5 rounded-chip border text-[11px] font-semibold uppercase ${roleBadge}`}>
-                {user.role === "admin" ? t("account.roleAdmin") : t("account.roleEditor")}
-              </span>
             </div>
             <p className="mt-1 text-xs font-mono text-text-muted break-all">UUID: {user.id}</p>
           </div>

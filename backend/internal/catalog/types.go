@@ -379,23 +379,15 @@ type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
-	// Role 是账号服务的历史角色，只在令牌没带 permissions 时由 User.Can 兜底；
-	// 授权判定一律走权限码。Groups 供展示与审计，不参与判定（见 permission.go）。
-	Role        string   `json:"role"`
+	// 授权只看权限码。Groups 供展示与审计，不参与判定。
 	Groups      []string `json:"groups,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
-	// FromPAT 标记身份来自 PAT 内省（而不是账号服务签发的 JWT）。它参与授权判定
-	// （见 permission.go：PAT 身份永不回落角色兜底），因此不进 JSON 输出、不暴露给调用方。
+	// FromPAT 标记身份来自 PAT 内省，用于审计，不进 JSON 输出。
 	FromPAT bool `json:"-"`
-	// IsThirdParty 标记身份来自第三方 OAuth 授权（token_use=oauth/id_token，或空用途下
-	// 仍带 scope/client_id/token_type，见 token.go 的 ClaimsToUser；session/空用途为第一方）。
+	// IsThirdParty 标记身份来自第三方 OAuth 授权（token_use=oauth/id_token）。
 	// 管理 API 默认拒绝此类身份（见 permission.go），
 	// 因此不进 JSON 输出、不暴露给调用方。
 	IsThirdParty bool `json:"-"`
-	// PermissionsSet 标记令牌是否显式携带 permissions 声明（含空数组与显式 null，
-	// 见 token.go）：携带即以码为准，显式空集合不得回落角色；缺字段才是老令牌，
-	// 走 Can 的历史角色兜底。不进 JSON 输出、不暴露给调用方。
-	PermissionsSet bool `json:"-"`
 	// TokenName 是 PAT 令牌名（调用日志 credential_name）。会话身份恒为空；
 	// omitempty 让旧载荷形状不变，老账号服务不下发 token_name 时也不露空键。
 	TokenName string `json:"token_name,omitempty"`

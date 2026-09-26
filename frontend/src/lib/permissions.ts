@@ -48,22 +48,17 @@ export {
   STORAGE_ASSET_UPLOAD,
 } from "./permissions.generated";
 
-type AnyUser = Pick<User, "id" | "role"> & Partial<Pick<User, "permissions" | "groups">>;
+type AnyUser = Pick<User, "id"> & Partial<Pick<User, "permissions" | "groups">>;
 
 /**
  * can 判定"这个用户持有某个权限码吗"。
  *
- * 令牌带 permissions 时一律以码为准（含通配符 *）；没带（老令牌或实例尚未配置权限组）时
- * 按角色兜底，与后端 User.Can 完全一致，避免前后端出现"前端给按钮、后端拒绝"的分裂。
+ * 只按 permissions 判定（含通配符 *），与后端 User.Can 一致。
  */
 export function can(user: AnyUser | null | undefined, code: string): boolean {
   if (!user) return false;
   const perms = user.permissions || [];
-  if (perms.includes("*") || perms.includes(code)) return true;
-  if (perms.length > 0) return false;
-  if (user.role === "admin") return true;
-  if (code === CATALOG_ENTITY_EDIT && user.role === "editor") return true;
-  return false;
+  return perms.includes("*") || perms.includes(code);
 }
 
 /**
@@ -71,7 +66,7 @@ export function can(user: AnyUser | null | undefined, code: string): boolean {
  *
  * 服务端按「用户权限 ∩ 令牌 scopes」收敛，所以勾了自己没有的码也拿不到东西——
  * 前端先把不可能生效的选项去掉，别让用户勾完才发现白勾。
- * 与 can() 同一套回落：老令牌（没有 permissions 声明）按历史 role 兜底；
+ * 与 can() 同一套权限码判定；
  * 带 * 通配时展开成具体码，因为 scopes 要落库、要能被人看懂。
  * 本实例自定义的码不在生成物里也照样列出：它可能真实存在，藏起来只会更糟。
  */
@@ -85,8 +80,6 @@ export function grantablePermissionCodes(user: AnyUser | null | undefined): stri
     const custom = perms.filter((code) => !known.includes(code));
     return [...listed, ...custom];
   }
-  if (user.role === "admin") return [...known];
-  if (user.role === "editor") return [CATALOG_ENTITY_EDIT];
   return [];
 }
 
@@ -129,7 +122,7 @@ export function canEnterCatalogConsole(user: AnyUser | null | undefined): boolea
 }
 
 /**
- * 能否进入"某个"管理台：四个域的任一管理码，或老令牌下的 admin 角色。
+ * 能否进入"某个"管理台：四个域的任一管理码。
  *
  * 只用于导航栏入口的显隐与"是否该给出控制台入口页"的判断——具体落到哪个控制台由
  * /admin 页面按域决定，所以这里刻意保持并集，不能用它当目录工作面的闸门。

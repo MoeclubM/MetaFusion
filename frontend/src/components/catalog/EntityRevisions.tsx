@@ -32,7 +32,6 @@ export interface RevisionItem {
   version: number;
   actor_id?: string;
   actor_name?: string;
-  actor_role?: string;
   edit_note?: string;
   summary?: string;
   status?: string;
@@ -100,18 +99,16 @@ export function EntityRevisions({
 
   // Contributors aggregate stats
   const anonymousName = t("revisions.anonymousEditor");
-  const defaultRole = t("revisions.defaultRole");
   const contributorStats = useMemo(() => {
-    const map = new Map<string, { name: string; role: string; count: number }>();
+    const map = new Map<string, { name: string; count: number }>();
     for (const r of sortedRevisions) {
       const name = r.actor_name || anonymousName;
-      const role = r.actor_role || defaultRole;
-      const existing = map.get(name) || { name, role, count: 0 };
+      const existing = map.get(name) || { name, count: 0 };
       existing.count += 1;
       map.set(name, existing);
     }
     return Array.from(map.values());
-  }, [sortedRevisions, anonymousName, defaultRole]);
+  }, [sortedRevisions, anonymousName]);
 
   const handleCopy = (text: string, id: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -257,7 +254,6 @@ export function EntityRevisions({
         {sortedRevisions.map((rev, idx) => {
           const revKey = String(rev.id || idx);
           const author = rev.actor_name || anonymousName;
-          const role = rev.actor_role || defaultRole;
           const note = rev.edit_note || rev.summary || (idx === sortedRevisions.length - 1 ? t("revisions.initialNote") : t("revisions.updateNote"));
           const sources = rev.sources || [];
           const isLatest = idx === 0;
@@ -305,9 +301,6 @@ export function EntityRevisions({
                         {author.slice(0, 1).toUpperCase()}
                       </div>
                       <span className="font-semibold text-text-strong">@{author}</span>
-                      <span className="px-1 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-faint uppercase">
-                        {role}
-                      </span>
                     </div>
                   </div>
 

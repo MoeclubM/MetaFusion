@@ -16,7 +16,7 @@ import (
 
 // 用户贡献视图：前端用户主页的 all / revisions / works / releases / artists 五个 tab。
 //
-// 数据只来自目录自己的审计痕迹——catalog.revisions 的 actor 快照列（actor_id/actor_name/actor_role，
+// 数据只来自目录自己的审计痕迹——catalog.revisions 的 actor 快照列（actor_id/actor_name，
 // 见 store.go 的 audit）加 catalog.entities——**不 JOIN auth / community 的表**：账号表归账号服务、
 // 收藏与互动归互动服务，跨 schema 读会让两个系统在数据层重新耦合（同 store.go:401 的边界）。
 // 两个直接后果是刻意的：不判断"用户是否存在"（没有任何修订就是零贡献，不查账号服务），

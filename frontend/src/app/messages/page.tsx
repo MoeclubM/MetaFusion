@@ -201,8 +201,7 @@ function MessagesContent() {
   const threadPeerOf = (peerId: string): MessageThreadPeer => {
     const entry = names[peerId];
     const username = entry && entry.status === "ok" ? entry.username : shortPeerId(peerId);
-    // role 只有账号服务知道，会话页不展示角色徽章，这里留空串而不是编一个角色。
-    return { id: peerId, username, role: "" };
+    return { id: peerId, username };
   };
 
   const hasMoreConversations = items.length > 0 && items.length < total;

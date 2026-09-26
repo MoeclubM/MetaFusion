@@ -120,9 +120,9 @@ func TestValidateRelationDedupIgnoresPosition(t *testing.T) {
 }
 
 func TestCanAttachToTargetVeto(t *testing.T) {
-	owner := User{ID: "owner", Role: "editor"}
-	other := User{ID: "other", Role: "editor"}
-	admin := User{ID: "admin", Role: "admin"}
+	owner := User{ID: "owner"}
+	other := User{ID: "other", Permissions: []string{PermissionEntityEdit}}
+	admin := User{ID: "admin", Permissions: []string{PermissionLifecycleManage}}
 	foreignPublished := Entity{ID: "x", Kind: "work", Status: "published", CreatedBy: "owner"}
 	// 受信任 editor 可在公开条目之间建立关系。
 	if !canAttachToTarget(other, foreignPublished) {
@@ -313,7 +313,7 @@ func TestLifecycleSemanticsLocked(t *testing.T) {
 	d := Defaults()
 	ref := func(string, []string) error { return nil }
 	// deleted/merged 主人仍可 Get 直读：visible 对主人放行（锁定现状）。
-	owner := &User{ID: "owner", Role: "editor"}
+	owner := &User{ID: "owner"}
 	for _, st := range []string{"deleted", "merged"} {
 		e := Entity{ID: "x", Kind: "work", Status: st, CreatedBy: "owner"}
 		if !visible(e, owner) {

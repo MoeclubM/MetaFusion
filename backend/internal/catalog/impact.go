@@ -105,7 +105,7 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 	}
 	out.Dangling = items
 	// impact 以系统上下文回放存量数据：显式持通配权限，不依赖角色兜底。
-	system := &User{Role: "admin", Permissions: []string{permissionWildcard}}
+	system := &User{Permissions: []string{permissionWildcard}}
 	ref := impactReference(ctx, q, system)
 	// 已登记悬挂引用只做局部降级：该作用域下命中悬挂报告索引的取值直接放行，
 	// 同一实体/关系的其它字段继续校验——首个悬挂不再吞掉整条记录的其它问题。

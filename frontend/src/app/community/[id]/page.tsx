@@ -6,7 +6,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { UserRoleBadge } from "@/lib/roles";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, setTopicPinned, ApiError } from "@/lib/api";
 import { can, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
@@ -321,7 +320,6 @@ export default function TopicDetailPage() {
  ) : (
  <span className="font-bold text-text-strong text-sm">{opPost?.user?.username || topic.user?.username || t("community.anonymous")}</span>
  )}
- <UserRoleBadge role={opPost?.user?.role || topic.user?.role} t={t} />
  </div>
  <span className="text-xs text-text-faint font-mono">
  {new Date(opPost?.created_at || topic.created_at).toLocaleString()}
@@ -450,7 +448,6 @@ export default function TopicDetailPage() {
  ) : (
  <span className="font-bold text-text-strong text-sm">{post.user?.username || t("community.anonymous")}</span>
  )}
- <UserRoleBadge role={post.user?.role} t={t} />
  </div>
  <span className="text-xs text-text-faint font-mono">
  {new Date(post.created_at).toLocaleString()}
