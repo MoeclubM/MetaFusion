@@ -17,7 +17,7 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	rows := func() int {
 		t.Helper()
 		var n int
-		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
+		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definition_config").Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		return n
@@ -32,7 +32,7 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	cu := old.Types["content_unit"]
 	cu.Fields = []string{"language", "entry_role"}
 	old.Types["content_unit"] = cu
-	f.publish(old, v.ID)
+	f.publish(old, v.ETag)
 
 	// 事故形态的脏数据：attributes.publisher 指向的那一行已经不存在。
 	gone := f.save(Entity{Kind: "agent", Title: "已被删除的发行主体", Types: []string{"organization"}})
@@ -49,7 +49,7 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.ID == v.ID {
+	if after.ETag == v.ETag {
 		t.Fatal("种子新增项没有发布")
 	}
 	if _, ok := after.Document.Fields["air_date"]; !ok {
@@ -57,8 +57,8 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	}
 
 	st := f.s.DefinitionStatus()
-	if st.PublishedID != after.ID {
-		t.Fatalf("状态信号的 published_id=%d，want %d", st.PublishedID, after.ID)
+	if st.ETag != after.ETag {
+		t.Fatalf("状态信号的 published_id=%s，want %s", st.ETag, after.ETag)
 	}
 	if st.Degraded || st.PendingError != "" {
 		t.Fatalf("悬挂引用是警告，不该把状态标成降级：%+v", st)
@@ -78,14 +78,14 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	if err = json.Unmarshal(b, &raw); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"published_id", "checked_at", "degraded", "pending_items", "dangling_references"} {
+	for _, k := range []string{"etag", "checked_at", "degraded", "pending_items", "dangling_references"} {
 		if _, ok := raw[k]; !ok {
 			t.Fatalf("状态信号缺 %s 键：%s", k, string(b))
 		}
 	}
 
 	// 幂等：没有新增项的第二次启动既不写库，也不换已发布版本（但悬挂引用照报）。
-	before, beforeID := rows(), after.ID
+	before, beforeETag := rows(), after.ETag
 	if err = f.s.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -96,8 +96,8 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v3.ID != beforeID {
-		t.Fatalf("重复启动换了已发布版本：%d -> %d", beforeID, v3.ID)
+	if v3.ETag != beforeETag {
+		t.Fatalf("重复启动换了已发布版本：%s -> %s", beforeETag, v3.ETag)
 	}
 	if got := f.s.DefinitionStatus(); got.DanglingReferences == 0 {
 		t.Fatal("没有待补项的启动也要报出悬挂引用，否则重启一次就看不到它了")
@@ -105,7 +105,7 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 }
 
 // 定义非法才是阻断项：失败必须**零写入**（不起草、不发布），已发布定义保持生效，状态信号给出
-// 可诊断原因；而且重复启动不再新增定义行——事故里每次重启都在 catalog.definitions 留下一行
+// 可诊断原因；而且重复启动不再新增定义行——事故里每次重启都在 catalog.definition_config 留下一行
 // 发不出去的草稿（id 9..18 共 10 行就是这么来的）。
 func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	f := newFixture(t)
@@ -113,7 +113,7 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	rows := func() int {
 		t.Helper()
 		var n int
-		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
+		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definition_config").Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		return n
@@ -127,7 +127,7 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	cu := old.Types["content_unit"]
 	cu.Fields = []string{"language", "entry_role"}
 	old.Types["content_unit"] = cu
-	f.publish(old, v.ID)
+	f.publish(old, v.ETag)
 	// f.publish 换了一版：判定基准是**当前**已发布版本。
 	cur, err := f.s.Definitions(ctx)
 	if err != nil {
@@ -148,8 +148,8 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	if !errors.As(err, &seedErr) {
 		t.Fatalf("定义非法必须以 *DefinitionSeedError 报出（调用方据此降级启动而不是退出），得到 %v", err)
 	}
-	if seedErr.PublishedID != cur.ID {
-		t.Fatalf("可降级错误应带上被保留的已发布版本 %d，得到 %d", cur.ID, seedErr.PublishedID)
+	if seedErr.ETag != cur.ETag {
+		t.Fatalf("可降级错误应带上被保留的已发布版本 %s，得到 %s", cur.ETag, seedErr.ETag)
 	}
 	if !strings.Contains(seedErr.Reason, "definition_impact") {
 		t.Fatalf("可降级错误应含可诊断原因，得到 %q", seedErr.Reason)
@@ -158,15 +158,15 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v2.ID != cur.ID {
-		t.Fatalf("定义非法时不该改动已发布版本：%d -> %d", cur.ID, v2.ID)
+	if v2.ETag != cur.ETag {
+		t.Fatalf("定义非法时不该改动已发布版本：%s -> %s", cur.ETag, v2.ETag)
 	}
 	if n := rows(); n != before {
 		t.Fatalf("失败的合并写入了草稿行（事故里的垃圾草稿）：%d -> %d", before, n)
 	}
 
 	st := f.s.DefinitionStatus()
-	if !st.Degraded || st.PublishedID != cur.ID {
+	if !st.Degraded || st.ETag != cur.ETag {
 		t.Fatalf("状态信号应标记降级且保留已发布版本：%+v", st)
 	}
 	if st.PendingItems == 0 {
@@ -185,62 +185,5 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	}
 	if n := rows(); n != before {
 		t.Fatalf("重复失败合并仍在堆草稿行：%d -> %d", before, n)
-	}
-}
-
-// 失败留下的等价草稿必须被**复用**：草稿行不可删（它是修订历史），幂等只能靠"同内容同 base
-// 认回来"实现，否则每次重启都多一行发不出去的草稿。
-func TestPostgresSeedMergeReusesEquivalentDraft(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-	rows := func() int {
-		t.Helper()
-		var n int
-		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
-	v, err := f.s.Definitions(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := v.Document
-	delete(old.Fields, "air_date")
-	cu := old.Types["content_unit"]
-	cu.Fields = []string{"language", "entry_role"}
-	old.Types["content_unit"] = cu
-	f.publish(old, v.ID)
-
-	cur, err := f.s.Definitions(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	merged, added := mergeSeedDefinitions(cur.Document, Defaults())
-	if len(added) == 0 {
-		t.Fatal("夹具应至少有一项待补的种子项")
-	}
-	// 上一次启动失败留下的草稿：内容与本次要发布的一致。
-	var draftID int64
-	if err = f.s.DB.QueryRowContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('draft',$1,$2) RETURNING id", cur.ID, encode(merged)).Scan(&draftID); err != nil {
-		t.Fatal(err)
-	}
-
-	before := rows()
-	if err = f.s.EnsureSeedDefinitions(ctx); err != nil {
-		t.Fatalf("等价草稿应被复用并发布：%v", err)
-	}
-	if n := rows(); n != before {
-		t.Fatalf("等价草稿未被复用，新增了定义行：%d -> %d", before, n)
-	}
-	got, err := f.s.Definitions(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.ID != draftID {
-		t.Fatalf("复用后的已发布版本应为既有草稿 %d，得到 %d", draftID, got.ID)
-	}
-	if st := f.s.DefinitionStatus(); st.PublishedID != draftID || st.Degraded {
-		t.Fatalf("状态信号应为已发布且不降级：%+v", st)
 	}
 }

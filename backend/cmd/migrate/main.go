@@ -113,10 +113,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("悬挂引用体检失败: %v", err)
 		}
-		if report.DefinitionID == 0 {
-			log.Println("提示: catalog.definitions 里没有已发布定义（库尚未初始化？），本次按内置种子判定")
+		if report.DefinitionETag == "" {
+			log.Println("提示: catalog.definition_config 尚无生效文档（库尚未初始化？），本次按内置种子判定")
 		} else {
-			log.Printf("判定基准: 已发布定义 id=%d + 种子新增 %d 项", report.DefinitionID, len(report.SeedAdded))
+			log.Printf("判定基准: 生效定义 etag=%s + 种子新增 %d 项", report.DefinitionETag, len(report.SeedAdded))
 		}
 		if asJSON {
 			out, err := json.MarshalIndent(report, "", "  ")

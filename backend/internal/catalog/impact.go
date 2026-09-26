@@ -3,7 +3,6 @@ package catalog
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -176,18 +175,5 @@ func logDangling(where string, items []DanglingReference) {
 	if len(items) == 0 {
 		return
 	}
-	log.Printf("WARNING %s: 悬挂引用 %s，不阻断本次发布（定义本身合法）；完整清单见 mf-migrate check-refs 或 GET /api/admin/catalog-definitions/{id}/impact", where, danglingSummary(items))
-}
-
-// Impact 回放指定定义版本：Issues 阻断发布，Dangling 是数据欠账警告。响应形状见 openapi 的 /impact 说明。
-func (s *Store) Impact(ctx context.Context, id int64) (DefinitionImpact, error) {
-	var b []byte
-	var d Definitions
-	if err := s.DB.QueryRowContext(ctx, "SELECT document FROM catalog.definitions WHERE id=$1", id).Scan(&b); err != nil {
-		return DefinitionImpact{}, err
-	}
-	if err := json.Unmarshal(b, &d); err != nil {
-		return DefinitionImpact{}, err
-	}
-	return impact(ctx, s.DB, d)
+	log.Printf("WARNING %s: 悬挂引用 %s；完整清单见 mf-migrate check-refs", where, danglingSummary(items))
 }

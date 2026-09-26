@@ -4,21 +4,18 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   api,
   Definitions,
-  DefinitionVersionItem,
   Field,
   Names,
   Source,
-  definitionVersions,
   kinds as fallbackKinds,
   local,
 } from "./api";
 import { CATALOG_DEFINITIONS_MANAGE, can } from "@/lib/permissions";
-import { DefinitionHistory } from "./DefinitionHistory";
 import { useCatalog } from "./CatalogProvider";
 import { useAuth } from "@/lib/authContext";
 import {
   getKindName,
-  getPublishedDefinitionId,
+  getDefinitionETag,
   refreshDefinitions,
   resolveKindOptions,
   useDefinitions,
@@ -375,16 +372,10 @@ export function DefinitionsEditor() {
   const { user } = useAuth();
   // capabilities 缺少模块列表时显示空状态。
   const moduleList = Array.isArray(modules) ? modules : [];
-  // 定义文档与版本号必须来自同一份缓存。
-  const { definitions: published, kinds: serverKinds, relationshipRules, versionId } = useDefinitions();
+  // 定义文档与并发校验标记来自同一份缓存。
+  const { definitions: published, kinds: serverKinds, relationshipRules, etag } = useDefinitions();
   const [d, setD] = useState<Definitions>();
-  const [base, setBase] = useState(0);
-  const [versions, setVersions] = useState<DefinitionVersionItem[]>([]);
-  // 版本列表另用一个 nonce 触发重取：draft 只在"保存草稿"时变号，回滚后需要独立重取。
-  const [versionsNonce, setVersionsNonce] = useState(0);
-  const [versionsLoading, setVersionsLoading] = useState(true);
-  const [versionsError, setVersionsError] = useState("");
-  const [draft, setDraft] = useState(0);
+  const [base, setBase] = useState("");
   const [issues, setIssues] = useState<string[]>();
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -393,69 +384,31 @@ export function DefinitionsEditor() {
   ]);
   const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
   useEffect(() => {
-    if (published && versionId !== null && !d) {
+    if (published && etag !== null && !d) {
       setD(structuredClone(asEditableDefinitions(published)));
-      setBase(versionId);
+      setBase(etag);
     }
-  }, [published, versionId, d]);
+  }, [published, etag, d]);
   // 权限码判定与旧令牌的角色回退统一走 can()。
   const manageDefinitions = can(user, CATALOG_DEFINITIONS_MANAGE);
-  useEffect(() => {
-    if (!manageDefinitions) return;
-    // 回滚/保存草稿都会触发重取，迟到的旧响应不能覆盖新列表。
-    let alive = true;
-    setVersionsLoading(true);
-    definitionVersions()
-      .then((r) => {
-        if (!alive) return;
-        // 契约漂移防御：versions 是渲染路径上的 .map（下面版本列表），HTTP 200 但 items 不是数组时
-        // 不能让 undefined 进 state，否则整块版本历史把页面带崩；取不到就按"没有版本列表"降级。
-        setVersions(Array.isArray(r.items) ? r.items : []);
-        setVersionsError("");
-      })
-      // 列表失败只降级版本历史那一块：写失败仍走 error（顶部 ErrorMessage）。
-      .catch((e) => {
-        if (alive) setVersionsError(e.message);
-      })
-      .finally(() => {
-        if (alive) setVersionsLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [manageDefinitions, draft, versionsNonce]);
   if (!manageDefinitions) return <p>{t("catalog.adminRequired")}</p>;
   if (!d) return <p>{t("catalog.loading")}</p>;
   const change = (next: Definitions) => {
     setD(next);
-    setDraft(0);
     setIssues(undefined);
   };
-  // 发布/回滚后刷新所有定义消费方：定义缓存只有 lib/definitions.ts 一处（带订阅），
-  // refreshDefinitions() 会按新版本号重取、更新缓存并通知已挂载的组件；
-  // 基线版本号从同一份响应里取，不再自己打一次 /catalog/definitions（第二条取数路径）。
+  // 保存后刷新所有定义消费方，并从同一响应获取新的 etag。
   const reloadPublished = async () => {
     const current = await refreshDefinitions();
-    const currentId = getPublishedDefinitionId();
-    if (!current || currentId === null) {
-      // 发布已经落库成功，只是本地刷新没拿到：如实说明，不要把刷新失败讲成发布失败。
+    const currentETag = getDefinitionETag();
+    if (!current || currentETag === null) {
+      // 保存已经落库成功，只是本地刷新没拿到：如实说明刷新失败。
       throw new Error("definition_refresh_failed");
     }
     setD(structuredClone(asEditableDefinitions(current)));
-    setBase(currentId);
-    setDraft(0);
+    setBase(currentETag);
     setIssues(undefined);
     setError("");
-  };
-  // 回滚已经落库成功，刷新失败只影响本地视图：用顶层 error 说明并要求手动重载，
-  // 不能让"刷新失败"看起来像"回滚失败"。
-  const afterRollback = async () => {
-    setVersionsNonce((n) => n + 1);
-    try {
-      await reloadPublished();
-    } catch (err) {
-      setError((err as Error).message);
-    }
   };
   const names = (items: Record<string, { names: Names }>) =>
     Object.fromEntries(
@@ -482,45 +435,6 @@ export function DefinitionsEditor() {
             </span>
           ))}
         </div>
-      </details>
-      <div className="cv-row">
-        <label>
-          {t("catalog.definitionVersion")}
-          <select
-            value=""
-            onChange={(e) => {
-              const v = versions.find((x) => x.id === Number(e.target.value));
-              // 列表按 include_document=true 取，每项都带文档；万一缺失就什么都不做，
-              // 免得把编辑器改成"半份定义"。
-              if (v?.document) {
-                change(structuredClone(v.document));
-                setBase(v.state === "draft" ? v.base_version : versionId ?? base);
-                if (v.state === "draft") setDraft(v.id);
-              }
-            }}
-          >
-            <option value="">{t("catalog.select")}</option>
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.id} · {t(`catalog.state.${v.state}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span>
-          {t("catalog.baseVersion")}: {base}
-        </span>
-      </div>
-      <details className="rounded-xl border border-line-subtle bg-surfaceSubtle p-3">
-        <summary className="cursor-pointer text-sm font-medium text-text-body">{t("catalog.history.title")}</summary>
-        <div className="mt-3"><DefinitionHistory
-          versions={versions}
-          currentId={versionId ?? undefined}
-          loading={versionsLoading}
-          error={versionsError}
-          onReload={() => setVersionsNonce((n) => n + 1)}
-          onChanged={afterRollback}
-        /></div>
       </details>
       <nav className="cv-tabs flex flex-wrap gap-2 rounded-xl border border-line-subtle bg-surfaceSubtle p-2" aria-label={t("catalog.configure")}>
         {(
@@ -1051,62 +965,25 @@ export function DefinitionsEditor() {
         setSources={setSources}
       />
       <div className="cv-row">
-        <button
-          onClick={async () => {
-            try {
-              const r = await api("/admin/catalog-definitions", "POST", {
-                document: d,
-                base_version: base,
-                edit_note: note,
-                sources,
-              });
-              setDraft(r.id);
-              setIssues(
-                (await api(`/admin/catalog-definitions/${r.id}/impact`)).issues,
-              );
-              setError("");
-            } catch (err) {
-              setError((err as Error).message);
-            }
-          }}
-        >
-          {t("catalog.saveDraft")}
-        </button>
-        {draft > 0 && (
-          <button
-            onClick={async () => {
-              try {
-                setIssues(
-                  (await api(`/admin/catalog-definitions/${draft}/impact`))
-                    .issues,
-                );
-              } catch (err) {
-                setError((err as Error).message);
-              }
-            }}
-          >
-            {t("catalog.impact")}
-          </button>
-        )}
-        {draft > 0 && issues?.length === 0 && (
-          <button
-            className="cv-primary"
-            onClick={async () => {
-              try {
-                await api(
-                  `/admin/catalog-definitions/${draft}/publish`,
-                  "POST",
-                  { edit_note: note, sources },
-                );
-                await reloadPublished();
-              } catch (err) {
-                setError((err as Error).message);
-              }
-            }}
-          >
-            {t("catalog.publish")}
-          </button>
-        )}
+        <button onClick={async () => {
+          try {
+            const result = await api<{ issues: string[] }>("/admin/catalog-definitions/impact", "POST", { document: d });
+            setIssues(result.issues);
+            setError("");
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        }}>{t("catalog.impact")}</button>
+        <button className="cv-primary" onClick={async () => {
+          try {
+            await api("/admin/catalog-definitions", "PUT", {
+              document: d, expected_etag: base, edit_note: note, sources,
+            });
+            await reloadPublished();
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        }}>{t("catalog.save")}</button>
       </div>
       {issues && (
         <section>
@@ -1122,10 +999,6 @@ export function DefinitionsEditor() {
           )}
         </section>
       )}
-      {/* 这里原本有一个"词表新词冒烟验证"面板：它只是再调一次 /impact 再按词条名本地过滤，
-          不产生任何新的服务端校验，等于一个点了也没用的按钮。服务端的真实校验路径是
-          「保存草稿」（POST /admin/catalog-definitions，跑 Definitions.Validate）与
-          「影响检查」（上一段，跑 impact 全量回放），因此整块删除而不是换个说法保留。 */}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # 架构优化建议：定义生命周期、导入溯源、完整性自检与前端外壳
 
 > 历史方案快照：本文的“现状”“待办”只对应撰写时的代码，不是当前实施清单。现行能力以处理器、迁移和 [架构基准](./spec-driven-requirements.md) 为准。
-> 2026-09-23 纠错：HTTP 服务启动只做只读兼容检查；播种由显式 `mf-migrate seed` 执行。定义版本、diff、回滚界面已接入 `DefinitionsEditor`。音乐作品与收录的现行口径见 [媒体编目复核](./media-catalog-frontend-review-2026-09.md)；本页第 6 节的“待拍板”已失效。字段级来源、完整性报告与内部区块复用仅是当时建议，实施前须重新核实。
+> 2026-09-27 更新：HTTP 服务启动只做只读兼容检查，播种由显式 `mf-migrate seed` 执行。本文关于定义版本、diff、回滚的现状与待办均已失效；现行定义由 `catalog.definition_config` 的单份文档与 `etag` 驱动。音乐作品与收录的现行口径见 [媒体编目复核](./media-catalog-frontend-review-2026-09.md)；本页第 6 节的“待拍板”已失效。字段级来源、完整性报告与内部区块复用仅是当时建议，实施前须重新核实。
 > 关联文档：[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)、[媒体编目与用户前端复核](./media-catalog-frontend-review-2026-09.md)、[规范驱动开发需求与架构基准](./spec-driven-requirements.md)。
 > 数据约束：本文不含任何实例数据——不写真实条目名、真实统计数字；示例一律用占位符（如 `<code>`、`<ver>`、`<field>`），只出现代码符号、文件路径与契约字段名。
 

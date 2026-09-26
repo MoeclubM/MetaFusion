@@ -19,7 +19,7 @@ func TestPostgresMergeReferences(t *testing.T) {
 	}
 	field.Fields["credit_note"] = Field{Names: names("署名说明", "Credit note"), Type: "text", Enabled: true}
 	v.Document.Fields["subject_attributes"] = field
-	f.publish(v.Document, v.ID)
+	f.publish(v.Document, v.ETag)
 	old := f.save(Entity{Kind: "work", Title: "Duplicate song"})
 	target := f.save(Entity{Kind: "work", Title: "Song"})
 	unit := f.save(Entity{Kind: "content_unit", Title: "Part", WorkID: old.ID})

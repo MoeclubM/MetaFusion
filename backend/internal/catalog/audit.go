@@ -22,25 +22,23 @@ import (
 // 覆盖守卫测试（audit_routes_test.go）遍历真实路由树，保证新增写端点不会漏登记。
 func AuditActions() map[string]string {
 	return map[string]string{
-		"POST /api/catalog/entities":                       "entity.created",
-		"PUT /api/catalog/entities/:id":                    "entity.updated",
-		"POST /api/catalog/entities/:id/lifecycle":         "entity.lifecycle_changed",
-		"POST /api/catalog/entities/:id/unpublish":         "entity.unpublished",
-		"PUT /api/catalog/me/home-preferences":             "preference.home_updated",
-		"POST /api/catalog/relations":                      "relation.created",
-		"PUT /api/catalog/relations/:id":                   "relation.updated",
-		"DELETE /api/catalog/relations/:id":                "relation.deleted",
-		"POST /api/importer/import":                        "import.completed",
-		"POST /api/admin/catalog-definitions":              "definition.drafted",
-		"POST /api/admin/catalog-definitions/:id/publish":  "definition.published",
-		"POST /api/admin/catalog-definitions/:id/rollback": "definition.rolled_back",
-		"POST /api/admin/external-databases":               "external_database.created",
-		"PUT /api/admin/external-databases/:code":          "external_database.updated",
-		"DELETE /api/admin/external-databases/:code":       "external_database.deleted",
-		"POST /api/admin/shelves":                          "shelf.created",
-		"PUT /api/admin/shelves/:id":                       "shelf.updated",
-		"DELETE /api/admin/shelves/:id":                    "shelf.deleted",
-		"POST /api/exchange/proposals":                     "proposal.submitted",
+		"POST /api/catalog/entities":                 "entity.created",
+		"PUT /api/catalog/entities/:id":              "entity.updated",
+		"POST /api/catalog/entities/:id/lifecycle":   "entity.lifecycle_changed",
+		"POST /api/catalog/entities/:id/unpublish":   "entity.unpublished",
+		"PUT /api/catalog/me/home-preferences":       "preference.home_updated",
+		"POST /api/catalog/relations":                "relation.created",
+		"PUT /api/catalog/relations/:id":             "relation.updated",
+		"DELETE /api/catalog/relations/:id":          "relation.deleted",
+		"POST /api/importer/import":                  "import.completed",
+		"PUT /api/admin/catalog-definitions":         "definition.updated",
+		"POST /api/admin/external-databases":         "external_database.created",
+		"PUT /api/admin/external-databases/:code":    "external_database.updated",
+		"DELETE /api/admin/external-databases/:code": "external_database.deleted",
+		"POST /api/admin/shelves":                    "shelf.created",
+		"PUT /api/admin/shelves/:id":                 "shelf.updated",
+		"DELETE /api/admin/shelves/:id":              "shelf.deleted",
+		"POST /api/exchange/proposals":               "proposal.submitted",
 		// 站内通知（2026-09-20）：标记已读是自服务的写操作，同样要留痕；
 		// internal 投递端由互动服务调用，审计行的 actor 是转发过来的终端用户令牌。
 		"POST /api/notifications/:id/read": "notification.read",
@@ -58,6 +56,7 @@ func AuditExempt() map[string]string {
 		"POST /api/catalog/expressions/details": "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
 		"POST /api/importer/preview":            "来源预览：出站抓取 + 组装草稿，零落库（落库入口是 POST /api/importer/import）",
 		"POST /api/catalog/entities/identity":   "批量身份解析（X01 别名集合的只读投影）：POST 只为把最多 500 个 id 放进 body，零写入",
+		"POST /api/admin/catalog-definitions/impact": "定义影响检查：只读回放提交的文档，零写入",
 	}
 }
 

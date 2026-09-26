@@ -390,47 +390,26 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 		t.Fatalf("删外部来源审计行: %#v", row)
 	}
 
-	// 9) 定义：起草 / 发布 / 回滚
+	// 9) 定义：单份配置更新
 	current, err := f.s.Definitions(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defBody, err := json.Marshal(map[string]any{
-		"document":     current.Document,
-		"base_version": current.ID,
-		"edit_note":    "audit e2e draft",
-		"sources":      []map[string]string{{"kind": "self", "citation": "audit e2e"}},
+		"document":      current.Document,
+		"expected_etag": current.ETag,
+		"edit_note":     "audit e2e update",
+		"sources":       []map[string]string{{"kind": "self", "citation": "audit e2e"}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	w = f.do(engine, http.MethodPost, "/api/admin/catalog-definitions", string(defBody), "rid-def-draft")
-	f.expect(200, w, "起草定义")
-	var drafted struct {
-		ID int64 `json:"id"`
-	}
-	if err = json.Unmarshal(w.Body.Bytes(), &drafted); err != nil {
-		t.Fatal(err)
-	}
-	row = f.waitRow("rid-def-draft")
+	w = f.do(engine, http.MethodPut, "/api/admin/catalog-definitions", string(defBody), "rid-def-update")
+	f.expect(200, w, "更新定义")
+	row = f.waitRow("rid-def-update")
 	audited++
-	if row.action != "definition.drafted" || row.targetID != fmt.Sprint(drafted.ID) || !strings.Contains(row.changes, "\"document_counts\"") {
-		t.Fatalf("起草定义审计行: %#v", row)
-	}
-	publishBody := "{\"edit_note\":\"audit e2e publish\",\"sources\":[{\"kind\":\"self\",\"citation\":\"audit e2e\"}]}"
-	w = f.do(engine, http.MethodPost, "/api/admin/catalog-definitions/"+fmt.Sprint(drafted.ID)+"/publish", publishBody, "rid-def-publish")
-	f.expect(200, w, "发布定义")
-	row = f.waitRow("rid-def-publish")
-	audited++
-	if row.action != "definition.published" || !strings.Contains(row.changes, "\"after\": \"published\"") || !strings.Contains(row.changes, "\"before\": \"draft\"") {
-		t.Fatalf("发布定义审计行: %#v", row)
-	}
-	w = f.do(engine, http.MethodPost, "/api/admin/catalog-definitions/"+fmt.Sprint(drafted.ID)+"/rollback", "", "rid-def-rollback")
-	f.expect(200, w, "回滚定义")
-	row = f.waitRow("rid-def-rollback")
-	audited++
-	if row.action != "definition.rolled_back" || !strings.Contains(row.changes, "\"no_op\": {\"after\": true}") {
-		t.Fatalf("回滚定义审计行: %#v", row)
+	if row.action != "definition.updated" || row.targetID != "definitions" || !strings.Contains(row.changes, "document_counts") {
+		t.Fatalf("更新定义审计行: %#v", row)
 	}
 
 	// 10) 外部提案（服务端强制进待审）

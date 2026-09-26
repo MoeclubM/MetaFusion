@@ -105,9 +105,7 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 		"PUT /api/catalog/relations/:id":                   "relation.updated",
 		"DELETE /api/catalog/relations/:id":                "relation.deleted",
 		"POST /api/importer/import":                        "import.completed",
-		"POST /api/admin/catalog-definitions":              "definition.drafted",
-		"POST /api/admin/catalog-definitions/:id/publish":  "definition.published",
-		"POST /api/admin/catalog-definitions/:id/rollback": "definition.rolled_back",
+		"PUT /api/admin/catalog-definitions":               "definition.updated",
 		"POST /api/admin/external-databases":               "external_database.created",
 		"PUT /api/admin/external-databases/:code":          "external_database.updated",
 		"DELETE /api/admin/external-databases/:code":       "external_database.deleted",
@@ -135,10 +133,10 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 // 却因为在豁免表里而静默不留痕。
 func TestAuditExemptRoutesAreReadOnlyByDesign(t *testing.T) {
 	exempt := AuditExempt()
-	if len(exempt) != 3 {
+	if len(exempt) != 4 {
 		t.Fatalf("豁免表条数变了（%d）：新增豁免要在测试里说明它为什么零写入", len(exempt))
 	}
-	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity"} {
+	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity", "POST /api/admin/catalog-definitions/impact"} {
 		if strings.TrimSpace(exempt[key]) == "" {
 			t.Fatalf("%s 必须带豁免理由", key)
 		}

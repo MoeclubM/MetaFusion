@@ -15,6 +15,7 @@
    - **后台管理系统**：
      - 与元数据主系统共用同一 PostgreSQL 数据库（`catalog` schema）。
      - 支持在后台 GUI 中完整定义与管理动态元数据架构：动态类型（Types）、字段定义（Fields）、图谱关系（Relations）、受控词表（Vocabularies）、展示模板（Templates）。
+     - 动态定义保存在 `catalog.definition_config` 的单份生效文档中。编辑器直接预检并保存完整文档，以 `etag` 防止并发覆盖；不保留定义版本、草稿、差异或回滚入口。
      - 支持全量实体的内容元数据编辑与状态流转（`draft` / `pending_review` / `published` / `deleted` / `merged` 五档）、实体合并（Merge）与修订历史（Revisions）审计。
        状态口径：发布 = PUT 实体写 `status: "published"`；`/api/catalog/entities/:id/lifecycle` 只做合并与停用（请求体无 `action` 字段）。
    - **无多余 Slogan**：全站禁止添加各类夸张、冗余的营销 Slogan，保持国家图书馆级别的严谨、纯净与高效。

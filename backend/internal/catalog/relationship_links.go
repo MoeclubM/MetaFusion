@@ -23,13 +23,13 @@ type EntityLink struct {
 }
 
 type EntityLinksPage struct {
-	SubjectID          string            `json:"subject_id"`
-	DefinitionsVersion int64             `json:"definitions_version"`
-	Items              []EntityLink      `json:"items"`
-	Entities           map[string]Entity `json:"entities"`
-	Limit              int               `json:"limit"`
-	Offset             int               `json:"offset"`
-	HasMore            bool              `json:"has_more"`
+	SubjectID      string            `json:"subject_id"`
+	DefinitionETag string            `json:"definition_etag"`
+	Items          []EntityLink      `json:"items"`
+	Entities       map[string]Entity `json:"entities"`
+	Limit          int               `json:"limit"`
+	Offset         int               `json:"offset"`
+	HasMore        bool              `json:"has_more"`
 }
 
 // Each branch reads the existing source of truth. The endpoint never persists
@@ -101,7 +101,7 @@ func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u
 	if err != nil {
 		return page, err
 	}
-	page.DefinitionsVersion = defs.ID
+	page.DefinitionETag = defs.ETag
 	page.Entities[id] = self
 	manage := u != nil && u.Can(PermissionLifecycleManage)
 	userID := "00000000-0000-0000-0000-000000000000"

@@ -135,7 +135,7 @@ func (s *Store) Authenticate(token string) (*User, error) {
 // 因种子会随版本新增条目（如货架新增 slug），不属于一次性结构迁移。
 // 任一轨道先执行都安全：种子用 ON CONFLICT 保护已有行（后台自定义不被覆盖）。
 //
-// 定义种子语义（空库全量播种、存量**只增不改**）：catalog.definitions 非空时
+// 定义种子语义（空库全量播种、存量**只增不改**）：catalog.definition_config 非空时
 // 不覆盖既有文档——后台改过的关系/词表/字段（禁用某关系码、entry_role 降级）全部保留；
 // 播种之后再由 EnsureSeedDefinitions 做一次增量合并，只补种子里新增而当前缺失的键，
 // 这样新版本新增的关系码/字段能到达存量实例，又不会覆盖任何人工决定。
@@ -224,16 +224,16 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool)
 	return tx.Commit()
 }
 
-// definitionsLockKey 是定义版本协调的 advisory 键（M02）：发布取独占，
-// 定义敏感写（实体/关系/合并改写）取共享。旧定义写穿发布影响检查即被串行化：
-// 发布等待在途写完成，在途写等待发布完成，不靠"写前读版本"赌时序。
+// definitionsLockKey 是定义配置写入协调的 advisory 键（M02）：保存取独占，
+// 定义敏感写（实体/关系/合并改写）取共享。旧定义写穿影响检查即被串行化：
+// 配置保存等待在途写完成，在途写等待保存完成。
 // 与结构锁 740202、migrator 的 88481001、审计契约的 740205 都不同键。
 //
 // releaseLockClass 是发行粒度的 advisory 类键（M01）：Release.subjects 与
 // TrackContent 按 Release 互斥（删 subject 与加收录不再各看各的旧快照），
 // 不同发行互不阻塞，不恢复全库写锁。键 = (740204, hashtext(release_id))。
 //
-// 加锁顺序全局一致（结构 → 定义共享 → 发行），发布只取独占、不与其他锁共持，
+// 加锁顺序全局一致（结构 → 定义共享 → 发行），配置保存只取独占、不与其他锁共持，
 // 因此无死锁环；并发正确性仍需双连接受控测试（见并发测试，本机无库时跳过）。
 const definitionsLockKey = 740203
 const releaseLockClass = 740204
@@ -313,34 +313,26 @@ func nullable(v string) any {
 	}
 	return v
 }
-func definitions(ctx context.Context, q queryer) (DefinitionVersion, error) {
-	var v DefinitionVersion
+func definitions(ctx context.Context, q queryer) (DefinitionConfig, error) {
+	var v DefinitionConfig
 	var b []byte
-	err := q.QueryRowContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions WHERE state='published'").Scan(&v.ID, &v.State, &v.BaseVersion, &b, &v.CreatedAt)
+	err := q.QueryRowContext(ctx, "SELECT etag,document,updated_at FROM catalog.definition_config WHERE singleton=true").Scan(&v.ETag, &b, &v.UpdatedAt)
 	if err == nil {
 		err = json.Unmarshal(b, &v.Document)
 	}
 	return v, err
 }
 
-// definitionsCache 是已发布定义的进程内小缓存：导入/校验等热路径每次读库
-// 取同一份 published 行，缓存按（id + base_version）失效。
-//   - 只缓存读 published 行：Draft/Publish 写路径不走缓存，发布后版本号变化
-//     即失效，不会读到旧定义；
-//   - 事务内读取（*sql.Tx）不走缓存：Publish 的 impact 全量校验在长事务内必须
-//     看到本事务的写入（tx），缓存是进程级、跨事务，会读脏旧版本；
-//   - 多实例/多进程不一致窗口：缓存只在本进程有效，发布后其它进程最多滞后到
-//     下一次版本号变化（下一次 Definitions 调用即刷新），不做跨进程广播；
-//   - 测试与 Store{} 空实例：DB 为 nil 时直接回退读库（返回原始错误），
-//     不因缓存引入新失败形态。
+// definitionsCache caches the single live document by etag. Transactional
+// reads bypass it; every load checks the current etag to observe other replicas.
 var (
 	definitionsCacheMu sync.Mutex
-	definitionsCache   DefinitionVersion
+	definitionsCache   DefinitionConfig
 	definitionsCacheDB *sql.DB
 	definitionsCacheOK bool
 )
 
-func (s *Store) Definitions(ctx context.Context) (DefinitionVersion, error) {
+func (s *Store) Definitions(ctx context.Context) (DefinitionConfig, error) {
 	// 空 DB（纯映射单测的 Store{}）直接回退读库，保持原有错误语义。
 	if s.DB == nil {
 		return definitions(ctx, s.DB)
@@ -352,8 +344,8 @@ func (s *Store) Definitions(ctx context.Context) (DefinitionVersion, error) {
 	// 但不同 document），跨库复用会串定义。生产单库进程内则命中同一指针。
 	if ok && cachedDB == s.DB {
 		// 轻量失效检查：只读 id/base_version，不反序列化整份 document。
-		var id, base int64
-		if err := s.DB.QueryRowContext(ctx, "SELECT id,base_version FROM catalog.definitions WHERE state='published'").Scan(&id, &base); err == nil && id == cached.ID && base == cached.BaseVersion {
+		var etag string
+		if err := s.DB.QueryRowContext(ctx, "SELECT etag FROM catalog.definition_config WHERE singleton=true").Scan(&etag); err == nil && etag == cached.ETag {
 			return cached, nil
 		}
 	}
@@ -371,7 +363,7 @@ func (s *Store) Definitions(ctx context.Context) (DefinitionVersion, error) {
 // 生产路径靠版本号失效，不需要调用。
 func InvalidateDefinitionsCache() {
 	definitionsCacheMu.Lock()
-	definitionsCache, definitionsCacheDB, definitionsCacheOK = DefinitionVersion{}, nil, false
+	definitionsCache, definitionsCacheDB, definitionsCacheOK = DefinitionConfig{}, nil, false
 	definitionsCacheMu.Unlock()
 }
 func get(ctx context.Context, q queryer, id string) (Entity, error) {
@@ -509,6 +501,8 @@ var catalogIncrementals = []string{
 	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
 	"000010_relation_lookup_indexes.up.sql",     // 关系反向查询与按类型读取
 	"000011_opensearch_outbox_lookup.up.sql",    // OpenSearch 实体事件增量消费游标
+	"000012_drop_revision_actor_role.up.sql",    // 移除旧身份快照列
+	"000013_single_definition_config.up.sql",    // 单份定义配置，移除历史版本
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
@@ -538,38 +532,12 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 	}
 }
 
-// 四类版本互不混用（D4）：
-//  1. 数据库迁移版本：schema_migrations + backend/migrations/*.sql，回答"库结构到哪了"；
-//  2. definitions 发布版本：catalog.definitions.id，回答"校验与展示按哪份定义"；
-//  3. 条目修订版本：catalog.revisions.version（按 target_id 递增）与 entities.version
-//     乐观并发计数，回答"这个条目改到第几版"；
-//  4. 服务镜像/接口兼容版本：构建期注入的 git sha（见 version.go），回答"线上跑的是哪次构建"。
-//
-// 本函数同时写 3 的修订行与 outbox 事件，并把 2 的当前值记进修订行的
-// definition_version：字段含义变化后，历史值仍可用当时的定义解释。
-//
-// 双快照的用途与保留策略（任务 8：不删历史）：两次写入是同一快照的两份不同用途——
-// revisions 按 target_id 留版本化历史（用户可见的修订时间线，回滚与审计的依据），
-// outbox 按事件留待投递的事实（未来跨服务消费者的唯一来源，见 Deliver 的保留注释）。
-// 当前 Deliver 无生产消费者，但两边都不清：删修订断时间线，删 outbox 断 deliveries 外键
-// 且丢审计；事件只引用修订 ID 太省会逼消费者回查，当前最小载荷即全量快照。
-//
-// 关键动作的留痕现状核对：授权/处置类动作（实体删除/合并、下架、关系删除、定义起草/发布、
-// 合并改写）全部经本函数落在业务事务内——事务回滚则留痕与业务一起消失，不存在
-// “改了没记、记了没改”的半成品。通用访问审计（audit.Recorder）是进程内有界队列异步落库，
-// 满则丢行计数（尽力而为），只做访问日志，不承担业务留痕。
+// audit keeps entity and relation revisions. Definition updates only pass
+// aggregate counts as snapshot, so this table is not a hidden definition archive.
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
 	// actor_name 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
 	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
-	// definition_version 取同一事务内的已发布定义：definitions.published 事件的 audit
-	// 调用发生在发布事务提交前，读到的是本事务刚发布的版本，引用即自身；无已发布行
-	//（极端空库路径）时记 NULL，不伪造引用。
-	var defVersion *int64
-	var publishedID int64
-	if err := tx.QueryRowContext(ctx, "SELECT id FROM catalog.definitions WHERE state='published'").Scan(&publishedID); err == nil {
-		defVersion = &publishedID
-	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,edit_note,sources,snapshot,definition_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", id, version, u.ID, u.Username, note, encode(sources), encode(snapshot), defVersion); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7)", id, version, u.ID, u.Username, note, encode(sources), encode(snapshot)); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
@@ -1302,7 +1270,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
 	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), r.edit_note, r.sources, r.snapshot, r.created_at, r.definition_version
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), r.edit_note, r.sources, r.snapshot, r.created_at
 		FROM catalog.revisions r
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
@@ -1317,8 +1285,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		var actorID, actorName, note string
 		var sources, snapshot json.RawMessage
 		var at time.Time
-		var defVersion sql.NullInt64
-		if err = rows.Scan(&revID, &version, &actorID, &actorName, &note, &sources, &snapshot, &at, &defVersion); err != nil {
+		if err = rows.Scan(&revID, &version, &actorID, &actorName, &note, &sources, &snapshot, &at); err != nil {
 			return nil, err
 		}
 		// 实体修订的 snapshot 是 Entity，逐行按实体可见性过滤；
@@ -1332,22 +1299,15 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 				continue
 			}
 		}
-		// definition_version：本次写入所依据的已发布定义版本（D4，四类版本之 2）；
-		// 迁移前老行记 null。展示端据此追溯，不混用条目修订 version。
-		var defVersionAny any
-		if defVersion.Valid {
-			defVersionAny = defVersion.Int64
-		}
 		out = append(out, map[string]any{
-			"id":                 revID,
-			"version":            version,
-			"actor_id":           actorID,
-			"actor_name":         actorName,
-			"edit_note":          note,
-			"sources":            sources,
-			"snapshot":           snapshot,
-			"created_at":         at,
-			"definition_version": defVersionAny,
+			"id":         revID,
+			"version":    version,
+			"actor_id":   actorID,
+			"actor_name": actorName,
+			"edit_note":  note,
+			"sources":    sources,
+			"snapshot":   snapshot,
+			"created_at": at,
 		})
 	}
 	return out, rows.Err()

@@ -90,7 +90,7 @@ type ReleaseTOC = {
   release: Entity;
   media: MediumRow[];
   expressions: Record<string, Entity>;
-  definition_version: number;
+  definition_etag: string;
 };
 
 function Collapsible({

@@ -28,64 +28,6 @@ export type Field = {
   /** 仅 group 内的 number 子字段：声明本字段是同组该子字段的区间终点（起点不得大于终点）。 */
   range_start?: string;
 };
-export type Definition = {
-  id: number;
-  state: string;
-  base_version: number;
-  document: Definitions;
-};
-/** 定义版本列表项（backend/internal/catalog/types.go 的 DefinitionVersionItem）。
- *  document 只在 include_document=true（缺省）时随项返回，false 时要按 id 取详情。 */
-export type DefinitionVersionItem = {
-  id: number;
-  state: string;
-  base_version: number;
-  document?: Definitions;
-  created_at: string;
-  /** 起草该版本的账号名快照；种子播种/直接写库的版本行没有修订记录，此时缺省。 */
-  created_by?: string;
-  /** 服务端给的短计数摘要（如"字段 43 / 类型 20 / 关系 28 / 模板 7"）。 */
-  summary?: string;
-};
-/** 一条版本差异：added 只有 to、removed 只有 from，changed/toggled 两侧都有；
- *  值超过 512 字节时被截断成字符串前缀并置 truncated。 */
-export type DefinitionChange = {
-  /** 文档里的真实键路径，如 fields.<code>.enabled、types.<code>.fields[2]。 */
-  path: string;
-  /** 键路径首段分区名：types/fields/vocabularies/relations/templates/schemes/structure。 */
-  section: string;
-  change: string;
-  from?: any;
-  to?: any;
-  truncated?: boolean;
-};
-/** 两个版本之间的差异：只有差异条目与计数，不含任何一侧的 document。 */
-export type DefinitionDiff = {
-  id: number;
-  /** 实际比较的基线版本（缺省时由服务端取该版本的 base_version）。 */
-  against: number;
-  base_version: number;
-  changes: DefinitionChange[];
-  summary: {
-    total: number;
-    /** 七个分区与四种变更类型的键恒存在（为 0 也给）。 */
-    by_section: Record<string, number>;
-    by_change: Record<string, number>;
-  };
-};
-/** 一次回滚的结果；no_op 为真表示目标文档与当前已发布文档一致，服务端没有新建版本。 */
-export type DefinitionRollback = {
-  /** 新建并发布的版本 id；no_op 时是既有已发布版本 id。 */
-  id: number;
-  target_id: number;
-  state: string;
-  /** 回滚前的已发布版本 id。 */
-  base_version: number;
-  created_at: string;
-  /** no_op 时为空串。 */
-  edit_note: string;
-  no_op: boolean;
-};
 export type Scheme = {
   names: Names;
   slot: string;
@@ -267,29 +209,6 @@ export async function api<T = any>(
           ? data
           : JSON.stringify(data),
   });
-}
-
-// ── 定义版本（管理面 /admin/catalog-definitions，需要 catalog.definitions.manage）──
-//
-// 三个动作都用 api()：它使用同域 Cookie 并在 401 时续期重试一次。
-// 服务端列表 SQL 是 ORDER BY id DESC LIMIT 100：最多 100 条、无分页。
-
-/** 版本列表：include_document=true（缺省）时每项带完整文档，供"打开历史版本"直接使用。 */
-export function definitionVersions(includeDocument = true) {
-  return api<{ items: DefinitionVersionItem[]; include_document: boolean }>(
-    `/admin/catalog-definitions?include_document=${includeDocument}`,
-  );
-}
-/** 版本差异：:id 是目标一侧，against 是基线一侧；against 缺省由服务端取该版本的 base_version。 */
-export function definitionDiff(id: number, against?: number) {
-  return api<DefinitionDiff>(
-    `/admin/catalog-definitions/${id}/diff${against === undefined ? "" : `?against=${against}`}`,
-  );
-}
-/** 回滚：目标版本就是路径 id（任意历史版本行），**不带请求体**——handler 从不解析 body，
- *  传了会被静默忽略，所以目标只能从 URL 表达。 */
-export function rollbackDefinition(id: number) {
-  return api<DefinitionRollback>(`/admin/catalog-definitions/${id}/rollback`, "POST");
 }
 
 // fetchAllPages：对列表端点按 offset 翻页直到取完（端点返回真实 total，长度不足一页即停），

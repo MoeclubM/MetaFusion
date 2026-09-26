@@ -217,11 +217,11 @@ let cachedDefinitions: DynamicDefinitions | null = null;
 let cachedKinds: KindMap = {};
 let cachedRelationshipRules: RelationshipRule[] = [];
 let cachedRulesSignature = "";
-// 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
+// 当前定义的 etag 变化时失效缓存。
 let cachedVersion = "";
-// 版本行 id 的数字形态：编辑器的"基线版本"就是它，必须与文档同源同一份响应，
-// 不能让调用方再自己打一次 /catalog/definitions 去取（那就是第二条取数路径）。
-let cachedVersionId: number | null = null;
+// 编辑器的并发校验标记与文档同源于一份响应，
+// 不再额外请求一次 /catalog/definitions。
+let cachedETag: string | null = null;
 let definitionsPromise: Promise<DynamicDefinitions | null> | null = null;
 let revalidating = false;
 // 请求序号：只接受不早于已应用序号的响应，防止较早的请求晚到覆盖较新版本。
@@ -242,9 +242,8 @@ async function loadDefinitions(): Promise<DynamicDefinitions | null> {
   if (data.kinds && typeof data.kinds === "object") cachedKinds = data.kinds as KindMap;
   const rules = Array.isArray(data.relationship_rules) ? data.relationship_rules as RelationshipRule[] : [];
   const rulesSignature = JSON.stringify(rules);
-  const version = String(data.id ?? "");
-  const versionId = Number(data.id);
-  cachedVersionId = Number.isFinite(versionId) ? versionId : null;
+  const version = String(data.etag ?? "");
+  cachedETag = version || null;
   if (!cachedDefinitions || version !== cachedVersion || rulesSignature !== cachedRulesSignature) {
     cachedVersion = version;
     cachedDefinitions = data.document;
@@ -292,17 +291,16 @@ export async function refreshDefinitions(): Promise<DynamicDefinitions | null> {
 }
 
 /**
- * 已发布定义的版本行 id（数字）。刚 await 过 refreshDefinitions() 的调用方可直接读它拿
- * 新基线版本；响应里没有可解析的 id 时为 null（调用方自行决定是否继续）。
+ * 当前定义的 etag。刷新后可直接取它作为编辑器提交基线。
  */
-export function getPublishedDefinitionId(): number | null {
-  return cachedVersionId;
+export function getDefinitionETag(): string | null {
+  return cachedETag;
 }
 
 export function useDefinitions() {
   const [defs, setDefs] = useState<DynamicDefinitions | null>(cachedDefinitions);
   const [kinds, setKinds] = useState<KindMap>(cachedKinds);
-  const [versionId, setVersionId] = useState<number | null>(cachedVersionId);
+  const [etag, setETag] = useState<string | null>(cachedETag);
   const [relationshipRules, setRelationshipRules] = useState<RelationshipRule[]>(cachedRelationshipRules);
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
@@ -312,7 +310,7 @@ export function useDefinitions() {
       if (mounted) {
         setDefs(d);
         setKinds(cachedKinds);
-        setVersionId(cachedVersionId);
+        setETag(cachedETag);
         setRelationshipRules(cachedRelationshipRules);
         setLoading(false);
       }
@@ -325,7 +323,7 @@ export function useDefinitions() {
       if (mounted) {
         setDefs(d);
         setKinds(cachedKinds);
-        setVersionId(cachedVersionId);
+        setETag(cachedETag);
         setRelationshipRules(cachedRelationshipRules);
         setLoading(false);
       }
@@ -340,8 +338,8 @@ export function useDefinitions() {
     };
   }, []);
 
-  // versionId 与 definitions 同批更新（同一次响应解析出来的），供编辑器的基线版本使用。
-  return { definitions: defs, kinds, relationshipRules, versionId, loading };
+  // etag 与 definitions 同批更新，供编辑器做并发覆盖校验。
+  return { definitions: defs, kinds, relationshipRules, etag, loading };
 }
 
 /**
