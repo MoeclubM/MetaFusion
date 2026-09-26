@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { Select } from "@/components/ui/Select";
 import {
   EXCHANGE_SOURCE_KINDS,
   describeExchangeError,
@@ -397,17 +398,15 @@ function ProposalPanel() {
 
         {sources.map((source, index) => (
           <div key={index} className="grid grid-cols-1 sm:grid-cols-[132px_1fr_1fr_auto] gap-2 items-start">
-            <select
+            <Select
               value={source.kind}
-              onChange={(e) => updateSource(index, { kind: e.target.value as ExchangeSourceKind })}
-              className={FIELD_CLASS}
-            >
-              {EXCHANGE_SOURCE_KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {tr(`admin.exchange.sourceKind.${kind}`, kind)}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => updateSource(index, { kind: v as ExchangeSourceKind })}
+              options={EXCHANGE_SOURCE_KINDS.map((kind) => ({
+                value: kind,
+                label: tr(`admin.exchange.sourceKind.${kind}`, kind),
+              }))}
+              aria-label={t("catalog.sourceKind")}
+            />
             <input
               type="text"
               value={source.citation}

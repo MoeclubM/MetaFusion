@@ -373,20 +373,111 @@ func Defaults() Definitions {
 	for _, x := range []struct {
 		code     string
 		names    Names
+		kinds    []string
 		sections []Section
 	}{
-		{"music", names4("音乐", "音樂", "音楽", "Music"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}})},
-		{"literature", names4("文学", "文學", "文学", "Literature"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
-		{"screen", names4("影视", "影視", "映像", "Screen"), commonSections(
+		{"music", names4("音乐", "音樂", "音楽", "Music"), []string{"work"}, commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}})},
+		{"literature", names4("文学", "文學", "文学", "Literature"), []string{"work"}, commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
+		{"screen", names4("影视", "影視", "映像", "Screen"), []string{"work"}, commonSections(
 			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "episodes", "platform"}},
 			Section{Names: names4("放送信息", "放送資訊", "放送情報", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}},
 		)},
-		{"photography", names4("写真", "寫真", "写真", "Photography"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count"}})},
-		{"game", names4("游戏", "遊戲", "ゲーム", "Games"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}})},
-		{"generic", names4("通用", "通用", "汎用", "General"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration"}})},
+		{"photography", names4("写真", "寫真", "写真", "Photography"), []string{"work"}, commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count"}})},
+		{"game", names4("游戏", "遊戲", "ゲーム", "Games"), []string{"work"}, commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}})},
+		{"generic", names4("通用", "通用", "汎用", "General"), []string{"work", "agent"}, commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration"}})},
 	} {
-		d.Templates[x.code] = Template{Names: x.names, Directory: "tree", Sections: x.sections,
+		d.Templates[x.code] = Template{Names: x.names, Directory: "tree", Sections: x.sections, Kinds: x.kinds,
 			Columns: []string{"edition_date"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes", "volume_count", "air_network"}}
+	}
+	// ===== 细化模板：按主要创作类型拆分，覆盖单曲/专辑/动画/漫画/小说/游戏/音声/影视等 =====
+	// 每个模板声明 Kinds 白名单（前端按实体 kind 过滤可选模板）、四语名称、合理的分区与字段。
+	tplSections := func(basics ...Section) []Section {
+		return commonSections(basics...)
+	}
+	for _, x := range []struct {
+		code       string
+		names      Names
+		sections   []Section
+		primary    string
+		badges     []string
+		facets     []string
+	}{
+		// --- 音乐 ---
+		{"single", names4("单曲", "單曲", "シングル", "Single"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}}),
+			"edition_date", nil, nil},
+		{"original_album", names4("原创专辑", "原創專輯", "オリジナルアルバム", "Original album"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}}),
+			"edition_date", nil, nil},
+		{"doujin_album", names4("同人专辑", "同人專輯", "同人アルバム", "Doujin album"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}}),
+			"edition_date", nil, nil},
+		// --- 动画 ---
+		{"tv_anime", names4("TV动画", "TV動畫", "TVアニメ", "TV animation"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "episodes", "platform"}},
+			Section{Names: names4("放送信息", "放送資訊", "放送情報", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}}),
+			"broadcast_start", []string{"air_network", "episodes"}, []string{"broadcast_weekday"}},
+		{"theater_anime", names4("剧场动画", "劇場動畫", "劇場アニメ", "Theatrical animation"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "platform"}}),
+			"edition_date", []string{"platform"}, nil},
+		{"ova", names4("OVA", "OVA（原創動畫錄影帶）", "OVA（オリジナルビデオアニメ）", "OVA"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "episodes", "platform"}}),
+			"edition_date", []string{"episodes"}, nil},
+		// --- 漫画 ---
+		{"manga_volume", names4("漫画单行本", "漫畫單行本", "単行本", "Manga volume"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine"}}),
+			"edition_date", []string{"volume_count"}, nil},
+		{"manga_serialized", names4("连载漫画", "連載漫畫", "連載漫画", "Serialized manga"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine", "begin_date", "end_date"}}),
+			"begin_date", []string{"magazine"}, nil},
+		// --- 文学 ---
+		{"light_novel", names4("轻小说", "輕小說", "ライトノベル", "Light novel"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine"}}),
+			"edition_date", []string{"volume_count"}, nil},
+		{"novel_general", names4("一般小说", "一般小說", "一般小説", "General novel"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count"}}),
+			"edition_date", nil, nil},
+		// --- 游戏 ---
+		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}}),
+			"edition_date", []string{"platform"}, nil},
+		{"eroge", names4("美少女游戏", "美少女遊戲", "美少女ゲーム", "Eroge"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes"}}),
+			"edition_date", []string{"platform"}, nil},
+		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Indie game"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes"}}),
+			"edition_date", []string{"platform"}, nil},
+		{"commercial_game", names4("商业游戏", "商業遊戲", "コンシューマーゲーム", "Commercial game"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}}),
+			"edition_date", []string{"platform"}, nil},
+		// --- 音声 ---
+		{"audio_drama", names4("音声作品", "音聲作品", "音声作品", "Audio drama"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}}),
+			"edition_date", []string{"duration"}, nil},
+		{"radio_drama", names4("广播剧", "廣播劇", "ラジオドラマ", "Radio drama"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source", "episodes"}},
+			Section{Names: names4("放送信息", "放送資訊", "放送情報", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_end"}}),
+			"broadcast_start", []string{"episodes"}, nil},
+		// --- 写真 ---
+		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count"}}),
+			"edition_date", []string{"volume_count"}, nil},
+		// --- 影视 ---
+		{"film", names4("电影", "電影", "映画", "Film"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "platform"}}),
+			"edition_date", []string{"platform"}, nil},
+		{"tv_drama", names4("电视剧", "電視劇", "テレビドラマ", "TV drama"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "episodes", "platform"}},
+			Section{Names: names4("放送信息", "放送資訊", "放送情報", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}}),
+			"broadcast_start", []string{"air_network", "episodes"}, []string{"broadcast_weekday"}},
+		// --- 个人创作 ---
+		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), tplSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration"}}),
+			"edition_date", nil, nil},
+	} {
+		d.Templates[x.code] = Template{Names: x.names, Directory: "tree", Sections: x.sections, Kinds: []string{"work"},
+			Columns: []string{"edition_date"}, RelationGroups: []string{"credits", "creative", "membership"},
+			PrimaryDateField: x.primary, BadgeFields: x.badges, FacetFields: x.facets}
 	}
 	// 作品类型可写的字段集：与所属模板分区声明的字段保持一致，避免"声明了却没权限写"。
 	// 按媒体场景分别声明，而不是一份大字段集全类型共用——否则歌曲编辑页会出现
@@ -396,40 +487,70 @@ func Defaults() Definitions {
 	commonWorkFields := []string{"language", "edition_date", "copyright", "imdb", "tags", "infobox", "events"}
 	workFieldsByType := map[string][]string{
 		// 音乐作品：时长、时长来源与词曲署名；专辑/歌曲不写出版与放送字段。
-		"music": {"duration", "duration_source", "author"},
-		"song":  {"duration", "duration_source", "author"},
-		"album": {"duration", "duration_source", "author"},
+		"music":         {"duration", "duration_source", "author"},
+		"song":          {"duration", "duration_source", "author"},
+		"album":         {"duration", "duration_source", "author"},
+		"single":        {"duration", "duration_source", "author"},
+		"original_album": {"duration", "duration_source", "author"},
+		"doujin_album":  {"duration", "duration_source", "author"},
 		// 文学：卷数、连载杂志、原始署名文本。
-		"novel": {"volume_count", "magazine", "author"},
+		"novel":         {"volume_count", "magazine", "author"},
+		"novel_general": {"volume_count", "author"},
+		"light_novel":   {"volume_count", "magazine", "author"},
 		// 漫画：卷数、连载杂志、原始署名（DLsite 等来源的コミック/マンガ）。
-		"comic": {"volume_count", "magazine", "author"},
+		"comic":           {"volume_count", "magazine", "author"},
+		"manga_volume":    {"volume_count", "magazine", "author"},
+		"manga_serialized": {"volume_count", "magazine", "author", "begin_date", "end_date"},
 		// 音声：时长、时长来源与署名（ASMR・广播剧等音频作品，区别于音乐）。
-		"audio": {"duration", "duration_source", "author"},
+		"audio":        {"duration", "duration_source", "author"},
+		"audio_drama":  {"duration", "duration_source", "author"},
+		"radio_drama":  {"duration", "duration_source", "episodes", "broadcast_start", "broadcast_end", "author"},
 		// 影视动画：话数、放送周期与电视台、平台。
-		"animation": {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
-		"film":      {"duration", "platform"},
+		"animation":    {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
+		"tv_anime":     {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
+		"theater_anime": {"duration", "platform"},
+		"ova":          {"episodes", "platform"},
+		"film":         {"duration", "platform"},
+		"tv_drama":     {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
 		// 写真集：卷数 + 摄影署名（作者文本字段承载原始署名）。
 		"photobook": {"volume_count", "author"},
 		// 游戏：平台与话数/卷数均可能。
-		"game":         {"platform", "episodes", "volume_count"},
-		"indie_game":   {"platform", "episodes"},
-		"visual_novel": {"platform", "episodes", "volume_count"},
-		"personal":     {"duration"},
+		"game":          {"platform", "episodes", "volume_count"},
+		"commercial_game": {"platform", "episodes", "volume_count"},
+		"indie_game":    {"platform", "episodes"},
+		"visual_novel":  {"platform", "episodes", "volume_count"},
+		"eroge":         {"platform", "episodes"},
+		"personal":      {"duration"},
 	}
 	for _, x := range []typeSeed{
 		{"music", names4("音乐作品", "音樂作品", "音楽作品", "Music work"), "music"},
-		{"song", names4("歌曲", "歌曲", "楽曲", "Song"), "music"},
-		{"album", names4("专辑", "專輯", "アルバム", "Album"), "music"},
-		{"novel", names4("小说", "小說", "小説", "Novel"), "literature"},
-		{"comic", names4("漫画", "漫畫", "コミック", "Comic"), "literature"},
-		{"audio", names4("音声作品", "音聲作品", "音声作品", "Audio work"), "music"},
-		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "screen"},
-		{"film", names4("电影", "電影", "映画", "Film"), "screen"},
-		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photography"},
-		{"game", names4("游戏", "遊戲", "ゲーム", "Game"), "game"},
-		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Independent game"), "game"},
-		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), "game"},
-		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), "generic"},
+		{"song", names4("歌曲", "歌曲", "楽曲", "Song"), "single"},
+		{"album", names4("专辑", "專輯", "アルバム", "Album"), "original_album"},
+		{"single", names4("单曲", "單曲", "シングル", "Single"), "single"},
+		{"original_album", names4("原创专辑", "原創專輯", "オリジナルアルバム", "Original album"), "original_album"},
+		{"doujin_album", names4("同人专辑", "同人專輯", "同人アルバム", "Doujin album"), "doujin_album"},
+		{"novel", names4("小说", "小說", "小説", "Novel"), "novel_general"},
+		{"novel_general", names4("一般小说", "一般小說", "一般小説", "General novel"), "novel_general"},
+		{"light_novel", names4("轻小说", "輕小說", "ライトノベル", "Light novel"), "light_novel"},
+		{"comic", names4("漫画", "漫畫", "コミック", "Comic"), "manga_volume"},
+		{"manga_volume", names4("漫画单行本", "漫畫單行本", "単行本", "Manga volume"), "manga_volume"},
+		{"manga_serialized", names4("连载漫画", "連載漫畫", "連載漫画", "Serialized manga"), "manga_serialized"},
+		{"audio", names4("音声作品", "音聲作品", "音声作品", "Audio work"), "audio_drama"},
+		{"audio_drama", names4("音声作品", "音聲作品", "音声作品", "Audio drama"), "audio_drama"},
+		{"radio_drama", names4("广播剧", "廣播劇", "ラジオドラマ", "Radio drama"), "radio_drama"},
+		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "tv_anime"},
+		{"tv_anime", names4("TV动画", "TV動畫", "TVアニメ", "TV animation"), "tv_anime"},
+		{"theater_anime", names4("剧场动画", "劇場動畫", "劇場アニメ", "Theatrical animation"), "theater_anime"},
+		{"ova", names4("OVA", "OVA（原創動畫錄影帶）", "OVA（オリジナルビデオアニメ）", "OVA"), "ova"},
+		{"film", names4("电影", "電影", "映画", "Film"), "film"},
+		{"tv_drama", names4("电视剧", "電視劇", "テレビドラマ", "TV drama"), "tv_drama"},
+		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photobook"},
+		{"game", names4("游戏", "遊戲", "ゲーム", "Game"), "commercial_game"},
+		{"commercial_game", names4("商业游戏", "商業遊戲", "コンシューマーゲーム", "Commercial game"), "commercial_game"},
+		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Independent game"), "indie_game"},
+		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), "visual_novel"},
+		{"eroge", names4("美少女游戏", "美少女遊戲", "美少女ゲーム", "Eroge"), "eroge"},
+		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), "personal"},
 	} {
 		// edition_date 用于承载作品首发/出版日期（列表与详情展示）；发行版自身的日期仍在 release.edition_date。
 		fields := append(append([]string{}, workFieldsByType[x.code]...), commonWorkFields...)
@@ -480,7 +601,7 @@ func Defaults() Definitions {
 		tpl := "generic"
 		if k == "release" {
 			d.Templates["release"] = Template{
-				Names: names4("发行版", "發行版", "リリース", "Release"), Directory: "tree",
+				Names: names4("发行版", "發行版", "リリース", "Release"), Directory: "tree", Kinds: []string{"release"},
 				Sections: []Section{
 					{Names: names4("版本信息", "版本資訊", "版情報", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
 					{Names: names4("载体与包装", "載體與包裝", "メディア・パッケージ", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
