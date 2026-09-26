@@ -178,7 +178,7 @@ func (s *Store) Initialize(ctx context.Context) error {
 	if err = applyCatalogIncrementals(ctx, s.DB); err != nil {
 		return err
 	}
-	// 内容种子必须在全部结构增量之后执行：单份定义配置表由 000013 创建。
+	// 内容种子必须在全部结构增量之后执行：单份定义配置表由 000014 创建。
 	if err = s.write(ctx, func(tx *sql.Tx) error { return seedContentTx(ctx, tx) }); err != nil {
 		return err
 	}
@@ -498,13 +498,14 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 var catalogIncrementals = []string{
 	"000005_api_request_logs.up.sql",            // API 请求日志表
 	"000006_request_idempotency.up.sql",         // R1：catalog.idempotency_keys
-	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
+	"000007_revision_definition_version.up.sql", // 历史增量；该列由 000014 移除
 	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
 	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
 	"000010_relation_lookup_indexes.up.sql",     // 关系反向查询与按类型读取
 	"000011_opensearch_outbox_lookup.up.sql",    // OpenSearch 实体事件增量消费游标
 	"000012_drop_revision_actor_role.up.sql",    // 移除旧身份快照列
-	"000013_single_definition_config.up.sql",    // 单份定义配置，移除历史版本
+	"000013_external_source_merge.up.sql",     // 外部来源合并约束
+	"000014_single_definition_config.up.sql",    // 单份定义配置，移除历史版本
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。

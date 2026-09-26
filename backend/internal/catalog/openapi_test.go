@@ -291,7 +291,7 @@ func TestOpenAPIEntityStatsEndpoint(t *testing.T) {
 	}
 }
 
-// GET /catalog/definitions 的响应比 DefinitionVersion 多一个 kinds（handler 拼的骨架名，
+// GET /catalog/definitions 的响应比存储中的定义配置多一个 kinds（handler 拼的骨架名，
 // 见 http.go：288）。文档必须表达出来：该 schema 声明 additionalProperties:false，
 // 漏写会让按文档做严格校验的客户端判失败。
 func TestOpenAPIDefinitionsResponseIncludesKinds(t *testing.T) {

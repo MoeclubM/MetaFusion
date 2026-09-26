@@ -69,7 +69,7 @@ docker compose -f deploy/docker-compose.yml run --rm --no-deps --entrypoint /app
 
 ## 定义没更新但站点可用：怎么看出来
 
-`000013_single_definition_config` 会将当前生效文档搬到单行配置，再删除旧定义版本表与定义文档快照。此迁移不可逆；执行前保存数据库备份。`deploy.sh prod/pull` 在检测到该迁移待执行时先停止旧目录服务和前端，迁移与种子完成后再启动新镜像。
+`000014_single_definition_config` 会将当前生效文档搬到单行配置，再删除旧定义版本表与定义文档快照。此迁移不可逆；执行前保存数据库备份。`deploy.sh prod/pull` 在检测到该迁移待执行时先停止旧目录服务和前端，迁移与种子完成后再启动新镜像。
 
 定义合并（`EnsureSeedDefinitions`）失败不再让服务起不来：定义**非法**时它零写入失败，
 保留当前生效文档并降级继续服务；悬挂引用这类**数据欠账**只警告，不阻断保存。

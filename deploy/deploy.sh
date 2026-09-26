@@ -358,14 +358,14 @@ print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核�
 # ENTRYPOINT，少了 --entrypoint 参数会被交给 /app/server，一条迁移都不会执行
 # （backend/Dockerfile 的 server 阶段是 ENTRYPOINT ["/app/server"]）。
 function migrate_up_checked() {
-    # 000013 removes the table consumed by the old catalog process. Quiesce
+    # 000014 removes the table consumed by the old catalog process. Quiesce
     # its writers before applying it; the new process starts after seed.
     local before
     if ! before=$(run_migrate status "$@"); then
         echo "❌ 无法读取迁移前状态，停止部署" >&2
         exit 1
     fi
-    if printf '%s\n' "$before" | grep -Eq '^000013[[:space:]]*\|.*\|[[:space:]]*PENDING'; then
+    if printf '%s\n' "$before" | grep -Eq '^000014[[:space:]]*\|.*\|[[:space:]]*PENDING'; then
         echo "⏸️  单份定义迁移待执行，先停止旧目录服务与前端..."
         docker compose $COMPOSE_ENV -f docker-compose.yml "$@" stop backend frontend
     fi
