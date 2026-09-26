@@ -62,11 +62,15 @@ jobs:
         run: |
           CGO_ENABLED=0 go build -o /tmp/mf-server ./cmd/server
           CGO_ENABLED=0 go build -o /tmp/mf-migrate ./cmd/migrate
-      - name: migrate up/down roundtrip
+      - name: migrate up and irreversible down guard
         run: |
           /tmp/mf-migrate up
           /tmp/mf-migrate status
-          /tmp/mf-migrate down
+          if /tmp/mf-migrate down > /tmp/mf-down.log 2>&1; then
+            echo "irreversible migration unexpectedly rolled back" >&2
+            exit 1
+          fi
+          grep -q '000014 is irreversible' /tmp/mf-down.log
           /tmp/mf-migrate up
           /tmp/mf-migrate status
       - name: 悬挂引用体检（check-refs 冒烟）
