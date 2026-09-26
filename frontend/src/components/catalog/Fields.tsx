@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";
 import { getKindName, useDefinitions } from "@/lib/definitions";
 import { CORE_LOCALE_CODES } from "@/lib/languages";
+import { Select } from "@/components/ui/Select";
 export function NamesEditor({
   value,
   onChange,
@@ -112,21 +113,21 @@ export function EntityPicker({
         }
         onChange={(e) => setSearch(e.target.value)}
       />
-      <select
+      <Select
         aria-label={t("catalog.selectEntity")}
         value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">{t("catalog.none")}</option>
-        {selected && !items.some((x) => x.id === selected.id) && (
-          <option value={selected.id}>{title(selected, locale)}</option>
-        )}
-        {items.map((x) => (
-          <option key={x.id} value={x.id}>
-            {title(x, locale)} · {kindLabel(x.kind)}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={[
+          { value: "", label: t("catalog.none") },
+          ...(selected && !items.some((x) => x.id === selected.id)
+            ? [{ value: selected.id || "", label: title(selected, locale) }]
+            : []),
+          ...items.map((x) => ({
+            value: x.id || "",
+            label: `${title(x, locale)} · ${kindLabel(x.kind)}`,
+          })),
+        ]}
+      />
       {error && (
         <small className="cv-error">{t("catalog.connectionError")}</small>
       )}
@@ -229,13 +230,21 @@ export function FieldInput({
   value,
   onChange,
 }: {
-  field: Field;
+  field?: Field;
   value: any;
   onChange: (v: any) => void;
 }) {
   const { definitions } = useDefinitions();
   const { t, locale } = useI18n();
   if (!definitions) return null;
+  // 字段/词表定义退役后，历史属性可能仍存在。保留原值并允许 EntityEditor 删除，
+  // 避免编辑页崩溃或静默丢弃数据。
+  if (!field)
+    return (
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-line bg-surfaceSubtle p-2 text-xs text-text-muted">
+        {JSON.stringify(value, null, 2) ?? String(value)}
+      </pre>
+    );
   if (field.type === "entity")
     return (
       <EntityPicker
@@ -256,18 +265,21 @@ export function FieldInput({
     return <NamesEditor value={value || {}} onChange={onChange} />;
   if (field.type === "enum")
     return (
-      <select value={value || ""} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{t("catalog.none")}</option>
-        {Object.entries(
-          definitions.vocabularies[field.vocabulary || ""]?.terms || {},
-        )
-          .filter(([k, v]) => v.enabled || k === value)
-          .map(([k, v]) => (
-            <option value={k} key={k}>
-              {local(v.names, locale, "", k)}
-            </option>
-          ))}
-      </select>
+      <Select
+        value={value || ""}
+        onChange={onChange}
+        options={[
+          { value: "", label: t("catalog.none") },
+          ...Object.entries(
+            definitions.vocabularies[field.vocabulary || ""]?.terms || {},
+          )
+            .filter(([k, v]) => v.enabled || k === value)
+            .map(([k, v]) => ({
+              value: k,
+              label: local(v.names, locale, "", k),
+            })),
+        ]}
+      />
     );
   if (field.type === "group")
     return (
@@ -459,23 +471,21 @@ export function Evidence({
       </label>
       {sources.map((s, i) => (
         <div className="cv-group" key={i}>
-          <select
+          <Select
             aria-label={t("catalog.sourceKind")}
             value={s.kind}
-            onChange={(e) =>
+            onChange={(v) =>
               setSources(
                 sources.map((x, j) =>
-                  i === j ? { ...x, kind: e.target.value } : x,
+                  i === j ? { ...x, kind: v } : x,
                 ),
               )
             }
-          >
-            {["self", "url", "publication"].map((k) => (
-              <option key={k} value={k}>
-                {t(`catalog.source.${k}`)}
-              </option>
-            ))}
-          </select>
+            options={["self", "url", "publication"].map((k) => ({
+              value: k,
+              label: t(`catalog.source.${k}`),
+            }))}
+          />
           <input
             required
             aria-label={t("catalog.citation")}

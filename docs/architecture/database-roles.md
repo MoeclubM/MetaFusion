@@ -26,7 +26,7 @@
 ## 2. 服务 × 表矩阵（本机真库实测，2026-09-19）
 
 库 = 一个（`metafusion_db`），四个业务 schema + 一个共享审计 schema；下表由 `pg_class` 实测导出
-（`docs-local/task-db-roles/_tmp-recon.sql`），不是凭印象：
+（`docs-local/task-db-roles/recon.sql`，只读侦察入口 `run-recon.sh <db>`），不是凭印象：
 
 | schema | 表 | 序列 / 其它 | 谁读写 |
 | --- | --- | --- | --- |

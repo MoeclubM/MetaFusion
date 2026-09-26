@@ -12,6 +12,7 @@ import { EntityPicker, FieldInput } from "@/components/catalog/Fields";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { Plus, Trash2, Pencil, ArrowLeftRight, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
+import { Combobox } from "@/components/ui/Combobox";
 
 interface Relation {
   id: string;
@@ -591,23 +592,25 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
           <label className="block text-sm">
             {t("editor.relation.addType")}
-            <select
+            <Combobox
               value={addType}
               onChange={(x) => {
-                setAddType(x.target.value);
+                setAddType(x);
                 setAddTarget("");
                 setAddAttrs({});
               }}
-              className="mt-1 block w-full"
-            >
-              <option value="">{t("editor.relation.pickType")}</option>
-              {typeOptions.map((o) => (
-                <option key={optionKey(o)} value={optionKey(o)}>
-                  {getRelationName(defs, o.code, o.forward, locale)}
-                  {o.forward ? "" : `（${t("editor.relation.reverse")}）`}
-                </option>
-              ))}
-            </select>
+              options={typeOptions.map((o) => {
+                const name = getRelationName(defs, o.code, o.forward, locale);
+                return {
+                  value: optionKey(o),
+                  label: o.forward ? name : `${name}（${t("editor.relation.reverse")}）`,
+                  search: `${optionKey(o)} ${name}`,
+                };
+              })}
+              placeholder={t("editor.relation.pickType")}
+              searchPlaceholder={t("editor.relation.pickType")}
+              aria-label={t("editor.relation.addType")}
+            />
           </label>
           <div className="text-sm">
             {t("editor.relation.addTarget")}

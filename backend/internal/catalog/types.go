@@ -246,6 +246,9 @@ type Template struct {
 	// FacetFields 指定列表页可用于筛选的字段码（通常是枚举字段）。
 	// 取代代码里硬编码 edition_type/format/country 三个下拉；顺序即展示顺序。
 	FacetFields []string `json:"facet_fields,omitempty"`
+	// Kinds 声明该模板适用的实体 kind 白名单（如 work / release / agent），
+	// 前端据此过滤"新建实体时可选哪些模板"。为空表示不限 kind。
+	Kinds []string `json:"kinds,omitempty"`
 }
 
 // Scheme 是"按使用场景配置"的有限声明式规则：locator / inclusion_attributes /
