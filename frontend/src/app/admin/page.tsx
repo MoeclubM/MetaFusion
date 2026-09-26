@@ -14,6 +14,8 @@ import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { useDefinitions, getKindName, getTypeName, resolveKindOptions } from "@/lib/definitions";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { PageContainer } from "@/components/ui/PageShell";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemePicker } from "@/components/ThemePicker";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
@@ -568,7 +570,7 @@ function AdminInner() {
   // 未探活到在线的域不渲染成链接（与左栏同口径：不给死链），但保留一行说明它存在。
   if (!canEnterCatalogConsole(user)) {
     return (
-      <div className="min-h-screen bg-background text-text-strong pt-[var(--mf-header-h)]">
+      <div className="min-h-screen bg-background text-text-strong">
         <PageContainer width="narrow" className="py-12">
           <div>
             <h1 className="text-xl font-bold text-text-strong mb-2">
@@ -631,16 +633,11 @@ function AdminInner() {
   const consoleEntries = OTHER_CONSOLES.filter(
     (item) => consoles[item.id] === "online" && item.permissions.some((code) => can(user, code)),
   );
-  // 概览的状态条按权限（而不是在线）筛：要能讲"这个域你看得到但没部署"。
-  // permittedConsoles 在上面准入分支之前就算过了（探活结果与左栏入口同源），这里不重复计算。
-  const consoleProbeDone = permittedConsoles.every((item) => consoles[item.id] != null);
 
   return (
-    // pt-[var(--mf-header-h)]：站点头部是 fixed/sticky 且不给内容留位（各页面自己补），
-    // 少了这一档，下面这个 sticky topbar 会被顶到 y=60 并盖住其后 57px 内容——标题与左栏首项直接消失。
-    <div className="min-h-screen flex flex-col bg-background text-text-strong pt-[var(--mf-header-h)]">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
-      <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
+      <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-0 z-30">
         <PageContainer className="h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
@@ -657,8 +654,10 @@ function AdminInner() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs font-mono text-text-muted">
-            <span className="px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+          <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+            <LocaleSwitcher compact />
+            <ThemePicker />
+            <span className="hidden sm:inline-flex px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
               {user.username} ({user.role})
             </span>
           </div>
@@ -667,7 +666,7 @@ function AdminInner() {
 
       <PageContainer className="py-6 flex-1 flex flex-col lg:flex-row gap-6">
         {/* Left Sidebar */}
-        <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-[calc(var(--mf-header-h)+5rem)] lg:self-start lg:max-h-[calc(100vh-var(--mf-header-h)-6rem)] lg:overflow-y-auto">
+        <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
           <div className="lg:hidden rounded-xl border border-line-subtle bg-surfaceSubtle p-3">
             <label htmlFor="admin-section" className="block text-xs font-medium text-text-muted mb-2">
               {t("admin.nav.section")}
@@ -685,7 +684,7 @@ function AdminInner() {
               ))}
             </select>
           </div>
-          {/* 粘附偏移包含站点顶栏与管理台顶栏。 */}
+          {/* 粘附偏移只需包含管理台顶栏。 */}
           <nav aria-label={t("admin.nav.section")} className="hidden lg:block rounded-xl border border-line-subtle bg-surfaceSubtle p-2">
             {NAV_GROUPS.map((group) => (
               <div key={group.labelKey} className="py-1 first:pt-0 last:pb-0">
@@ -752,13 +751,10 @@ function AdminInner() {
           <div className="space-y-4 [&>*:first-child]:mt-0">
           {activeTab === "overview" && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
-                <h2 className="text-base font-semibold text-text-strong mb-1.5">
+              <div>
+                <h2 className="text-base font-semibold text-text-strong">
                   {t("admin.console.sysOverview")}
                 </h2>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {t("admin.console.sysOverviewDesc")}
-                </p>
               </div>
 
               {/* 卡片只放目录域拿得到的真实数据，且标签与端点口径一致：数据库版本与会话模式没有
@@ -781,17 +777,11 @@ function AdminInner() {
                     status NOT IN ('deleted','merged')（backend/internal/catalog/store.go listFilter），
                     与 status=deleted 相与恒为空，所以这张卡不走列表端点。取不到仍是占位符，
                     不拿 0 冒充——线上同表 deleted 有 288 条，显示 0 就是假数据。 */}
-                <div
-                  className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle"
-                  title={t("admin.console.tombstonesHint")}
-                >
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.tombstones")}
                   </div>
                   <div className="text-2xl font-bold text-text-strong">{stats.tombstones ?? "—"}</div>
-                  <div className="mt-1 text-[10px] text-text-faint leading-tight">
-                    {t("admin.console.tombstonesHint")}
-                  </div>
                 </div>
                 <button type="button" onClick={() => selectTab("extdb")} className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle hover:border-primary/40 hover:bg-surfaceHover text-left transition-colors cursor-pointer">
                   <div className="text-xs text-text-muted font-mono mb-1">
@@ -812,29 +802,6 @@ function AdminInner() {
                 </div>
               </div>
 
-              {/* 其他控制台状态条：与左栏入口共用同一次探活，不重复请求；未部署的域在这里
-                  如实标"未部署"，但左栏不给入口（状态条不是链接）。 */}
-              {consoleProbeDone && permittedConsoles.length > 0 && (
-                <div className="p-3 rounded-xl border border-line-subtle bg-surfaceSubtle flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wide text-text-faint">
-                    {t("admin.consoles.title")}
-                  </span>
-                  {permittedConsoles.map((item) => {
-                    const online = consoles[item.id] === "online";
-                    return (
-                      <span key={item.id} className="inline-flex items-center gap-1.5 text-xs">
-                        <span className={`w-2 h-2 rounded-full ${online ? "bg-emerald-400" : "bg-text-faint"}`} />
-                        <span className={online ? "text-text-body" : "text-text-faint"}>
-                          {t(item.labelKey)}
-                        </span>
-                        <span className="font-mono text-[10px] text-text-faint">
-                          {online ? t("admin.console.active") : t("admin.console.disabled")}
-                        </span>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 
