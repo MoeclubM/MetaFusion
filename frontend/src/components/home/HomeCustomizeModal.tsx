@@ -37,7 +37,7 @@ import {
 } from "@/lib/homeSections";
 
 /** feed 里的一条分区：弹窗只用得到货架定义与条目数。 */
-type FeedLike = { shelf: ShelfLike; items?: unknown[] };
+type FeedLike = { shelf: ShelfLike; items?: unknown[]; total?: number };
 
 type Props = {
   open: boolean;
@@ -80,7 +80,8 @@ export function HomeCustomizeModal({
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const section of feedSections) map.set(section.shelf.slug, (section.items || []).length);
+    for (const section of feedSections)
+      map.set(section.shelf.slug, section.total ?? (section.items || []).length);
     return map;
   }, [feedSections]);
 

@@ -342,16 +342,7 @@ func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User
 		limit = 12
 	}
 	args := []any{}
-	// 可见性与列表接口保持一致：匿名仅 published，登录者另可见自己创建的草稿。
-	where := []string{}
-	if u == nil {
-		where = append(where, "e.status='published'")
-	} else if !u.Can(PermissionShelvesManage) {
-		// 持货架管理权者（旧 admin）在求值里可见未发布条目，便于配置后预览。
-		args = append(args, u.ID)
-		where = append(where, fmt.Sprintf("(e.status='published' OR e.created_by=$%d)", len(args)))
-	}
-	where = append(where, "e.status NOT IN ('deleted','merged')")
+	where := shelfVisibilityWhere(u, &args)
 	where = append(where, shelfFilter(sh, &args, "e")...)
 
 	order := shelfOrderClause(sh.Sort)
@@ -387,6 +378,35 @@ func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User
 		}
 	}
 	return out, nil
+}
+
+// shelfVisibilityWhere 构建货架求值共用的可见性条件：匿名仅 published，登录者
+// 另可见自己创建的草稿，持货架管理权者可见未发布条目（便于配置后预览）；
+// deleted / merged 一律排除。计数与列表用同一份条件，数量才与实际筛选一致。
+func shelfVisibilityWhere(u *User, args *[]any) []string {
+	where := []string{}
+	if u == nil {
+		where = append(where, "e.status='published'")
+	} else if !u.Can(PermissionShelvesManage) {
+		*args = append(*args, u.ID)
+		where = append(where, fmt.Sprintf("(e.status='published' OR e.created_by=$%d)", len(*args)))
+	}
+	where = append(where, "e.status NOT IN ('deleted','merged')")
+	return where
+}
+
+// CountShelfItems 返回货架规则在当前调用者可见范围内命中的实体总数（不带 LIMIT），
+// 供首页显示真实筛选数量，而不是受限后的 items 条数。
+func (s *Store) CountShelfItems(ctx context.Context, sh Shelf, u *User) (int, error) {
+	args := []any{}
+	where := shelfVisibilityWhere(u, &args)
+	where = append(where, shelfFilter(sh, &args, "e")...)
+	q := "SELECT count(*) FROM catalog.entities e WHERE " + strings.Join(where, " AND ")
+	var n int
+	if err := s.DB.QueryRowContext(ctx, q, args...).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // shelfSeeds 是首页货架的默认规则（四语名称）。

@@ -677,7 +677,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 				respond(c, nil, ierr)
 				return
 			}
-			out = append(out, gin.H{"shelf": sh, "items": items})
+			// total 是该规则在当前调用者可见范围内命中的真实总数（不受 per_shelf 限制），
+			// 供首页数量徽标显示实际筛选结果。
+			total, cerr := s.CountShelfItems(c.Request.Context(), sh, user(c))
+			if cerr != nil {
+				respond(c, nil, cerr)
+				return
+			}
+			out = append(out, gin.H{"shelf": sh, "items": items, "total": total})
 		}
 		c.JSON(200, gin.H{"items": out})
 	})

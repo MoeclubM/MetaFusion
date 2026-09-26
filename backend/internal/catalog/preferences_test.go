@@ -352,6 +352,7 @@ func TestPostgresHomePreferencesRoundTrip(t *testing.T) {
 type feedEntry struct {
 	Shelf Shelf             `json:"shelf"`
 	Items []json.RawMessage `json:"items"`
+	Total int               `json:"total"`
 }
 
 // feedShelves 取 feed 条目里的分区头，复用 slugsOf 断言顺序。
@@ -410,6 +411,13 @@ func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 	}
 	if got := anonymous[2].Shelf.Names["zh-CN"]; got != "电影" {
 		t.Fatalf("匿名视角的电影分区名应是系统默认，实际 %q", got)
+	}
+	// total 是不受 per_shelf 限制的真实筛选数：电影分区只命中 1 部。
+	if anonymous[2].Total != 1 {
+		t.Fatalf("电影分区 total=%d，应 1", anonymous[2].Total)
+	}
+	if len(anonymous[2].Items) != 1 {
+		t.Fatalf("电影分区 items=%d，应 1", len(anonymous[2].Items))
 	}
 
 	payload, err := json.Marshal(HomePreferences{
