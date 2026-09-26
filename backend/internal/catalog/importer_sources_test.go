@@ -80,10 +80,13 @@ func TestImporterSourcesUseRegistryMetadata(t *testing.T) {
 		t.Fatalf("种子行 %q 不存在", importerAdapterCodes[0])
 	}
 	items := buildImporterSources(rows)
-	if len(items) != 1 {
-		t.Fatalf("items=%d, want 1", len(items))
+	if len(items) != len(importerAdapterCodes) {
+		t.Fatalf("items=%d, want %d（适配器集合）", len(items), len(importerAdapterCodes))
 	}
 	got := items[0]
+	if got.ID != importerAdapterCodes[0] {
+		t.Fatalf("首项=%s，want %s", got.ID, importerAdapterCodes[0])
+	}
 	if got.Names["zh-CN"] != "后台改过的名字" {
 		t.Errorf("名称未取注册表行：%v", got.Names)
 	}
@@ -92,7 +95,7 @@ func TestImporterSourcesUseRegistryMetadata(t *testing.T) {
 	}
 	// 注册表无行（未播种/被手工删）→ 种子兜底，来源仍在。
 	fallback := buildImporterSources(nil)
-	if len(fallback) != 1 || fallback[0].ID != importerAdapterCodes[0] || strings.TrimSpace(fallback[0].Names["zh-CN"]) == "" {
+	if len(fallback) != len(importerAdapterCodes) || fallback[0].ID != importerAdapterCodes[0] || strings.TrimSpace(fallback[0].Names["zh-CN"]) == "" {
 		t.Fatalf("注册表缺行时未回落到种子元数据：%+v", fallback)
 	}
 }
@@ -163,8 +166,8 @@ func TestImporterSourcesFollowRegistryRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || items[0].ID != "bangumi" {
-		t.Fatalf("items=%+v，want 只有 bangumi", items)
+	if len(items) != len(importerAdapterCodes) || items[0].ID != "bangumi" {
+		t.Fatalf("items=%+v，want 以 bangumi 为首的适配器集合", items)
 	}
 	if items[0].Names["zh-CN"] != "后台改的名" || items[0].Icon != "Database" {
 		t.Errorf("未读到注册表行：%+v", items[0])

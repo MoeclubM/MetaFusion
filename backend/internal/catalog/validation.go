@@ -984,10 +984,14 @@ func guardImportKey(next, prev map[string]string) error {
 	return fmt.Errorf("invalid_import_key")
 }
 
-// validImportKey 校验幂等键格式：bangumi:{subject|person|character}:{数字id}
+// validImportKey 校验幂等键格式。基础键按来源各自的 ID 形态收敛：
+//   - bangumi：bangumi:{subject|person|character}:{数字id}
+//   - dlsite：dlsite:work:{RJ/RE/BJ/VJ+数字}；社团为 dlsite:circle:RG{数字}
+//   - dmm：dmm:work:{cid}
+//
 // 允许派生后缀（:release、:r{hash}、:m{n}、:t{n}、:e{hash}），与 importer.go 的
 // importDedupKey/importReleaseChain/importerEntryExprKey 键格式一致。
-var importKeyPattern = regexp.MustCompile(`^bangumi:(subject|person|character):[1-9][0-9]*(:e[0-9a-f]+|(:release)?(:r[0-9a-f]+)?(:m[0-9]+(:t[0-9]+)?)?)?$`)
+var importKeyPattern = regexp.MustCompile(`^(?:bangumi:(?:subject|person|character):[1-9][0-9]*|dlsite:work:(?:RJ|RE|BJ|VJ)[0-9]{5,8}|dlsite:circle:RG[0-9]+|dmm:work:[a-z0-9_]{3,32})(?::e[0-9a-f]+|(?::release)?(?::r[0-9a-f]+)?(?::m[0-9]+(?::t[0-9]+)?)?)?$`)
 
 func validImportKey(s string) bool { return importKeyPattern.MatchString(strings.TrimSpace(s)) }
 

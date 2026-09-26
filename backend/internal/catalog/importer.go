@@ -284,10 +284,34 @@ func normalizeImporterSource(source string) (string, error) {
 	if src == "" {
 		src = "auto"
 	}
-	if src == "auto" || src == "bangumi" {
+	// auto 是解析别名而非法定来源：Preview 会按 URL/ID 判定具体适配器，
+	// 这里先回落到默认（bangumi），保证只认单一来源码的写路径口径不变。
+	if src == "auto" {
 		return "bangumi", nil
 	}
+	if importerAdapterSet()[src] {
+		return src, nil
+	}
 	return "", fmt.Errorf("not_supported")
+}
+
+// detectImporterSource 按 URL/ID 字面形态判定 auto 下的具体来源；
+// 无法判定时回落到 bangumi（默认适配器）。纯本地解析，不发网络请求。
+func detectImporterSource(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return "bangumi"
+	}
+	lower := strings.ToLower(s)
+	// 含 dlsite 域名，或裸 DLsite 商品号（RJ/RE/BJ/VJ + 数字）。
+	if strings.Contains(lower, "dlsite.com") || dlsiteProductIDPattern.MatchString(strings.ToUpper(strings.TrimSpace(s))) {
+		return "dlsite"
+	}
+	// 含 dmm 域名（含 dlsoft 子域）。
+	if strings.Contains(lower, "dmm.co.jp") || strings.Contains(lower, "dmm.com") {
+		return "dmm"
+	}
+	return "bangumi"
 }
 
 func normalizeImporterEntityType(entityType string) (string, error) {
@@ -1236,9 +1260,28 @@ func bangumiTranslationItems(name, nameCN, summary string) []ImporterTranslation
 
 // Preview 解析外部 ID 并抓取 Bangumi 公开 API 生成预览；非 Bangumi 来源返回 not_supported。
 func (s *Store) Preview(ctx context.Context, source, urlOrID, entityType string) (ImporterPreviewResponse, error) {
-	resolvedSource, err := normalizeImporterSource(source)
+	// auto（含空值）按 URL/ID 字面形态判定具体来源；显式指定来源时以指定为准。
+	rawSource := strings.ToLower(strings.TrimSpace(source))
+	if rawSource == "" || rawSource == "auto" {
+		rawSource = detectImporterSource(urlOrID)
+	}
+	resolvedSource, err := normalizeImporterSource(rawSource)
 	if err != nil {
 		return ImporterPreviewResponse{}, err
+	}
+	switch resolvedSource {
+	case "dlsite":
+		ref, perr := parseDLsiteRef(urlOrID)
+		if perr != nil {
+			return ImporterPreviewResponse{}, perr
+		}
+		return previewDLsite(ctx, ref)
+	case "dmm":
+		ref, perr := parseDMMRef(urlOrID)
+		if perr != nil {
+			return ImporterPreviewResponse{}, perr
+		}
+		return previewDMM(ctx, ref)
 	}
 	et, err := normalizeImporterEntityType(entityType)
 	if err != nil {
@@ -1849,14 +1892,28 @@ func importerWithoutRemotePictures(req ImporterImportRequest) ImporterImportRequ
 
 // importDedupKey 由 url_or_id 本地解析幂等键，不发网络请求。
 func importDedupKey(source string, req ImporterImportRequest, entityType string) (string, bool) {
-	if source != "bangumi" {
+	switch source {
+	case "bangumi":
+		ref, err := resolveBangumiRef(req.URLOrID, entityType)
+		if err != nil {
+			return "", false
+		}
+		return "bangumi:" + ref.Kind + ":" + strconv.Itoa(ref.ID), true
+	case "dlsite":
+		ref, err := parseDLsiteRef(req.URLOrID)
+		if err != nil {
+			return "", false
+		}
+		return "dlsite:work:" + ref.ProductID, true
+	case "dmm":
+		ref, err := parseDMMRef(req.URLOrID)
+		if err != nil {
+			return "", false
+		}
+		return "dmm:work:" + ref.CID, true
+	default:
 		return "", false
 	}
-	ref, err := resolveBangumiRef(req.URLOrID, entityType)
-	if err != nil {
-		return "", false
-	}
-	return "bangumi:" + ref.Kind + ":" + strconv.Itoa(ref.ID), true
 }
 
 func splitDedupKey(key string) (kind, id string) {
@@ -1865,6 +1922,76 @@ func splitDedupKey(key string) (kind, id string) {
 		return "", ""
 	}
 	return parts[1], parts[2]
+}
+
+// importerAuthorityPair 从导入幂等键推导应写入 external_ids 的权威库码与值。
+// bangumi 的 subject/person/character 分别对应 bangumi / bangumi_person / bangumi_character；
+// dlsite、dmm 的 work 直接对应同名权威库，其余种类加后缀，保证外部身份可追溯。
+func importerAuthorityPair(key string) (code, id string) {
+	parts := strings.Split(key, ":")
+	if len(parts) != 3 {
+		return "", ""
+	}
+	source, kind, v := parts[0], parts[1], parts[2]
+	switch source {
+	case "bangumi":
+		switch kind {
+		case "subject":
+			return "bangumi", v
+		case "person":
+			return "bangumi_person", v
+		case "character":
+			return "bangumi_character", v
+		}
+	case "dlsite":
+		if kind == "work" {
+			return "dlsite", v
+		}
+		return "dlsite_" + kind, v
+	case "dmm":
+		if kind == "work" {
+			return "dmm", v
+		}
+		return "dmm_" + kind, v
+	}
+	return "", ""
+}
+
+// importerKeyPageURL 把导入幂等键还原为来源条目页，作为图片 Source.URL，便于考据。
+func importerKeyPageURL(key string) string {
+	parts := strings.Split(key, ":")
+	if len(parts) != 3 {
+		return ""
+	}
+	source, kind, id := parts[0], parts[1], parts[2]
+	switch source {
+	case "bangumi":
+		switch kind {
+		case "subject":
+			return "https://bgm.tv/subject/" + id
+		case "person":
+			return "https://bgm.tv/person/" + id
+		case "character":
+			return "https://bgm.tv/character/" + id
+		}
+	case "dlsite":
+		if kind == "work" {
+			site := "maniax"
+			if strings.HasPrefix(id, "BJ") || strings.HasPrefix(id, "VJ") {
+				site = "books"
+			}
+			return "https://www.dlsite.com/" + site + "/work/=/product_id/" + id + ".html"
+		}
+		if kind == "circle" {
+			return "https://www.dlsite.com/maniax/circle/profile/=/maker_id/" + id + ".html"
+		}
+	case "dmm":
+		if kind == "work" {
+			// cid 本身反不出频道，数字同人详情页可识别任意 cid 并自动归位。
+			return "https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=" + id + "/"
+		}
+	}
+	return ""
 }
 
 // findImported 按内部幂等键找已导入实体：merged 行跟随重定向到存活实体
@@ -1982,6 +2109,13 @@ func assocImportKey(externalIDs map[string]any) string {
 			}
 		}
 	}
+	// DLsite 社团按权威库 dlsite_maker（RG id）服务端派生，与落库键格式一致；
+	// 不直接采信载荷里的 metafusion_import，防止用别人的幂等键串到另一条链路。
+	if v, ok := externalIDs["dlsite_maker"]; ok {
+		if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+			return "dlsite:circle:" + s
+		}
+	}
 	if v, ok := externalIDs["metafusion_import"]; ok {
 		if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
 			return s
@@ -2052,6 +2186,10 @@ func workTypeFromMetadata(v any) string {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return ""
+	}
+	// 适配器已映射好的合法类型码（dlsite / dmm 等）直接采用。
+	if t := scalarString(m["work_type"]); t != "" {
+		return t
 	}
 	switch t := m["bangumi_type"].(type) {
 	case float64:
@@ -2126,15 +2264,8 @@ func pictureFromRemote(imageURL, citation, key string, hasKey bool) (Picture, bo
 	}
 	pageURL := imageURL
 	if hasKey {
-		if kind, id := splitDedupKey(key); id != "" {
-			switch kind {
-			case "subject":
-				pageURL = "https://bgm.tv/subject/" + id
-			case "character":
-				pageURL = "https://bgm.tv/character/" + id
-			case "person":
-				pageURL = "https://bgm.tv/person/" + id
-			}
+		if u := importerKeyPageURL(key); u != "" {
+			pageURL = u
 		}
 	}
 	if !validURL(pageURL) {
@@ -2258,7 +2389,7 @@ func mergeAgentMetadata(existing Entity, assoc ImporterStaffAssociation) (Entity
 		}
 	}
 	if len(existing.Pictures) == 0 {
-		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
+		if p, ok := pictureFromRemote(assoc.AvatarURL, "导入头像", "", false); ok {
 			existing.Pictures = PicturesJSON{p}
 			changed = true
 		}
@@ -2410,10 +2541,8 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 	}
 	if hasKey {
 		e.ExternalIDs["metafusion_import"] = key
-		if kind, id := splitDedupKey(key); kind == "subject" {
-			e.ExternalIDs["bangumi"] = id
-		} else if kind != "" && id != "" {
-			e.ExternalIDs["bangumi_"+kind] = id
+		if code, id := importerAuthorityPair(key); code != "" && id != "" {
+			e.ExternalIDs[code] = id
 		}
 	} else if strings.TrimSpace(sourceID) != "" {
 		e.ExternalIDs[source] = strings.TrimSpace(sourceID)
@@ -2429,7 +2558,7 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 	// 不能无差别塞进原语言行，否则会把中日异名混在同一语种（AGENTS.md 语义）。
 	applyAliasesByScript(&e, w.Aliases)
 	applyWorkSummary(&e, w.Summary)
-	if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", key, hasKey); ok {
+	if p, ok := pictureFromRemote(w.CoverImageURL, "导入条目封面", key, hasKey); ok {
 		e.Pictures = PicturesJSON{p}
 	}
 	return e, nil
@@ -2475,7 +2604,7 @@ func buildAgentEntity(name, originalName, biography, avatarURL, lang, entityType
 		ExternalIDs:      stringScalarMap(externalIDs),
 		Attributes:       map[string]any{},
 	}
-	if p, ok := pictureFromRemote(avatarURL, "Bangumi 头像", key, hasKey); ok {
+	if p, ok := pictureFromRemote(avatarURL, "导入头像", key, hasKey); ok {
 		e.Pictures = PicturesJSON{p}
 	}
 	if strings.TrimSpace(originalName) != "" && strings.TrimSpace(originalName) != name {
@@ -3777,7 +3906,7 @@ func importerReleasePictures(rel *ImporterReleasePreview, workKey string) []Pict
 	}
 	// 发行封面与作品封面来自同一条上游条目：页面 URL 用作品幂等键还原（bangumi:subject:<id>）。
 	key := strings.TrimSpace(workKey)
-	if p, ok := pictureFromRemote(rel.CoverImageURL, "Bangumi 发行版封面", key, key != ""); ok {
+	if p, ok := pictureFromRemote(rel.CoverImageURL, "导入发行版封面", key, key != ""); ok {
 		return []Picture{p}
 	}
 	return nil
@@ -4541,7 +4670,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			Attributes:       map[string]any{},
 			ExternalIDs:      importerAgentExternalIDs(assoc.ExternalIDs),
 		}
-		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
+		if p, ok := pictureFromRemote(assoc.AvatarURL, "导入头像", "", false); ok {
 			staff.Pictures = PicturesJSON{p}
 		}
 		if strings.TrimSpace(assoc.Biography) != "" {
