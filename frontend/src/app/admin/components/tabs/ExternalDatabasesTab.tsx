@@ -13,10 +13,12 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges, missingRequiredLocales } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
+import { UI_LOCALE_CODES } from "@/lib/languages";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { Select } from "@/components/ui/Select";
 
 export function ExternalDatabasesTab() {
   const { t, tr, locale } = useI18n();
@@ -32,7 +34,7 @@ export function ExternalDatabasesTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<Partial<ExternalDatabaseDefinition>>({
     code: "",
-    names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
+    names: Object.fromEntries(UI_LOCALE_CODES.map((l) => [l, ""])) as Record<string, string>,
     category: "all",
     url_pattern: "",
     icon: "Globe",
@@ -70,7 +72,7 @@ export function ExternalDatabasesTab() {
   const handleOpenCreate = () => {
     setForm({
       code: "",
-      names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
+      names: Object.fromEntries(UI_LOCALE_CODES.map((l) => [l, ""])) as Record<string, string>,
       category: "all",
       url_pattern: "",
       icon: "Globe",
@@ -84,7 +86,7 @@ export function ExternalDatabasesTab() {
 
   const handleOpenEdit = (item: ExternalDatabaseDefinition) => {
     const initialNames: Record<string, string> = { ...(item.names || {}) };
-    for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
+    for (const k of UI_LOCALE_CODES) {
       if (!(k in initialNames)) initialNames[k] = "";
     }
 
@@ -372,17 +374,15 @@ export function ExternalDatabasesTab() {
               <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldCategory")}
               </label>
-              <select
+              <Select
                 value={form.category || "all"}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
-              >
-                {["all", ...kindOptions].map((k) => (
-                  <option key={k} value={k}>
-                    {getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k))}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, category: v })}
+                options={["all", ...kindOptions].map((k) => ({
+                  value: k,
+                  label: getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k)),
+                }))}
+                aria-label={t("admin.extdb.fieldCategory")}
+              />
             </div>
           </div>
 

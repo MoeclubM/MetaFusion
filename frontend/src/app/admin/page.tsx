@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 // 目录域管理台：只覆盖元数据目录自己的工作面（概览 / 条目 / 定义 / 外部来源 / 货架 / 审核 /
 // 合并 / 子系统能力 / 实例交换）。账号、社区、存储三个域的管理台已是独立应用
@@ -14,6 +14,7 @@ import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { useDefinitions, getKindName, getTypeName, resolveKindOptions } from "@/lib/definitions";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { PageContainer } from "@/components/ui/PageShell";
+import { Select } from "@/components/ui/Select";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ThemePicker } from "@/components/ThemePicker";
 import { TabPanel } from "@/components/ui/TabPanel";
@@ -671,18 +672,15 @@ function AdminInner() {
             <label htmlFor="admin-section" className="block text-xs font-medium text-text-muted mb-2">
               {t("admin.nav.section")}
             </label>
-            <select
+            <Select
               id="admin-section"
               value={activeTab}
-              onChange={(e) => selectTab(e.target.value as AdminTab)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-text-strong focus:border-primary outline-none"
-            >
-              {NAV_GROUPS.map((group) => (
-                <optgroup key={group.labelKey} label={t(group.labelKey)}>
-                  {group.tabs.map((item) => <option key={item.id} value={item.id}>{t(item.labelKey)}</option>)}
-                </optgroup>
-              ))}
-            </select>
+              onChange={(v) => selectTab(v as AdminTab)}
+              options={NAV_GROUPS.flatMap((group) =>
+                group.tabs.map((item) => ({ value: item.id, label: t(item.labelKey) }))
+              )}
+              aria-label={t("admin.nav.section")}
+            />
           </div>
           {/* 粘附偏移只需包含管理台顶栏。 */}
           <nav aria-label={t("admin.nav.section")} className="hidden lg:block rounded-xl border border-line-subtle bg-surfaceSubtle p-2">
@@ -871,31 +869,29 @@ function AdminInner() {
                 </form>
 
                 <div className="sm:col-span-3">
-                  <select
+                  <Select
                     value={entitiesKind}
+                    onChange={(v) => { setEntitiesKind(v); setEntitiesPage(1); }}
+                    options={[
+                      { value: "all", label: t("catalog.kind.all") },
+                      ...kindOptions.map((k) => ({ value: k, label: kindLabel(k) })),
+                    ]}
                     aria-label={t("catalog.kindLabel")}
-                    onChange={(e) => { setEntitiesKind(e.target.value); setEntitiesPage(1); }}
-                    className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
-                  >
-                    <option value="all">{t("catalog.kind.all")}</option>
-                    {kindOptions.map((k) => (
-                      <option key={k} value={k}>{kindLabel(k)}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="sm:col-span-4">
-                  <select
+                  <Select
                     value={entitiesStatus}
+                    onChange={(v) => { setEntitiesStatus(v); setEntitiesPage(1); }}
+                    options={[
+                      { value: "all", label: t("catalog.allStates") },
+                      { value: "published", label: t("catalog.status.published") },
+                      { value: "pending_review", label: t("catalog.status.pending_review") },
+                      { value: "draft", label: t("catalog.status.draft") },
+                    ]}
                     aria-label={t("catalog.status")}
-                    onChange={(e) => { setEntitiesStatus(e.target.value); setEntitiesPage(1); }}
-                    className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
-                  >
-                    <option value="all">{t("catalog.allStates")}</option>
-                    <option value="published">{t("catalog.status.published")}</option>
-                    <option value="pending_review">{t("catalog.status.pending_review")}</option>
-                    <option value="draft">{t("catalog.status.draft")}</option>
-                  </select>
+                  />
                 </div>
               </div>
               <p className="text-xs text-text-faint">{t("admin.entities.activeOnlyHint")}</p>

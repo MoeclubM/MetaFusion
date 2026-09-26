@@ -8,7 +8,9 @@ import { Modal } from "@/components/ui/Modal";
 import { fetchDefinitions } from "@/lib/definitions";
 import type { DynamicDefinitions } from "@/lib/definitions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
+import { UI_LOCALE_CODES } from "@/lib/languages";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { Select } from "@/components/ui/Select";
 
 export interface ShelfQuery {
   types?: string[];
@@ -28,7 +30,7 @@ export interface ShelfItem {
   sort_order: number;
 }
 
-const EMPTY_NAMES = { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" };
+const EMPTY_NAMES = Object.fromEntries(UI_LOCALE_CODES.map((l) => [l, ""])) as Record<string, string>;
 
 function emptyShelf(count: number): Partial<ShelfItem> {
   return {
@@ -578,15 +580,16 @@ export function ShelvesTab() {
               <label className="block text-[11px] font-mono text-text-body font-medium mb-1">
                 {t("admin.shelves.fieldSort")}
               </label>
-              <select
+              <Select
                 value={form.sort || "updated"}
-                onChange={(e) => setForm({ ...form, sort: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong focus:outline-none focus:border-emerald-400"
-              >
-                <option value="updated">{t("admin.shelves.sortUpdated")}</option>
-                <option value="created">{t("admin.shelves.sortCreated")}</option>
-                <option value="title">{t("admin.shelves.sortTitle")}</option>
-              </select>
+                onChange={(v) => setForm({ ...form, sort: v })}
+                options={[
+                  { value: "updated", label: t("admin.shelves.sortUpdated") },
+                  { value: "created", label: t("admin.shelves.sortCreated") },
+                  { value: "title", label: t("admin.shelves.sortTitle") },
+                ]}
+                aria-label={t("admin.shelves.fieldSort")}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-mono text-text-body font-medium mb-1">

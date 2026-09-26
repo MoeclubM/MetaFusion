@@ -6,6 +6,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
+import { UI_LOCALE_CODES, type UiLocale } from "@/lib/languages";
 import { useTheme, accentLabel } from "@/lib/themeContext";
 import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
@@ -43,6 +44,13 @@ import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 type SettingsTab = "profile" | "activity" | "password" | "appearance" | "authorizations";
 
 const SETTINGS_TABS: SettingsTab[] = ["profile", "activity", "password", "appearance", "authorizations"];
+
+const SETTINGS_LOCALE_LABELS: Record<UiLocale, string> = {
+  "zh-CN": "locale.simplifiedChinese",
+  "zh-TW": "locale.traditionalChinese",
+  "ja-JP": "locale.japanese",
+  "en-US": "locale.englishUs",
+};
 
 export default function SettingsPage() {
   const { user, refreshProfile } = useAuth();
@@ -428,15 +436,10 @@ export default function SettingsPage() {
                   </span>
                   <Select
                     value={locale}
-                    onChange={(val) => setLocale(val as "zh-CN" | "zh-TW" | "ja-JP" | "en-US")}
+                    onChange={(val) => setLocale(val as UiLocale)}
                     fullWidth={false}
                     className="min-w-[10.5rem] h-8 px-2 text-xs"
-                    options={[
-                      { value: "zh-CN", label: t("locale.simplifiedChinese") },
-                      { value: "zh-TW", label: t("locale.traditionalChinese") },
-                      { value: "ja-JP", label: t("locale.japanese") },
-                      { value: "en-US", label: t("locale.englishUs") },
-                    ]}
+                    options={UI_LOCALE_CODES.map((code) => ({ value: code, label: t(SETTINGS_LOCALE_LABELS[code as UiLocale]) }))}
                   />
                 </div>
 
