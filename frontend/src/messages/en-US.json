@@ -301,7 +301,7 @@
   "entity.toolbar.merge": "Merge {entityType}",
   "entity.toolbar.defaultLabel": "Entity",
   "entity.toolbar.work": "Work",
-  "entity.authority.label": "Authority Databases",
+  "entity.authority.label": "External Links",
   "editor.universal.unauthWarning": "You are currently not signed in. You can browse and fill the form, but submitting requires an account.",
   "editor.universal.loginNow": "Sign In",
   "editor.universal.needLoginToSave": "Sign in to save",

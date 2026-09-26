@@ -19,6 +19,7 @@ import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeN
 import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
 import {
   assetContentUrl,
+  bindAsset,
   completeUpload,
   initiateUpload,
   isAssetUuid,
@@ -347,7 +348,8 @@ export function EntityEditor({
     return options;
   };
   // ---- 图片直传：复用 storage 服务的 sha256 → initiate → putFile → complete 链路。
-  // 图片直接挂在 entity.pictures 上，不调用 bindAsset（无需先有 entity.id）；
+  // 封面上传完整复用 storage 服务链路：sha256→initiate→put→complete→bind(role=cover_image)。
+  // 新建实体无 id 时跳过 bind（asset 仍由 pictures[].asset_id 引用，保存后可补绑）。
   // 上传成功后把 asset_id 与 assetContentUrl 一次性写回该行，缩略图随之回显。
   const pictureFileRef = useRef<HTMLInputElement | null>(null);
   const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
@@ -396,6 +398,8 @@ export function EntityEditor({
       }
       setUploadProgress(100);
       await completeUpload(init.asset_id, init.upload_id);
+      // 已有实体时绑定 asset 到实体（role=cover_image），新建实体跳过。
+      if (e.id) { await bindAsset(init.asset_id, e.id, "cover_image"); }
       patchPicture(index, {
         asset_id: init.asset_id,
         url: assetContentUrl(init.asset_id),
