@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -267,7 +266,7 @@ func validateKinds(kinds []string) error {
 	return nil
 }
 func (d Definitions) Validate() error {
-	if len(d.Types) == 0 || d.Fields == nil || d.Relations == nil || d.Vocabularies == nil || d.Templates == nil {
+	if d.Fields == nil || d.Relations == nil || d.Vocabularies == nil || d.Templates == nil || d.Schemes == nil || d.Structure == nil {
 		return fmt.Errorf("definitions_required")
 	}
 	fields := func(keys []string) error {
@@ -308,29 +307,6 @@ func (d Definitions) Validate() error {
 			return fmt.Errorf("%s: %w", code, e)
 		}
 	}
-	for code, t := range d.Types {
-		if !codePattern.MatchString(code) {
-			return fmt.Errorf("invalid_code")
-		}
-		// 四语只对启用中的条目强制：停用条目可能是历史遗留的两语名，
-		// 让它们阻塞整份文档的提交会把"补译"变成"先删定义"。
-		if t.Enabled {
-			if e := validateNames(t.Names); e != nil {
-				return e
-			}
-		}
-		if e := validateKinds(t.Kinds); e != nil {
-			return e
-		}
-		if e := fields(t.Fields); e != nil {
-			return e
-		}
-		if t.Template != "" {
-			if _, ok := d.Templates[t.Template]; !ok {
-				return fmt.Errorf("unknown_template")
-			}
-		}
-	}
 	for code, r := range d.Relations {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
@@ -359,10 +335,10 @@ func (d Definitions) Validate() error {
 			return fmt.Errorf("symmetric_acyclic_conflict")
 		}
 		// 署名槽位是闭集（见 types.go 的 ParticipantSlot 注释）：person 对端是署名主体、
-		// character 对端是虚构角色、peer 是同层级对象不产生署名、空=未声明（老文档）。
+		// character 对端是虚构角色、peer 是同层级对象不产生署名。
 		// GUI 用下拉约束，服务端再拦一次手造载荷；拼错的槽位会让展示端静默丢署名。
 		switch r.ParticipantSlot {
-		case "", "person", "character", "peer":
+		case "person", "character", "peer":
 		default:
 			return fmt.Errorf("invalid_participant_slot: %s", code)
 		}
@@ -371,11 +347,6 @@ func (d Definitions) Validate() error {
 		}
 		if e := fields(r.Fields); e != nil {
 			return e
-		}
-		for _, c := range append(append([]string{}, r.SourceTypes...), r.TargetTypes...) {
-			if _, ok := d.Types[c]; !ok {
-				return fmt.Errorf("unknown_type")
-			}
 		}
 	}
 	for code, s := range d.Schemes {
@@ -504,11 +475,6 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 			return fmt.Errorf("%s: %w", code, fmt.Errorf("invalid_kind"))
 		}
 	}
-	for _, t := range s.Types {
-		if _, ok := d.Types[t]; !ok {
-			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_type"))
-		}
-	}
 	if s.MediumFormats != nil {
 		if s.Slot == "subject_attributes" || len(s.Kinds) > 0 && !contains(s.Kinds, "track") {
 			return fmt.Errorf("%s: invalid_medium_format_scope", code)
@@ -549,97 +515,8 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 	return nil
 }
 
-// freeInputAttributes 是不绑定字段方案的自由输入字段：标签的值域开放，
-// 可表达分类和主题，因此在任何 kind、任何 types（含空）下都可写。
-// 自由的是"取值"不是"存在性"：定义里删掉该字段即不可写（attributes 按未知字段拒绝），
-// 模板从不参与适用性判定（只管展示与检索），新定义发布后字段集自动重算，不改代码。
-var freeInputAttributes = []string{"tags"}
-
-// kindTypeCodes 返回该 kind 下启用中的业务类型码（按码排序，保证可复现）。
-// 它只用于空 types 回退：存量无类型实体与导入未识别类型仍要可读可写，
-// 因此编辑/预检/保存/方案匹配共用这套回退。回退**仅兼容历史**——新写扩展属性
-// 必须显式声明字段方案，服务端同样不把
-// 它们写回 e.Types：自动加全部 types 会把一部小说同时标为音乐、动画、游戏。
-// historical=true 时同时计入停用类型：存量数据的字段键仍要能算出来，
-// 新增使用由 attributes/retiredEntity 按新旧值判定，此处只管"键集合"。
-func (d Definitions) kindTypeCodes(kind string, historical bool) []string {
-	var out []string
-	for code, t := range d.Types {
-		if (historical || t.Enabled) && contains(t.Kinds, kind) {
-			out = append(out, code)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-// explicitTypesCutoff 是"新写扩展属性必须显式声明方案"口径（M05/D3）的生效点：
-// 此刻之前创建的无类型实体视为真实旧数据，更新时仍走历史回退；之后创建的无类型实体
-// （只能是裸骨架或导入链路）补属性同样要先声明 types。创建时刻取自主键 UUIDv7 的
-// 毫秒时间戳（见 newID），不以"有没有 ID"为准——创建后即有 ID（D3）。
-var explicitTypesCutoffMillis = time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC).UnixMilli()
-
-// uuidV7Millis 从主键提取创建时间（UUIDv7 前 48 位是毫秒时间戳）：
-// 非 v7 主键（v4 回退、历史异形）返回 false，调用方按旧数据宽容——不断读。
-func uuidV7Millis(id string) (int64, bool) {
-	s := strings.ReplaceAll(id, "-", "")
-	if len(s) != 32 || s[12] != '7' {
-		return 0, false
-	}
-	n, err := strconv.ParseUint(s[:12], 16, 64)
-	if err != nil {
-		return 0, false
-	}
-	return int64(n), true
-}
-
-// isLegacyUntyped 报告该存量实体是否属于真实旧数据：无 types 且创建早于口径生效点。
-// 有 types 的实体不走历史回退（声明了就按声明校验）；主键解析失败按旧数据宽容。
-func isLegacyUntyped(e Entity) bool {
-	if len(e.Types) > 0 {
-		return false
-	}
-	ms, ok := uuidV7Millis(e.ID)
-	if !ok {
-		return true
-	}
-	return ms < explicitTypesCutoffMillis
-}
-
-// needsExplicitTypes 报告实体是否携带类型外属性（自由输入 tags 除外）：
-// 新写携带这类内容必须显式声明字段方案（attributeKeys 报 types_required），
-// 空回退仅限真实旧数据与导入链路；无属性/仅 tags 的实体始终可保存。
-func needsExplicitTypes(e Entity) bool {
-	for k := range e.Attributes {
-		if !contains(freeInputAttributes, k) {
-			return true
-		}
-	}
-	return false
-}
-
-// effectiveOwnerTypes 返回拥有者的有效业务类型：声明了就原样用声明的
-// （恒等，不展开、不并集——与前端恒等 effectiveTypesOf 同契约）；
-// 空 types 时仅 historical 口径回退到该 kind 的启用类型集合（见 kindTypeCodes，
-// 存量无类型实体/导入未识别类型），新写（historical=false）返回空——与前端
-// matchSchemes 直接匹配空数组同口径（空只命中不限类型的方案）。
-// 于是"字段适用范围"与"方案匹配"看到的是同一套类型。
-func (d Definitions) effectiveOwnerTypes(ownerKind string, ownerTypes []string, historical bool) []string {
-	if len(ownerTypes) > 0 {
-		return ownerTypes
-	}
-	if !historical {
-		return nil
-	}
-	return d.kindTypeCodes(ownerKind, false)
-}
-
-// matchSchemes 找出与拥有者匹配的场景：slot 相同、kinds 命中拥有者 kind
-// （空=命中）、types 与拥有者有效类型有交集（空=命中）且 enabled。
-// 空 types 仅 historical 口径按有效类型（见 effectiveOwnerTypes）展开匹配
-// （历史/导入载荷）；新写按前端同口径直接匹配空数组——空只命中不限类型的方案。
-func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, historical bool, mediumFormat ...string) []Scheme {
-	ownerTypes = d.effectiveOwnerTypes(ownerKind, ownerTypes, historical)
+// matchSchemes 找出与结构层级和载体格式匹配的场景。未匹配时使用全局结构字段。
+func (d Definitions) matchSchemes(slot, ownerKind string, mediumFormat ...string) []Scheme {
 	var out []Scheme
 	for _, s := range d.Schemes {
 		if !s.Enabled || s.Slot != slot {
@@ -648,20 +525,9 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, h
 		if len(s.Kinds) > 0 && !contains(s.Kinds, ownerKind) {
 			continue
 		}
-		if s.MediumFormats != nil && len(*s.MediumFormats) > 0 && (ownerKind != "track" || len(mediumFormat) == 0 || !contains(*s.MediumFormats, mediumFormat[0])) {
+		if s.MediumFormats != nil && len(*s.MediumFormats) > 0 &&
+			(ownerKind != "track" || len(mediumFormat) == 0 || !contains(*s.MediumFormats, mediumFormat[0])) {
 			continue
-		}
-		if len(s.Types) > 0 {
-			hit := false
-			for _, t := range ownerTypes {
-				if contains(s.Types, t) {
-					hit = true
-					break
-				}
-			}
-			if !hit {
-				continue
-			}
 		}
 		out = append(out, s)
 	}
@@ -674,12 +540,12 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, h
 // 而非静默放过——入口缺失是固定契约被破坏，定义层由 structuralFieldsPresent
 // 在 Validate 拒绝；实体层此处同样失败（空数据已被 isEmptyValue 提前放行，
 // 见 TestStructuralEntryMissingRejectsEntityData）。
-func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string, historical bool, mediumFormat ...string) Field {
+func (d Definitions) effectiveGroupField(slot, ownerKind string, mediumFormat ...string) Field {
 	group, ok := d.Fields[slot]
 	if !ok {
 		return Field{}
 	}
-	matched := d.matchSchemes(slot, ownerKind, ownerTypes, historical, mediumFormat...)
+	matched := d.matchSchemes(slot, ownerKind, mediumFormat...)
 	if len(matched) == 0 {
 		return group
 	}
@@ -737,6 +603,11 @@ func checkRangeRequired(group Field, m map[string]any) error {
 func (d Definitions) validateField(f Field, depth int) error {
 	if depth > 4 {
 		return fmt.Errorf("field_nesting_limit")
+	}
+	if len(f.ApplicableKinds) > 0 {
+		if e := validateKinds(f.ApplicableKinds); e != nil {
+			return e
+		}
 	}
 	// 与类型/关系同一口径：四语只为启用中的字段强制。
 	// 单位名（unit）只在声明了单位时校验——未声明单位是常态，不能反过来当缺项。
@@ -1093,10 +964,7 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 	}
 	// 零翻译发布由 Store.Save 显式拦截（translation_required），此处不重复：
 	// 调用方统一 historical=true（存量/impact 宽容）。保留注释以防回退。
-	keys, err := d.attributeKeys(e, historical)
-	if err != nil {
-		return err
-	}
+	keys := d.attributeKeys(e.Kind)
 	if err := d.attributes(keys, e.Attributes, reference, historical); err != nil {
 		return err
 	}
@@ -1116,11 +984,14 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 		if !validPictureTime(p.TakenAt) {
 			return fmt.Errorf("invalid_picture_time")
 		}
-		if !validPictureTime(p.InUseFrom) || !validPictureTime(p.InUseUntil) {
-			return fmt.Errorf("invalid_picture_period")
-		}
-		if strings.TrimSpace(p.InUseFrom) != "" && strings.TrimSpace(p.InUseUntil) != "" && pictureTimeStart(p.InUseFrom).After(pictureTimeEnd(p.InUseUntil)) {
-			return fmt.Errorf("invalid_picture_period")
+		if p.UsagePeriod != nil {
+			begin, end := strings.TrimSpace(p.UsagePeriod.Begin), strings.TrimSpace(p.UsagePeriod.End)
+			if (begin == "" && end == "") || !validPictureTime(begin) || !validPictureTime(end) {
+				return fmt.Errorf("invalid_picture_period")
+			}
+			if begin != "" && end != "" && pictureTimeStart(begin).After(pictureTimeEnd(end)) {
+				return fmt.Errorf("invalid_picture_period")
+			}
 		}
 		if err := validateSources("picture", []Source{p.Source}); err != nil {
 			return err
@@ -1151,54 +1022,18 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 	return nil
 }
 
-// attributeKeys 返回实体的有效属性字段码（顺序即去重顺序）：
-//   - 声明了 types：沿用类型并集，非法类型即错（与此前一致，旧 types 先兼容）；
-//     服务端不替调用方展开 kind 并集——声明 [song] 的 work 写 novel 专属字段仍是
-//     unknown_field（见 TestDeclaredTypesAreUsedVerbatim），前端必须显式选类型；
-//   - 空 types + 历史口径（historical=true，存量无类型实体/导入未识别类型）：
-//     回退到该 kind 的类型并集（见 kindTypeCodes），不报 invalid_type；
-//   - 空 types + 新写口径（historical=false）且携带类型外属性：报 types_required——
-//     扩展字段须显式声明字段方案，无属性/仅 tags 可直接保存；
-//   - 各分支最后都补上自由输入字段（tags）：标签分类不决定字段权限，在任何 kind 下都可写。
-//
-// 字段集与类型校验同源：Save 与预检都用它，避免出现"预检按 A 集合放行、Save 按 B 集合拒绝"。
-// 新定义发布后字段集自动重算，不改代码；不把有效类型写回 e.Types（见 kindTypeCodes）。
-func (d Definitions) attributeKeys(e Entity, historical bool) ([]string, error) {
-	var keys []string
-	if len(e.Types) == 0 {
-		if !historical && needsExplicitTypes(e) {
-			return nil, fmt.Errorf("types_required")
-		}
-		for _, code := range d.kindTypeCodes(e.Kind, historical) {
-			for _, f := range d.Types[code].Fields {
-				if !contains(keys, f) {
-					keys = append(keys, f)
-				}
-			}
-		}
-	} else {
-		seen := map[string]bool{}
-		for _, code := range e.Types {
-			t, ok := d.Types[code]
-			if !ok || !historical && !t.Enabled || !contains(t.Kinds, e.Kind) || seen[code] {
-				return nil, fmt.Errorf("invalid_type: %s", code)
-			}
-			seen[code] = true
-			for _, f := range t.Fields {
-				if !contains(keys, f) {
-					keys = append(keys, f)
-				}
-			}
+// attributeKeys 按字段自身声明的适用层级组成实体属性白名单。
+// 字段取值由 Field.Type 校验；适用范围不依赖出版物分类或展示模板。
+func (d Definitions) attributeKeys(kind string) []string {
+	keys := make([]string, 0)
+	for code, field := range d.Fields {
+		if contains(field.ApplicableKinds, kind) {
+			keys = append(keys, code)
 		}
 	}
-	for _, free := range freeInputAttributes {
-		if _, ok := d.Fields[free]; ok && !contains(keys, free) {
-			keys = append(keys, free)
-		}
-	}
-	return keys, nil
+	sort.Strings(keys)
+	return keys
 }
-
 func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool, mediumFormat ...string) error {
 	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
 		return fmt.Errorf("invalid_entity")
@@ -1209,13 +1044,8 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 	if err := d.validateEntityContent(e, reference, historical); err != nil {
 		return err
 	}
-	// 结构归属规则来自 definitions（d.Structure，见 defaults.go 的种子）：哪些结构字段可用、
-	// 哪些必填。旧定义文档没有该键时回退同一份种子，保持向后兼容且不产生第二份事实。
-	rules := d.Structure
-	if len(rules) == 0 {
-		rules = Defaults().Structure
-	}
-	rule := rules[e.Kind]
+	// 结构归属规则来自已发布 definitions：哪些结构字段可用、哪些必填。
+	rule := d.Structure[e.Kind]
 	allowedField := map[string]bool{}
 	requiredField := map[string]bool{}
 	for _, f := range rule.Fields {
@@ -1264,8 +1094,8 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 			return err
 		}
 		// 发行对象附加属性：有匹配 scheme 时按并集收敛到场景子集，
-		// 无匹配时回退全局组（旧文档无 schemes 键时 nil map 即回退）。
-		if err := d.value(d.effectiveGroupField("subject_attributes", e.Kind, e.Types, historical), s.Attributes, reference, historical); err != nil {
+		// 无匹配时使用全局组。
+		if err := d.value(d.effectiveGroupField("subject_attributes", e.Kind), s.Attributes, reference, historical); err != nil {
 			return fmt.Errorf("subject_attributes: %w", err)
 		}
 	}
@@ -1290,16 +1120,16 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		// 不再为每种媒体硬编码字段；locator 允许为空（如整轨收录）。
 		// 有匹配 scheme 时按场景并集收敛，无匹配回退全局组；匹配场景任一
 		// require_range 时 locator 至少一个 content 语义子字段非空。
-		locatorField := d.effectiveGroupField("locator", e.Kind, e.Types, historical, mediumFormat...)
+		locatorField := d.effectiveGroupField("locator", e.Kind, mediumFormat...)
 		if err := d.value(locatorField, map[string]any(c.Locator), reference, historical); err != nil {
 			return fmt.Errorf("locator: %w", err)
 		}
-		if requireRangeSchemes(d.matchSchemes("locator", e.Kind, e.Types, historical, mediumFormat...)) {
+		if requireRangeSchemes(d.matchSchemes("locator", e.Kind, mediumFormat...)) {
 			if err := checkRangeRequired(d.Fields["locator"], map[string]any(c.Locator)); err != nil {
 				return fmt.Errorf("locator: %w", err)
 			}
 		}
-		if err := d.value(d.effectiveGroupField("inclusion_attributes", e.Kind, e.Types, historical, mediumFormat...), c.Attributes, reference, historical); err != nil {
+		if err := d.value(d.effectiveGroupField("inclusion_attributes", e.Kind, mediumFormat...), c.Attributes, reference, historical); err != nil {
 			return fmt.Errorf("inclusion_attributes: %w", err)
 		}
 	}

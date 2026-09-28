@@ -201,27 +201,10 @@ export default function ReleaseDetailPage() {
           return;
         }
         if (!cancelled) setKindMismatch(null);
-        let currentRelease = rel;
-        let rows: MediumRow[];
-        let tocExpressions: Record<string, Entity> = {};
-        try {
-          const toc = await api<ReleaseTOC>(`/catalog/releases/${releaseId}/toc`);
-          currentRelease = toc.release;
-          rows = toc.media || [];
-          tocExpressions = toc.expressions || {};
-        } catch (e) {
-          if ((e as { status?: number }).status !== 404) throw e;
-          // 滚动部署期间旧目录服务尚无聚合接口时保留原有读取路径。
-          const mediums = await fetchAllPages<Entity>(
-            `/catalog/entities?kind=medium&release_id=${encodeURIComponent(String(rel.id || ""))}`
-          );
-          rows = await mapLimit(mediums, 8, async (m) => ({
-            medium: m,
-            tracks: await fetchAllPages<Entity>(
-              `/catalog/entities?kind=track&medium_id=${encodeURIComponent(m.id!)}`
-            ),
-          }));
-        }
+        const toc = await api<ReleaseTOC>(`/catalog/releases/${releaseId}/toc`);
+        const currentRelease = toc.release;
+        const rows = toc.media || [];
+        const tocExpressions = toc.expressions || {};
         rows.sort((a, b) => (a.medium.position || 0) - (b.medium.position || 0));
         rows.forEach((r) => r.tracks.sort((a, b) => (a.position || 0) - (b.position || 0)));
         const workIds = Array.from(new Set((currentRelease.subjects || []).map((s) => s.work_id).filter(Boolean)));

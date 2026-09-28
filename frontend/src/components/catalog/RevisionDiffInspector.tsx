@@ -87,7 +87,6 @@ export function RevisionDiffInspector({
         kind: t("revisions.fieldKind"),
         status: t("revisions.fieldStatus"),
         original_language: t("revisions.fieldOriginalLanguage"),
-        types: t("revisions.fieldTypes"),
         pictures: t("revisions.fieldPictures"),
         contents: t("catalog.contents"),
         subjects: t("catalog.subjects"),

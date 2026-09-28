@@ -4,11 +4,7 @@ import "fmt"
 
 // Retirement prevents new use without making unrelated edits to existing records fail.
 //
-// 关系端点业务类型停用同样覆盖：validateRelation 的 SourceTypes/TargetTypes
-// 走 matches(allowed, actual)——停用类型后，新边挂到该类型端点上判
-// invalid_endpoint_types；存量边因 SaveRelation 传 historical=true 且类型检查
-// 不看 Enabled，原样更新不受影响。retiredAttributes 管"字段/词表"维度，
-// 类型维度由 validateRelation 管，两者正交，见 SaveRelation 的调用顺序。
+// 已停用字段与词表项可保留原值，但不可新增使用。
 func (d Definitions) retiredValue(f Field, value, old any) error {
 	if value == nil || value == "" {
 		return nil
@@ -64,11 +60,6 @@ func (d Definitions) retiredAttributes(values, old map[string]any) error {
 }
 
 func (d Definitions) retiredEntity(e, old Entity) error {
-	for _, code := range e.Types {
-		if !d.Types[code].Enabled && !contains(old.Types, code) {
-			return fmt.Errorf("disabled_type: %s", code)
-		}
-	}
 	for _, subject := range e.Subjects {
 		if d.Vocabularies["release_role"].Terms[subject.Role].Enabled {
 			continue

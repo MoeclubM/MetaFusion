@@ -160,7 +160,6 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 			"kind":              map[string]any{"type": "keyword"},
 			"status":            map[string]any{"type": "keyword"},
 			"created_by":        map[string]any{"type": "keyword"},
-			"types":             map[string]any{"type": "keyword"},
 			"tags":              map[string]any{"type": "keyword"},
 			"original_language": map[string]any{"type": "keyword"},
 			"work_id":           map[string]any{"type": "keyword"},

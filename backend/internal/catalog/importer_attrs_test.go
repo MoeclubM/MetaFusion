@@ -56,15 +56,12 @@ func TestImporterReleaseAttrsOnlyKnownFields(t *testing.T) {
 }
 
 // 产品标识（品番/ISBN）语义属发行层：上游把它们放在作品条目里，落库要改写到
-// Release，且不覆盖发行已声明的值；作品类型本身不再声明 catalog_number/barcode/isbn。
+// Release，且不覆盖发行已声明的值；Work 本身不适用 catalog_number/barcode/isbn。
 func TestImporterReleaseAttrsAbsorbsWorkProductIDs(t *testing.T) {
 	defs := Defaults()
-	for _, typeCode := range []string{"novel", "album", "song", "music"} {
-		for _, f := range defs.Types[typeCode].Fields {
-			switch f {
-			case "isbn", "barcode", "catalog_number", "publisher_name":
-				t.Fatalf("work type %q must not declare product identifier %q", typeCode, f)
-			}
+	for _, field := range []string{"isbn", "barcode", "catalog_number"} {
+		if contains(defs.Fields[field].ApplicableKinds, "work") || !contains(defs.Fields[field].ApplicableKinds, "release") {
+			t.Fatalf("product identifier %q must belong to release, not work", field)
 		}
 	}
 	// 作品载荷里的 ISBN 落到发行 barcode；品番落到发行 catalog_number。
@@ -181,11 +178,11 @@ func TestImporterContentUnitIndexScoping(t *testing.T) {
 	partA := "unit-a"
 	partB := "unit-b"
 	units := []Entity{
-		{ID: partA, Title: "上篇", Types: []string{"content_unit"}},
-		{ID: partB, Title: "下篇", Types: []string{"content_unit"}},
-		{ID: "ch-a1", Title: "第一章", Number: "1", ParentID: partA, Types: []string{"content_unit"}},
-		{ID: "ch-b1", Title: "第一章", Number: "1", ParentID: partB, Types: []string{"content_unit"}},
-		{ID: "ep-101", Title: "第一话", Number: "1", ExternalIDs: map[string]string{"bangumi_episode": "101"}, Types: []string{"content_unit"}},
+		{ID: partA, Title: "上篇"},
+		{ID: partB, Title: "下篇"},
+		{ID: "ch-a1", Title: "第一章", Number: "1", ParentID: partA},
+		{ID: "ch-b1", Title: "第一章", Number: "1", ParentID: partB},
+		{ID: "ep-101", Title: "第一话", Number: "1", ExternalIDs: map[string]string{"bangumi_episode": "101"}},
 	}
 	idx := newImporterContentUnitIndex(units)
 
@@ -236,7 +233,7 @@ func TestImporterTranslationsFromAny(t *testing.T) {
 // 来源 ID 存在时只用来源 ID 认身份：来源 ID 未命中即新建，不得按标题回退。
 func TestImporterContentUnitIndexExternalBlocksTitleFallback(t *testing.T) {
 	units := []Entity{
-		{ID: "ep-101", Title: "第1话", Number: "1", ExternalIDs: map[string]string{"bangumi_episode": "101"}, Types: []string{"content_unit"}},
+		{ID: "ep-101", Title: "第1话", Number: "1", ExternalIDs: map[string]string{"bangumi_episode": "101"}},
 	}
 	idx := newImporterContentUnitIndex(units)
 	// 已有正片 id=101；新增 OP id=201 标题同为"第1话" → 必须不复用正片。
@@ -253,9 +250,9 @@ func TestImporterContentUnitIndexExternalBlocksTitleFallback(t *testing.T) {
 func TestImporterContentUnitIndexAmbiguousTitle(t *testing.T) {
 	units := []Entity{
 		// 同名同号两份（历史重复录入）：键出现两次 → 歧义。
-		{ID: "u1", Title: "番外", Number: "1", ParentID: "part-a", Types: []string{"content_unit"}},
-		{ID: "u2", Title: "番外", Number: "1", ParentID: "part-a", Types: []string{"content_unit"}},
-		{ID: "solo", Title: "独一份", Number: "9", ParentID: "part-a", Types: []string{"content_unit"}},
+		{ID: "u1", Title: "番外", Number: "1", ParentID: "part-a"},
+		{ID: "u2", Title: "番外", Number: "1", ParentID: "part-a"},
+		{ID: "solo", Title: "独一份", Number: "9", ParentID: "part-a"},
 	}
 	idx := newImporterContentUnitIndex(units)
 	if id, ok := idx.lookup(ImporterCanonicalEntryPreview{Title: "番外", Number: "1"}, "part-a"); ok {

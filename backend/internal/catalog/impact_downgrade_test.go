@@ -19,16 +19,15 @@ func TestPostgresImpactStillBlocksNonDanglingIssuesBesideDangling(t *testing.T) 
 		}
 	}
 
-	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体", Types: []string{"organization"}})
-	damaged := f.save(Entity{Kind: "release", Title: "悬挂旁另有问题的发行版", Types: []string{"release"},
-		Attributes: map[string]any{"publisher": gone.ID, "packaging": "standard"}})
+	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体"})
+	damaged := f.save(Entity{Kind: "release", Title: "悬挂旁另有问题的发行版", Attributes: map[string]any{"publisher": gone.ID, "packaging": "standard"}})
 	// packaging 在 release 类型字段序里排在 publisher 之后：旧口径先撞悬挂即整实体跳过。
 	exec("DELETE FROM catalog.entities WHERE id=$1", gone.ID)
 	exec("UPDATE catalog.entities SET document = jsonb_set(document, '{attributes,packaging}', to_jsonb('nope'::text)) WHERE id=$1", damaged.ID)
 
-	work := f.save(Entity{Kind: "work", Title: "配音作品", Types: []string{"animation"}})
-	voice := f.save(Entity{Kind: "agent", Title: "配音演员", Types: []string{"person"}})
-	role := f.save(Entity{Kind: "agent", Title: "所饰角色", Types: []string{"character"}})
+	work := f.save(Entity{Kind: "work", Title: "配音作品"})
+	voice := f.save(Entity{Kind: "agent", Title: "配音演员"})
+	role := f.save(Entity{Kind: "agent", Title: "所饰角色"})
 	rel, err := f.s.SaveRelation(ctx, RelationEdit{
 		Relation: Relation{Type: "voiced_by", SourceID: work.ID, TargetID: voice.ID, Attributes: map[string]any{"character": role.ID, "scope": "test"}},
 		EditNote: "downgrade fixture",

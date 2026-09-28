@@ -5,40 +5,35 @@ import (
 	"testing"
 )
 
-// 合并必须把种子新增的字段**同时**补进"字段表"和"已存在类型的字段集"：
-// 只补字段表时，写实体仍会因 unknown_field 拒绝该字段（属性键取自类型声明的字段集），
-// 即"字段补了却用不上"。content_unit 的 air_date（篇目放送日）是本用例的实例。
-func TestMergeSeedDefinitionsAddsFieldsToExistingTypes(t *testing.T) {
+// 种子新增字段需连同适用 kind 一起补入；现有字段的人工设置不得覆盖。
+func TestMergeSeedDefinitionsAddsFieldsAndApplicableKinds(t *testing.T) {
 	seed := Defaults()
 	cur := Defaults()
-	// 现状：旧文档里 content_unit 只声明 language/entry_role，字段表也没有 air_date。
+	// 当前定义缺少 air_date，且已有字段少了种子新增的适用层级。
 	delete(cur.Fields, "air_date")
-	cu := cur.Types["content_unit"]
-	cu.Fields = []string{"language", "entry_role"}
-	cur.Types["content_unit"] = cu
-	// 人工调整：动画类型上多加一个自定义字段码，合并只增不改，不能覆盖或删除它。
-	anime := cur.Types["animation"]
-	anime.Fields = append(append([]string{}, anime.Fields...), "custom_local_field")
-	cur.Types["animation"] = anime
+	role := cur.Fields["role"]
+	role.ApplicableKinds = []string{"medium"}
+	cur.Fields["role"] = role
+	cur.Fields["custom_local_field"] = Field{Names: names("自定义字段", "Custom field"), Type: "text", ApplicableKinds: []string{"work"}, Enabled: true}
 
 	merged, added := mergeSeedDefinitions(cur, seed)
 	if _, ok := merged.Fields["air_date"]; !ok {
 		t.Fatal("字段表未补入 air_date")
 	}
-	if !contains(merged.Types["content_unit"].Fields, "air_date") {
-		t.Fatalf("content_unit 字段集未补入 air_date：%v", merged.Types["content_unit"].Fields)
+	if !contains(merged.Fields["air_date"].ApplicableKinds, "content_unit") {
+		t.Fatalf("air_date 未携带 content_unit 适用层级：%v", merged.Fields["air_date"].ApplicableKinds)
 	}
-	if !contains(merged.Types["animation"].Fields, "custom_local_field") {
-		t.Fatalf("人工新增的字段码被覆盖：%v", merged.Types["animation"].Fields)
+	if !contains(merged.Fields["role"].ApplicableKinds, "track") || !contains(merged.Fields["custom_local_field"].ApplicableKinds, "work") {
+		t.Fatalf("种子适用层级或人工字段丢失：role=%v custom=%v", merged.Fields["role"].ApplicableKinds, merged.Fields["custom_local_field"].ApplicableKinds)
 	}
 	found := false
 	for _, a := range added {
-		if a == "types.content_unit.fields.air_date" {
+		if a == "fields.role.applicable_kinds.track" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("类型字段集的补丁未记入新增项（审计说明会漏）：%v", added)
+		t.Fatalf("字段适用层级的补丁未记入新增项：%v", added)
 	}
 	// 幂等：把合并结果再合并一次，不应再有任何新增。
 	if _, again := mergeSeedDefinitions(merged, seed); len(again) != 0 {
@@ -60,24 +55,20 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 		return n
 	}
 
-	// 存量文档：把当前已发布定义退回"没有 air_date"的样子（字段表 + content_unit 字段集），再发布一版。
+	// 已发布定义暂时缺少 air_date，重新合并后应补入完整字段声明。
 	v, err := f.s.Definitions(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	old := v.Document
 	delete(old.Fields, "air_date")
-	cu := old.Types["content_unit"]
-	cu.Fields = []string{"language", "entry_role"}
-	old.Types["content_unit"] = cu
 	f.publish(old, v.ETag)
 
-	work := f.save(Entity{Kind: "work", Title: "动画作品", Types: []string{"animation"}})
+	work := f.save(Entity{Kind: "work", Title: "动画作品"})
 	newUnit := func() Entity {
 		return Entity{Kind: "content_unit", WorkID: work.ID, Title: "第1话", Number: "1", Position: 1,
-			Status: "published", Types: []string{"content_unit"},
-			Translations: map[string]Translation{"ja": {Title: "第1话"}},
-			Attributes:   map[string]any{"language": "ja", "entry_role": "main", "air_date": "2017-01-21"}}
+			Status: "published", Translations: map[string]Translation{"ja": {Title: "第1话"}},
+			Attributes: map[string]any{"language": "ja", "entry_role": "main", "air_date": "2017-01-21"}}
 	}
 	// 反证：合并之前写 air_date 必须被校验拒绝，否则本用例证明不了合并的作用。
 	if _, err := f.s.Save(ctx, Edit{Entity: newUnit(), EditNote: "写未声明字段", Sources: fixtureSources()}, f.u); err == nil {
@@ -97,8 +88,8 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 	if _, ok := v2.Document.Fields["air_date"]; !ok {
 		t.Fatal("合并后存量文档的字段表里没有 air_date")
 	}
-	if !contains(v2.Document.Types["content_unit"].Fields, "air_date") {
-		t.Fatalf("合并后 content_unit 字段集里没有 air_date：%v", v2.Document.Types["content_unit"].Fields)
+	if !contains(v2.Document.Fields["air_date"].ApplicableKinds, "content_unit") {
+		t.Fatalf("合并后 air_date 未适用 content_unit：%v", v2.Document.Fields["air_date"].ApplicableKinds)
 	}
 
 	// 合并之后同一份载荷必须真的能落库并读回。

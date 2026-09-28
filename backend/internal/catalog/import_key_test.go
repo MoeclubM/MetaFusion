@@ -49,7 +49,7 @@ func TestPostgresForgedImportKeyIsRejected(t *testing.T) {
 	u := fixtureUser("admin")
 	sources := fixtureSources()
 	entity := func(ids map[string]string) Entity {
-		return Entity{Kind: "work", Title: "导入键归属用例", Types: []string{}, Attributes: map[string]any{},
+		return Entity{Kind: "work", Title: "导入键归属用例", Attributes: map[string]any{},
 			ExternalIDs: ids, Translations: map[string]Translation{"en": {Title: "import key"}}}
 	}
 	forged := map[string]string{"metafusion_import": "bangumi:subject:633836"}

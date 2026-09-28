@@ -80,49 +80,15 @@ func TestStringScalarMapKeepsIntIDs(t *testing.T) {
 	}
 }
 
-// catalog_metadata 声明为 any：HTTP JSON 往返后是 float64，同进程直传保留 int。
-// 两种形态都必须还原类型，否则类型丢失会让该类型允许的字段被判成未知字段。
-func TestWorkTypeFromMetadataAcceptsIntAndFloat(t *testing.T) {
-	cases := []struct {
-		name string
-		meta any
-		want string
-	}{
-		{"float64(HTTP JSON)", map[string]any{"bangumi_type": float64(2)}, "animation"},
-		{"int(同进程直传)", map[string]any{"bangumi_type": 2}, "animation"},
-		{"int64", map[string]any{"bangumi_type": int64(3)}, "music"},
-		{"未识别类型码", map[string]any{"bangumi_type": 5}, ""},
-		{"缺字段", map[string]any{}, ""},
-		{"非对象", "animation", ""},
-	}
-	for _, c := range cases {
-		if got := workTypeFromMetadata(c.meta); got != c.want {
-			t.Errorf("%s: got %q want %q", c.name, got, c.want)
-		}
-	}
-}
-
-// 类型未识别时不能写入任何属性：edition_date 只在 workType 非空时落库，
-// 否则校验会以 unknown_field 拒绝整条导入。
-func TestBuildWorkEntityOmitsAttributesWithoutType(t *testing.T) {
-	w := &ImporterWorkPreview{Title: "无类型作品", ReleaseDate: "2002-09-27"}
-	e, err := buildWorkEntity(w, "", "bangumi", "", "", false, "edition_date")
+// 作品日期字段由导入定义和字段适用 kind 决定，不依赖出版物分类。
+func TestBuildWorkEntityKeepsApplicableDateField(t *testing.T) {
+	w := &ImporterWorkPreview{Title: "作品", ReleaseDate: "2002-09-27"}
+	e, err := buildWorkEntity(w, "bangumi", "", "", false, "edition_date")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Types) != 0 {
-		t.Fatalf("unexpected types: %v", e.Types)
-	}
-	if len(e.Attributes) != 0 {
-		t.Fatalf("attributes written without a type: %v", e.Attributes)
-	}
-
-	typed, err := buildWorkEntity(w, "animation", "bangumi", "", "", false, "edition_date")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if typed.Attributes["edition_date"] != "2002-09-27" {
-		t.Fatalf("edition_date not kept for typed work: %v", typed.Attributes)
+	if e.Attributes["edition_date"] != "2002-09-27" {
+		t.Fatalf("edition_date not kept for work: %v", e.Attributes)
 	}
 }
 
@@ -257,12 +223,12 @@ func TestImporterKeyNormalizationPrefersDerived(t *testing.T) {
 // 关系写入的既定跳过集合只覆盖明确的外部数据形态问题（重复边/端点不匹配），
 // 不得吞掉服务端故障与真实完整性冲突（关系码未知/基数超限/成环须显式失败）。
 func TestImporterRelationSkippable(t *testing.T) {
-	for _, ok := range []string{"duplicate_relation", "invalid_endpoint_types", "invalid_endpoints"} {
+	for _, ok := range []string{"duplicate_relation", "invalid_endpoints"} {
 		if !importerRelationSkippable(errString(ok)) {
 			t.Errorf("%s should be skippable", ok)
 		}
 	}
-	for _, bad := range []string{"invalid_relation_type", "cardinality_exceeded", "relation_cycle", "forbidden", "invalid_field", "db down"} {
+	for _, bad := range []string{"invalid_relation_type", "invalid_endpoint_types", "cardinality_exceeded", "relation_cycle", "forbidden", "invalid_field", "db down"} {
 		if importerRelationSkippable(errString(bad)) {
 			t.Errorf("%s must not be swallowed", bad)
 		}
@@ -394,7 +360,6 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 	existing := Entity{
 		Kind: "work", Title: "作品", Status: "published",
 		OriginalLanguage: "ja",
-		Types:            []string{"animation"},
 		Translations: map[string]Translation{
 			"ja": {Title: "自定日文名", Summary: "自定简介", Aliases: []string{"已有别名"}},
 		},
@@ -518,11 +483,10 @@ func TestDetectEntityLanguage(t *testing.T) {
 	}
 }
 
-// 已存在 agent 的补齐：纠正 person→organization、补简介/语言/封面，不覆盖已有值。
+// 已存在 agent 的补齐：补简介/语言/封面，不覆盖已有值。
 func TestMergeAgentMetadata(t *testing.T) {
 	existing := Entity{
 		Kind: "agent", Title: "ブシロード", Status: "published",
-		Types:            []string{"person"},
 		OriginalLanguage: "",
 		Translations:     map[string]Translation{},
 	}
@@ -536,9 +500,6 @@ func TestMergeAgentMetadata(t *testing.T) {
 	got, changed := mergeAgentMetadata(existing, assoc)
 	if !changed {
 		t.Fatal("expected change")
-	}
-	if len(got.Types) != 1 || got.Types[0] != "organization" {
-		t.Errorf("type not corrected: %v", got.Types)
 	}
 	if got.OriginalLanguage != "ja" {
 		t.Errorf("language not filled: %q", got.OriginalLanguage)
@@ -555,9 +516,6 @@ func TestMergeAgentMetadata(t *testing.T) {
 	got2, _ := mergeAgentMetadata(keep, assoc2)
 	if got2.OriginalLanguage != "ja" {
 		t.Errorf("language overwritten: %q", got2.OriginalLanguage)
-	}
-	if got2.Types[0] != "organization" {
-		t.Errorf("org must not be downgraded to group by title match: %v", got2.Types)
 	}
 }
 

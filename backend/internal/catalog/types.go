@@ -20,11 +20,6 @@ type Source struct {
 	URL      string `json:"url,omitempty"`
 }
 
-// PicturesJSON 是封面的读容错外壳：历史数据里 pictures 可能是标量/对象
-// （早期导入链的脏写），解码时按无封面处理（nil）而不是让整行查询失败；
-// 写侧由 validation 照常严格校验。这里用命名类型只为挂 UnmarshalJSON，
-// len/索引/range 与 []Picture 完全一致，调用方无需改动读法。
-//
 // 多图契约（一条数组顺序规则，别在消费端各自发明第二套）：
 //   - **数组顺序就是展示顺序**，服务端保存时不重排；`pictures[0]` 即该实体的封面。
 //     换封面 = 把它挪到首位，不是加字段标记"主图"——一个布尔位与数组顺序并存
@@ -35,21 +30,11 @@ type Source struct {
 //     不改变顺序语义：同一实体可以同时有 role=cover_art 与 role=key_visual 的图。
 type PicturesJSON []Picture
 
-func (p *PicturesJSON) UnmarshalJSON(b []byte) error {
-	var v any
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-	if _, ok := v.([]any); !ok {
-		*p = nil
-		return nil
-	}
-	var pics []Picture
-	if err := json.Unmarshal(b, &pics); err != nil {
-		return err
-	}
-	*p = pics
-	return nil
+// TimeSpan 采用 IFLA LRM E11 的区间语义：允许只知一端和部分日期。
+// 这是内嵌值结构，不凭时间跨度制造第九种目录实体；需要跨事实共享身份时另立规则。
+type TimeSpan struct {
+	Begin string `json:"begin,omitempty"`
+	End   string `json:"end,omitempty"`
 }
 
 type Picture struct {
@@ -61,10 +46,9 @@ type Picture struct {
 	// VersionLabel 区分同一实体先后或并行使用的正确图像版本（例如年度主视觉）；
 	// 它不是实体版本，也不意味着旧图错误。可空，按语言解析。
 	VersionLabel Names `json:"version_label,omitempty"`
-	// InUseFrom/Until 是图像用于该实体的已知适用区间（两端包含），允许只知一端、
-	// 部分日期或并行区间。空值表示未知，不参与当前封面的自动挑选。
-	InUseFrom  string `json:"in_use_from,omitempty"`
-	InUseUntil string `json:"in_use_until,omitempty"`
+	// UsagePeriod 是图像用于该实体的已知时段（两端包含）；可与别的图片重叠。
+	// nil=未记录使用期，不参与当前封面的自动挑选。
+	UsagePeriod *TimeSpan `json:"usage_period,omitempty"`
 	// Role 这张图在该实体的语境里充当什么（主视觉、角色立绘、商品 jacket、剧照、
 	// 活动现场……）。取值是 definitions 的 picture_role 词表码，可空=未声明用途，
 	// 所以存量 800+ 张没有该键的历史数据照常通过校验；新增用途码只改定义不改代码。
@@ -103,7 +87,6 @@ type Entity struct {
 	Title            string                 `json:"title"`
 	OriginalLanguage string                 `json:"original_language"`
 	Translations     map[string]Translation `json:"translations"`
-	Types            []string               `json:"types"`
 	Attributes       map[string]any         `json:"attributes"`
 	ExternalIDs      map[string]string      `json:"external_ids"`
 	Pictures         PicturesJSON           `json:"pictures"`
@@ -156,27 +139,23 @@ type RelationEdit struct {
 	// idempotency 是 HTTP 创建端点（POST /relations）的幂等声明，用法同 Edit。
 	idempotency *IdempotencyClaim
 }
-type TypeDefinition struct {
-	Names    Names    `json:"names"`
-	Kinds    []string `json:"kinds"`
-	Fields   []string `json:"fields"`
-	Template string   `json:"template"`
-	Enabled  bool     `json:"enabled"`
-}
 type Field struct {
-	Names      Names            `json:"names"`
-	Type       string           `json:"type"`
-	Unit       Names            `json:"unit"`
-	Required   bool             `json:"required"`
-	Enabled    bool             `json:"enabled"`
-	Searchable bool             `json:"searchable"`
-	Comparable bool             `json:"comparable"`
-	Vocabulary string           `json:"vocabulary,omitempty"`
-	Kinds      []string         `json:"kinds,omitempty"`
-	Fields     map[string]Field `json:"fields,omitempty"`
-	Items      *Field           `json:"items,omitempty"`
-	Min        *float64         `json:"min,omitempty"`
-	Max        *float64         `json:"max,omitempty"`
+	Names Names  `json:"names"`
+	Type  string `json:"type"`
+	// ApplicableKinds 决定实体属性可以出现在哪些 kind。
+	// 空集合表示只供关系或内嵌结构使用，不可直接写入实体 attributes。
+	ApplicableKinds []string         `json:"applicable_kinds,omitempty"`
+	Unit            Names            `json:"unit"`
+	Required        bool             `json:"required"`
+	Enabled         bool             `json:"enabled"`
+	Searchable      bool             `json:"searchable"`
+	Comparable      bool             `json:"comparable"`
+	Vocabulary      string           `json:"vocabulary,omitempty"`
+	Kinds           []string         `json:"kinds,omitempty"`
+	Fields          map[string]Field `json:"fields,omitempty"`
+	Items           *Field           `json:"items,omitempty"`
+	Min             *float64         `json:"min,omitempty"`
+	Max             *float64         `json:"max,omitempty"`
 	// AnchorKey 仅用于 group 字段：组内任一其它子字段有值时，该锚点子字段必须同时有值。
 	// 例：定位组声明 anchor=relative_to，避免出现"有页码却不知相对谁"的悬空定位。
 	AnchorKey string `json:"anchor_key,omitempty"`
@@ -209,8 +188,6 @@ type RelationDefinition struct {
 	ReverseNames Names    `json:"reverse_names"`
 	SourceKinds  []string `json:"source_kinds"`
 	TargetKinds  []string `json:"target_kinds"`
-	SourceTypes  []string `json:"source_types"`
-	TargetTypes  []string `json:"target_types"`
 	Fields       []string `json:"fields"`
 	Symmetric    bool     `json:"symmetric"`
 	Acyclic      bool     `json:"acyclic"`
@@ -262,7 +239,7 @@ type Template struct {
 // subject_attributes 是全局结构，纸书要页码、EPUB 要路径锚点、黑胶要唱片面，
 // 必填、排序、范围约束与展示收敛都由它声明，不新增核心实体种类。
 //   - Slot 闭集三选一：locator / inclusion_attributes / subject_attributes；
-//   - Kinds 拥有者 kind 白名单，空=不限；Types 拥有者动态业务类型白名单，空=不限；
+//   - Kinds 拥有者 kind 白名单，空=不限；
 //   - MediumFormats 限定 Track 所属 Medium 的格式词条，空=不限；
 //   - Fields 该上下文可用子字段码（必须已在全局组声明），顺序即展示编辑顺序；
 //   - Required ⊆ Fields；RequireRange 仅 locator 有意义，要求至少一个
@@ -271,7 +248,6 @@ type Scheme struct {
 	Names         Names     `json:"names"`
 	Slot          string    `json:"slot"`
 	Kinds         []string  `json:"kinds,omitempty"`
-	Types         []string  `json:"types,omitempty"`
 	MediumFormats *[]string `json:"medium_formats,omitempty"`
 	Fields        []string  `json:"fields"`
 	Required      []string  `json:"required,omitempty"`
@@ -279,19 +255,14 @@ type Scheme struct {
 	Enabled       bool      `json:"enabled"`
 }
 type Definitions struct {
-	Types        map[string]TypeDefinition     `json:"types"`
 	Fields       map[string]Field              `json:"fields"`
 	Vocabularies map[string]Vocabulary         `json:"vocabularies"`
 	Relations    map[string]RelationDefinition `json:"relations"`
 	Templates    map[string]Template           `json:"templates"`
-	// Schemes 可缺省：旧已发布定义文档没有该键时解码为 nil，实体校验回退全局组，
-	// 保持向后兼容；新文档即使空 map 也合法。
-	Schemes map[string]Scheme `json:"schemes,omitempty"`
+	Schemes      map[string]Scheme             `json:"schemes"`
 	// Structure 声明每个层级的"所属与收录结构"：有哪些结构字段、指向哪些层级、
-	// 是否必填、是否按上级字段过滤候选。写在校验与编辑器共用这里，
-	// 前端不再各自写死"expression 挂 work"这类知识。可缺省，缺省时回退内建规则。
-	Structure      map[string]StructureRule `json:"structure,omitempty"`
-	CreditDeclared bool                     `json:"credit_declared,omitempty"`
+	// 是否必填、是否按上级字段过滤候选。写在校验与编辑器共用这里。
+	Structure map[string]StructureRule `json:"structure"`
 }
 
 // StructureRule 是一个层级的结构归属规则。
@@ -336,7 +307,7 @@ type User struct {
 	// 因此不进 JSON 输出、不暴露给调用方。
 	IsThirdParty bool `json:"-"`
 	// TokenName 是 PAT 令牌名（调用日志 credential_name）。会话身份恒为空；
-	// omitempty 让旧载荷形状不变，老账号服务不下发 token_name 时也不露空键。
+	// 会话身份没有令牌名，因此不输出空键。
 	TokenName string `json:"token_name,omitempty"`
 }
 type Event struct {

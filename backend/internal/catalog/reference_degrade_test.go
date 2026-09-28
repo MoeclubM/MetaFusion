@@ -43,7 +43,7 @@ func TestResolveDanglingReferenceOnPostgres(t *testing.T) {
 	anon := resolveEngine(f.s, nil)
 
 	// 1) 引用可用：厂牌实体解析得到展示名。
-	label := f.save(Entity{Kind: "agent", Title: "Epic Records", Types: []string{"organization"}})
+	label := f.save(Entity{Kind: "agent", Title: "Epic Records"})
 	code, body := resolveOnce(t, anon, label.ID)
 	if code != http.StatusOK {
 		t.Fatalf("可解析引用应 200，实际 %d（%s）", code, body)

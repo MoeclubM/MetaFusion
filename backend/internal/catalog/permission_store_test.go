@@ -22,7 +22,7 @@ func TestPermissionCodesAuthorizeCatalogWrites(t *testing.T) {
 	admin := User{ID: uuid.NewString(), Username: "catalog-admin", Groups: []string{"catalog_admin"}, Permissions: []string{PermissionEntityEdit, PermissionRelationEdit, PermissionDefinitionsManage, PermissionLifecycleManage, PermissionImportSubmit, PermissionShelvesManage}}
 	member := User{ID: uuid.NewString(), Username: "plain-member", Groups: []string{"member"}, Permissions: []string{"community.post.create"}}
 	mk := func(title string) Entity {
-		return Entity{Kind: "work", Types: []string{"novel"}, Title: title, OriginalLanguage: "ja", Translations: map[string]Translation{"ja": {Title: title}}}
+		return Entity{Kind: "work", Title: title, OriginalLanguage: "ja", Translations: map[string]Translation{"ja": {Title: title}}}
 	}
 
 	// 目录编辑组可直接发布（旧 editor 语义）；无目录码的成员仍走审核制。

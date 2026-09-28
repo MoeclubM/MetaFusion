@@ -33,15 +33,11 @@ export function EntityPicker({
   value,
   onChange,
   kinds,
-  types,
   query = "",
 }: {
   value: string;
   onChange: (id: string) => void;
   kinds?: string[];
-  /** definitions 声明的动态业务类型白名单（关系的 source_types/target_types）：
-   *  非空时候选须命中其中之一，与服务端 invalid_endpoint_types 校验同一口径。 */
-  types?: string[];
   query?: string;
 }) {
   const { t, tr, locale } = useI18n();
@@ -73,24 +69,14 @@ export function EntityPicker({
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
-      // kind / 业务类型约束下沉到查询：多值命中由服务端完成，避免"先取 30 条
-      // 再在前端过滤"把合法候选截断丢弃（关系编辑器对端选择即受此影响）。
+      // kind 约束下沉到查询，避免前端截断合法候选。
       const qs = new URLSearchParams({ q: search, limit: "30" });
       if (kinds?.length === 1) qs.set("kind", kinds[0]);
       else if (kinds && kinds.length > 1) qs.set("kinds", kinds.join(","));
-      if (types?.length) qs.set("types", types.join(","));
       api<{ items: Entity[] }>(`/catalog/entities?${qs}${query}`)
         .then((r) => {
           if (active) {
-            setItems(
-              r.items
-                .filter((x) => !kinds?.length || kinds.includes(x.kind))
-                .filter(
-                  (x) =>
-                    !types?.length ||
-                    (x.types || []).some((code) => types.includes(code)),
-                ),
-            );
+            setItems(r.items.filter((x) => !kinds?.length || kinds.includes(x.kind)));
             setError(false);
           }
         })
@@ -102,7 +88,7 @@ export function EntityPicker({
       active = false;
       clearTimeout(timer);
     };
-  }, [search, JSON.stringify(kinds), JSON.stringify(types), query]);
+  }, [search, JSON.stringify(kinds), query]);
   return (
     <div className="cv-picker">
       <input

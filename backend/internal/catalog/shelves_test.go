@@ -38,7 +38,7 @@ func TestShelfQueryShapeValidation(t *testing.T) {
 		query ShelfQuery
 		want  string
 	}{
-		{"空类型码", ShelfQuery{Tags: []string{"film", " "}}, "invalid_tags"},
+		{"空标签码", ShelfQuery{Tags: []string{"film", " "}}, "invalid_tags"},
 		{"非法字段码", ShelfQuery{Fields: map[string][]string{"Not-A-Code": {"x"}}}, "invalid_fields"},
 		{"空字段取值", ShelfQuery{Fields: map[string][]string{"tags": {""}}}, "invalid_fields"},
 		{"非法词表键", ShelfQuery{VocabTerms: map[string][]string{"-bad": {"x"}}}, "invalid_vocab_terms"},
@@ -61,10 +61,10 @@ func TestShelfSortCreatedOrdersByCreationTime(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 
-	older := f.save(Entity{Kind: "work", Title: "货架排序甲", Types: []string{"novel"}})
+	older := f.save(Entity{Kind: "work", Title: "货架排序甲", Attributes: map[string]any{"tags": []any{"novel"}}})
 	// UUIDv7 的时间戳是毫秒级：同一毫秒内两条的顺序由随机位决定，跨毫秒才稳定可比。
 	time.Sleep(5 * time.Millisecond)
-	newer := f.save(Entity{Kind: "work", Title: "货架排序乙", Types: []string{"novel"}})
+	newer := f.save(Entity{Kind: "work", Title: "货架排序乙", Attributes: map[string]any{"tags": []any{"novel"}}})
 
 	// 让先建的那条变成「后更新」的：updated 与 created 的顺序因此相反。
 	renamed := older
@@ -126,7 +126,7 @@ func TestCountShelfItemsIgnoresLimit(t *testing.T) {
 	// 保存 4 部音乐作品（隔离库中只有这些 music）。
 	const total = 4
 	for i := 0; i < total; i++ {
-		f.save(Entity{Kind: "work", Title: "计数音乐" + string(rune('1'+i)), Types: []string{"music"}})
+		f.save(Entity{Kind: "work", Title: "计数音乐" + string(rune('1'+i)), Attributes: map[string]any{"tags": []any{"music"}}})
 	}
 	sh := Shelf{Slug: "count-check", Names: names4("计数检查", "計數檢查", "集計チェック", "Count check"),
 		Sort: "updated", Query: ShelfQuery{Tags: []string{"music"}}}

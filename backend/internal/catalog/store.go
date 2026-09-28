@@ -15,12 +15,13 @@ import (
 	"github.com/lib/pq"
 
 	auditlog "github.com/metafusion/metafusion-app/internal/audit"
+	"github.com/metafusion/metafusion-app/internal/migrator"
 	"github.com/metafusion/metafusion-app/migrations"
 )
 
 // baseline 是目录库的结构来源：与 `mf-migrate up` 执行的是**同一份文件**（迁移 000001）。
 // S2 冻结（注释说明，不动规则）：000001 是已执行的安装基线，永不修改；后续结构变化只以
-// 有序不可变的增量迁移表达（见 catalogIncrementals），仍只有 backend/migrations 一份结构来源。
+// backend/migrations 中有序不可变的增量迁移表达。
 // 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
 // 数据不再需要历史迁移后合并成单一基线，两边读同一份，冗余与漂移一起消失。
 const baselineFile = "000001_catalog_core.up.sql"
@@ -141,50 +142,12 @@ func (s *Store) Authenticate(token string) (*User, error) {
 // 这样新版本新增的关系码/字段能到达存量实例，又不会覆盖任何人工决定。
 // 见 TestDefinitionsSeedOnlyWhenEmpty 与 TestMergeSeedDefinitionsIsAdditiveOnly。
 func (s *Store) Initialize(ctx context.Context) error {
-	baseline, err := catalogBaseline()
-	if err != nil {
+	// 本地安装与显式迁移命令共用同一个带版本记账的迁移器；
+	// 000016 必须先于新版内容种子，不能靠旧的手工增量列表跳过。
+	if err := migrator.New(s.DB, migrations.FS).Up(ctx); err != nil {
 		return err
 	}
-	// 注意：这里必须是 if err := s.write(...); err != nil 而不是 return s.write(...)——
-	// 后者会让下面的种子增量合并成为不可达代码（go vet 会报 unreachable，且永不执行）。
-	if err := s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, baseline); err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	// 审计表与迁移 000002 是同一份 DDL。刻意放在基线事务**之外**执行：建表要与另外三个服务
-	// 抢同一个 advisory 锁（740205），不该把目录基线事务一起拖住；失败直接上报——起不来比
-	// "服务能起但一行审计都不留"好排查得多。
-	auditSchema, err := catalogAuditSchema()
-	if err != nil {
-		return err
-	}
-	if _, err = s.DB.ExecContext(ctx, auditSchema); err != nil {
-		return fmt.Errorf("apply audit schema %s: %w", auditSchemaFile, err)
-	}
-	notificationsSchema, err := catalogNotificationsSchema()
-	if err != nil {
-		return err
-	}
-	if _, err = s.DB.ExecContext(ctx, notificationsSchema); err != nil {
-		return fmt.Errorf("apply notifications schema %s: %w", notificationsSchemaFile, err)
-	}
-	// 结构增量与基线同一安装路径执行（见 catalogIncrementals）：生产以 mf-migrate up 为准，
-	// 本地安装/测试经此处到达同一终态。S1 会把服务启动改成只读兼容检查，届时本调用留在
-	// 显式安装入口，不再属于每次启动的职责。
-	if err = applyCatalogIncrementals(ctx, s.DB); err != nil {
-		return err
-	}
-	// 内容种子必须在全部结构增量之后执行：单份定义配置表由 000014 创建。
-	if err = s.write(ctx, func(tx *sql.Tx) error { return seedContentTx(ctx, tx) }); err != nil {
-		return err
-	}
-	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
-	// 这里再做一次只增不改的增量合并，把缺失的定义补上（不会覆盖后台的人工调整）。
-	return s.EnsureSeedDefinitions(ctx)
+	return s.SeedContent(ctx)
 }
 
 // write 执行一次写事务（不加全局锁）。
@@ -491,37 +454,6 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 // reference 是写侧身份归一：merged/deleted 行的引用一律拒绝（invalid_reference），
 // 调用方先经 ResolveIdentity/identity 端点拿到 canonical 再写——归一靠"拒绝+指路"，
 // 不在写路径里静默改写目标（静默改写会让调用方记错自己引的是谁）。
-// catalogIncrementals 是基线之后的结构增量（S2 冻结原则：000001 永不修改，新结构只以
-// 有序不可变增量表达）。安装路径（Initialize）与 `mf-migrate up` 执行同一批文件
-// （migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
-// 每项修复提交各自追加自己的文件，不提前引用不存在的文件。
-var catalogIncrementals = []string{
-	"000005_api_request_logs.up.sql",            // API 请求日志表
-	"000006_request_idempotency.up.sql",         // R1：catalog.idempotency_keys
-	"000007_revision_definition_version.up.sql", // 历史增量；该列由 000014 移除
-	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
-	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
-	"000010_relation_lookup_indexes.up.sql",     // 关系反向查询与按类型读取
-	"000011_opensearch_outbox_lookup.up.sql",    // OpenSearch 实体事件增量消费游标
-	"000012_drop_revision_actor_role.up.sql",    // 移除旧身份快照列
-	"000013_external_source_merge.up.sql",     // 外部来源合并约束
-	"000014_single_definition_config.up.sql",    // 单份定义配置，移除历史版本
-}
-
-// applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
-func applyCatalogIncrementals(ctx context.Context, db *sql.DB) error {
-	for _, f := range catalogIncrementals {
-		b, err := fs.ReadFile(migrations.FS, f)
-		if err != nil {
-			return fmt.Errorf("read catalog incremental %s: %w", f, err)
-		}
-		if _, err := db.ExecContext(ctx, string(b)); err != nil {
-			return fmt.Errorf("apply catalog incremental %s: %w", f, err)
-		}
-	}
-	return nil
-}
-
 func reference(ctx context.Context, q queryer, u *User) func(string, []string) error {
 	return func(id string, kinds []string) error {
 		if _, err := uuid.Parse(id); err != nil {
@@ -647,16 +579,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if e.Status == "published" && len(e.Translations) == 0 {
 			return fmt.Errorf("translation_required")
 		}
-		// 字段方案可留空：基础身份和自由标签不依赖预置分类。
-		// 写入其它动态字段时须显式选择对应方案。已有方案的记录不能直接
-		// 清空最后一个方案，避免现有关系端点的类型约束被静默破坏。
-		if !input.internal && !create && len(e.Types) == 0 && len(old.Types) > 0 {
-			return fmt.Errorf("types_required")
-		}
-		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || !isLegacyUntyped(old)) {
-			return fmt.Errorf("types_required")
-		}
-		historical := input.internal || !create && (len(old.Types) > 0 || isLegacyUntyped(old))
+		historical := input.internal || !create
 		mediumFormat := ""
 		if e.Kind == "track" && e.MediumID != "" {
 			medium, lookupErr := get(ctx, tx, e.MediumID)
@@ -839,14 +762,12 @@ func undeclaredReleaseSubject(ctx context.Context, tx *sql.Tx, e Entity) (bool, 
 }
 
 type ListOptions struct {
-	Kind, Query, Type, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
+	Kind, Query, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
 	// SearchIDs 是 OpenSearch 提供的候选 ID 顺序。它仅由 HTTP 列表处理器内部填写，
 	// 最终查询仍用数据库可见性和筛选谓词收口，不作为外部参数暴露。
 	SearchIDs []string
-	// Kinds / Types 是多值版本：Kinds 命中任一 kind，Types 命中任一动态业务类型。
-	// 关系编辑器的对端选择器需要"kind 与业务类型同时约束"，命中必须在 SQL 侧完成；
-	// 否则先取固定条数再在前端过滤，会把合法候选截断丢弃。
-	Kinds, Types []string
+	// Kinds 命中任一结构层级。
+	Kinds []string
 	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
 	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
 	Tags []string
@@ -1021,13 +942,6 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 	if len(o.SearchIDs) > 0 {
 		*args = append(*args, pq.Array(o.SearchIDs))
 		parts = append(parts, fmt.Sprintf("id = ANY($%d::uuid[])", len(*args)))
-	}
-	if o.Type != "" {
-		add("document->'types' ? $%d", o.Type)
-	}
-	if len(o.Types) > 0 {
-		// ?| 是 jsonb "任一键存在"，与前端 EntityPicker 的业务类型白名单同口径。
-		add("document->'types' ?| $%d", pq.Array(o.Types))
 	}
 	if o.WorkID != "" {
 		add("(id IN(SELECT id FROM catalog.content_units WHERE work_id=$%[1]d) OR id IN(SELECT id FROM catalog.expressions WHERE work_id=$%[1]d) OR id IN(SELECT release_id FROM catalog.release_subjects WHERE work_id=$%[1]d))", o.WorkID)

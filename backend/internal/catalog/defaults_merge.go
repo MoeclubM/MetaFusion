@@ -3,7 +3,7 @@ package catalog
 import "sort"
 
 // mergeSeedDefinitions 把种子里**新增**的定义并进当前定义：只补当前缺失的键
-// （含已存在类型缺失的字段码），已存在的类型/字段/词表/关系/模板/方案一律原样保留——唯一例外是无 credit_declared 标记的老文档，其既有关系的署名开关按旧口径一次性回填（见下），之后即视为已声明。
+// 已存在的字段/词表/关系/模板/方案一律原样保留。
 //
 // 为什么需要它：定义种子原先只在空库播种，存量实例拿不到新版本新增的关系码与字段，
 // 只能靠导入预检兜底。但"只空库播种"的初衷是怕覆盖人工编目决策（禁用某关系码、
@@ -11,7 +11,6 @@ import "sort"
 // 返回合并结果与被新增的键（"relations.member_of" 形式），供调用方写审计说明。
 func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 	out := Definitions{
-		Types:        make(map[string]TypeDefinition, len(current.Types)),
 		Fields:       make(map[string]Field, len(current.Fields)),
 		Vocabularies: make(map[string]Vocabulary, len(current.Vocabularies)),
 		Relations:    make(map[string]RelationDefinition, len(current.Relations)),
@@ -19,12 +18,8 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		Schemes:      make(map[string]Scheme, len(current.Schemes)),
 		Structure:    make(map[string]StructureRule, len(current.Structure)),
 	}
-	out.CreditDeclared = current.CreditDeclared
 	for k, v := range current.Structure {
 		out.Structure[k] = v
-	}
-	for k, v := range current.Types {
-		out.Types[k] = v
 	}
 	for k, v := range current.Fields {
 		out.Fields[k] = v
@@ -43,42 +38,22 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 	}
 
 	var added []string
-	for k, v := range seed.Types {
-		if _, ok := out.Types[k]; !ok {
-			out.Types[k] = v
-			added = append(added, "types."+k)
-		}
-	}
-	// 已存在类型的**字段集**同样只做补缺：种子新增的字段码并进当前类型，既有字段与顺序原样保留。
-	// 只补 fields 表不够——写实体时属性键取自所属类型的字段集，存量类型缺新字段码时，
-	// 新字段在存量实例上仍然写不进去（unknown_field），"补了字段却用不上"。
-	// 只追加缺失的码：停用某字段的既有做法是把 fields.<code>.enabled 置假（本函数不碰），
-	// 不靠从类型字段集里删码，因此补缺不会与"停用"混淆。
-	for code, st := range seed.Types {
-		cur, ok := out.Types[code]
-		if !ok {
-			continue // 缺失的类型已在上面补过
-		}
-		var missing []string
-		for _, f := range st.Fields {
-			if !contains(cur.Fields, f) {
-				missing = append(missing, f)
-			}
-		}
-		if len(missing) == 0 {
-			continue
-		}
-		cur.Fields = append(append([]string{}, cur.Fields...), missing...)
-		out.Types[code] = cur
-		for _, f := range missing {
-			added = append(added, "types."+code+".fields."+f)
-		}
-	}
 	for k, v := range seed.Fields {
 		if _, ok := out.Fields[k]; !ok {
 			out.Fields[k] = v
 			added = append(added, "fields."+k)
 		}
+	}
+	// 种子新增的适用 kind 只做并集，不覆盖人工限定。
+	for code, seeded := range seed.Fields {
+		currentField := out.Fields[code]
+		for _, kind := range seeded.ApplicableKinds {
+			if !contains(currentField.ApplicableKinds, kind) {
+				currentField.ApplicableKinds = append(currentField.ApplicableKinds, kind)
+				added = append(added, "fields."+code+".applicable_kinds."+kind)
+			}
+		}
+		out.Fields[code] = currentField
 	}
 	for k, v := range seed.Vocabularies {
 		if _, ok := out.Vocabularies[k]; !ok {
@@ -140,37 +115,7 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		out.Schemes[code] = cur
 		added = append(added, "schemes."+code+".medium_formats")
 	}
-	// 有标记文档里已存在关系的布尔开关（Aggregate / CountsAsCredit）一律不动：bool 的零值无法区分
-	// "老文档缺该声明"与"后台有意关闭"，种子为真就回写 false 会让 GUI 刚关掉的开关在重启后
-	// 重新打开（D2）。缺失的关系整体由上面的补缺分支新增（含种子开关）；无标记老文档的署名口径
-	// 由下面的迁移分支按旧口径一次性回填并置标记（之后严格按布尔值执行，不再看分组）。
-	// ParticipantSlot 是字符串：空串即"缺声明"可与显式值区分，老文档补上、已有值不覆盖——
-	// 后台改写槽位后种子不夺回控制权。
-	for code, sr := range seed.Relations {
-		cur, ok := out.Relations[code]
-		if !ok {
-			continue // 缺失的关系已在上面补过
-		}
-		if sr.ParticipantSlot != "" && cur.ParticipantSlot == "" {
-			cur.ParticipantSlot = sr.ParticipantSlot
-			out.Relations[code] = cur
-			added = append(added, "relations."+code+".participant_slot")
-		}
-	}
-	if !current.CreditDeclared {
-		out.CreditDeclared = true
-		added = append(added, "credit_declared")
-		for code, cur := range out.Relations {
-			if _, existed := current.Relations[code]; !existed {
-				continue // 缺失的关系已在上面按种子整体新增（含开关）
-			}
-			if cur.Group == "credits" && !cur.CountsAsCredit {
-				cur.CountsAsCredit = true
-				out.Relations[code] = cur
-				added = append(added, "relations."+code+".counts_as_credit")
-			}
-		}
-	}
+	// 已发布关系的署名开关与参与者槽位由定义持有；种子只添加缺失的关系。
 	for k, v := range seed.Structure {
 		if _, ok := out.Structure[k]; !ok {
 			out.Structure[k] = v

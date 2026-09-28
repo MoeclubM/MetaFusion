@@ -16,7 +16,6 @@ func TestMergeSeedDefinitionsFillsMissingBonusSemantic(t *testing.T) {
 		legacyTerms[code] = term
 	}
 	current := Definitions{
-		Types:        map[string]TypeDefinition{},
 		Fields:       map[string]Field{},
 		Vocabularies: map[string]Vocabulary{"role": {Names: role.Names, Terms: legacyTerms}},
 		Relations:    map[string]RelationDefinition{},

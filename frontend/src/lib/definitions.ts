@@ -4,14 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { resolveLocalizedName } from "./localizedNames";
 export { resolveLocalizedName } from "./localizedNames";
 
-export interface TypeDef {
-  names: Record<string, string>;
-  kinds: string[];
-  fields: string[];
-  template: string;
-  enabled: boolean;
-}
-
 export interface FieldDef {
   names: Record<string, string>;
   type: string;
@@ -19,6 +11,8 @@ export interface FieldDef {
   vocabulary?: string;
   enabled: boolean;
   required?: boolean;
+  /** 可作为哪些实体 kind 的属性；与 entity 引用目标的 kinds 不同。 */
+  applicable_kinds?: string[];
   kinds?: string[];
   fields?: Record<string, FieldDef>;
   items?: FieldDef;
@@ -40,6 +34,7 @@ export interface SectionDef {
 
 export interface TemplateDef {
   names: Record<string, string>;
+  kinds?: string[];
   sections: SectionDef[];
   columns?: string[];
   relation_groups?: string[];
@@ -59,20 +54,17 @@ export interface VocabularyDef {
 }
 
 /** 署名槽位闭集（与后端 types.go 的 ParticipantSlot 同口径）：person 对端是署名主体
- *  （人/机构）、character 对端是虚构角色、peer 是同层级对象不产生署名主体、空=未声明
- *  （老文档）。展示端按它判定署名/角色，不写死关系码、不拿分组码当语义用。 */
-export type ParticipantSlot = "" | "person" | "character" | "peer";
+ *  （人/机构）、character 对端是虚构角色、peer 是同层级对象不产生署名主体。
+ *  展示端按它判定署名/角色，不写死关系码、不拿分组码当语义用。 */
+export type ParticipantSlot = "person" | "character" | "peer";
 
-export const PARTICIPANT_SLOTS: ParticipantSlot[] = ["", "person", "character", "peer"];
+export const PARTICIPANT_SLOTS: ParticipantSlot[] = ["person", "character", "peer"];
 
 export interface RelationDef {
   names: Record<string, string>;
   reverse_names: Record<string, string>;
   source_kinds: string[];
   target_kinds: string[];
-  /** 端点动态类型约束（type code）：为空表示不限。 */
-  source_types?: string[];
-  target_types?: string[];
   /** 关系可携带的属性字段码（definitions.fields 引用）：后台声明后编辑表单即可填写。 */
   fields?: string[];
   symmetric?: boolean;
@@ -82,7 +74,7 @@ export interface RelationDef {
   /** 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）：页面据此算组成列表，不写死关系码。 */
   aggregate?: boolean;
   /** 这条关系的对端在署名里扮演什么（见 ParticipantSlot）：署名区块与人物网格按它收录。 */
-  participant_slot?: ParticipantSlot | string;
+  participant_slot: ParticipantSlot;
   /** 参与批量署名聚合（Release/Expression 详情的署名列表）：口径只看本声明，
    *  不看分组码——后台挪分组只改展示归类，不改变哪些关系算署名。 */
   counts_as_credit?: boolean;
@@ -91,25 +83,12 @@ export interface RelationDef {
   enabled: boolean;
 }
 
-/** 类型化读取关系署名声明（替代 `(relations[code] as any)?.participant_slot`）：
- *  未声明（老文档）时返回空串，调用方按各自兼容口径回退，不得把空串当成某种槽位。 */
+/** 读取已发布关系的参与者槽位；无关系时不推断语义。 */
 export function relationParticipantSlot(
   defs: DynamicDefinitions | null | undefined,
   code: string
-): ParticipantSlot {
-  const v = defs?.relations?.[code]?.participant_slot || "";
-  return (PARTICIPANT_SLOTS as string[]).includes(v) ? (v as ParticipantSlot) : "";
-}
-
-/** 这条关系是否参与署名展示：以声明为准（person/character 都是署名，peer 不是）；
- *  未声明时返回 null，调用方显式走兼容回退（不得把 null 当 false 藏起来）。 */
-export function isCreditRelation(
-  defs: DynamicDefinitions | null | undefined,
-  code: string
-): boolean | null {
-  const slot = relationParticipantSlot(defs, code);
-  if (!slot) return null;
-  return slot !== "peer";
+): ParticipantSlot | undefined {
+  return defs?.relations?.[code]?.participant_slot;
 }
 
 export interface SchemeDef {
@@ -118,8 +97,6 @@ export interface SchemeDef {
   slot: string;
   /** 拥有者 kind 白名单，空=不限。 */
   kinds?: string[];
-  /** 拥有者动态业务类型白名单，空=不限。 */
-  types?: string[];
   /** Track 所属 Medium 的格式词条；空=不限。 */
   medium_formats?: string[];
   /** 该上下文可用子字段码，顺序即展示编辑顺序。 */
@@ -157,39 +134,31 @@ export interface RelationshipRule {
 }
 
 export interface DynamicDefinitions {
-  types: Record<string, TypeDef>;
   fields: Record<string, FieldDef>;
   vocabularies: Record<string, VocabularyDef>;
   relations: Record<string, RelationDef>;
   templates: Record<string, TemplateDef>;
-  /** 按使用场景配置的结构属性方案；缺省（旧文档无该键）时回退全局组。 */
-  schemes?: Record<string, SchemeDef>;
-  /** 各层级的"所属与收录结构"规则；缺省（旧文档无该键）时回退服务端内建规则。 */
-  structure?: Record<string, StructureRule>;
+  /** 按使用场景配置的结构属性方案。 */
+  schemes: Record<string, SchemeDef>;
+  /** 各层级的"所属与收录结构"规则。 */
+  structure: Record<string, StructureRule>;
 }
 
 /**
  * matchSchemes：与后端 matchSchemes 同一口径——slot 相同、kinds 命中拥有者
- * kind（空=命中）、types 与已选字段方案有交集（空=命中）且 enabled。
- * 编辑器的空 types 不代表匹配所有方案：新条目只匹配不限类型的 scheme，
- * 与服务端新写口径一致。历史无类型条目的已存字段仍由编辑器单独显示。
+ * kind（空=命中）、medium format 命中且 enabled。
  */
 export function matchSchemes(
   defs: DynamicDefinitions | null | undefined,
   slot: string,
   ownerKind: string,
-  ownerTypes: string[],
   mediumFormat = ""
 ): SchemeDef[] {
-  const effective = ownerTypes || [];
   const schemes = defs?.schemes || {};
   return Object.values(schemes).filter((s) => {
     if (!s || s.enabled === false || s.slot !== slot) return false;
     if ((s.kinds || []).length > 0 && !s.kinds!.includes(ownerKind)) return false;
     if ((s.medium_formats || []).length > 0 && (ownerKind !== "track" || !s.medium_formats!.includes(mediumFormat))) return false;
-    if ((s.types || []).length > 0) {
-      if (!effective.some((t) => s.types!.includes(t))) return false;
-    }
     return true;
   });
 }
@@ -239,8 +208,10 @@ async function loadDefinitions(): Promise<DynamicDefinitions | null> {
   // 乱序响应防护：更早发出的请求（seq 更小）晚到且已被更新响应应用时丢弃。
   if (seq < appliedSeq) return cachedDefinitions;
   appliedSeq = seq;
-  if (data.kinds && typeof data.kinds === "object") cachedKinds = data.kinds as KindMap;
-  const rules = Array.isArray(data.relationship_rules) ? data.relationship_rules as RelationshipRule[] : [];
+  if (!data.kinds || typeof data.kinds !== "object" || Array.isArray(data.kinds)
+    || !Array.isArray(data.relationship_rules)) return null;
+  cachedKinds = data.kinds as KindMap;
+  const rules = data.relationship_rules as RelationshipRule[];
   const rulesSignature = JSON.stringify(rules);
   const version = String(data.etag ?? "");
   cachedETag = version || null;
@@ -379,26 +350,44 @@ export interface StructureRule {
 
 /**
  * resolveKindOptions：骨架层级的可选项——服务端 definitions.kinds 里未停用的种类。
- * 服务端没给出 kinds（旧缓存或接口异常）时退回调用方提供的兜底清单，
- * 这样后台改骨架名/停用种类时前端跟随，同时保留无 definitions 时的可用性。
+ * 未加载定义时返回空列表；不猜测服务端的可用层级。
  */
 export function resolveKindOptions(
   kinds: KindMap | null | undefined,
-  fallback: string[],
 ): string[] {
   const codes = Object.keys(kinds || {}).filter(
     (code) => kinds![code]?.enabled !== false,
   );
-  return codes.length > 0 ? codes : fallback;
+  return codes;
 }
 
-export function getTypeName(
+/** 模板仅参与字段布局；实体不再持久化模板或业务类型。 */
+export function templatesForEntity(
   defs: DynamicDefinitions | null | undefined,
-  typeCode: string,
-  locale: string
-): string {
-  if (!defs?.types?.[typeCode]) return typeCode;
-  return resolveLocalizedName(defs.types[typeCode].names, locale, typeCode);
+  kind: string,
+  attributes: Record<string, unknown> | null | undefined,
+): TemplateDef[] {
+  if (!defs || !kind) return [];
+  const present = new Set(Object.keys(attributes || {}).filter((key) => attributes?.[key] != null && attributes?.[key] !== ""));
+  const candidates = Object.values(defs.templates || {}).filter((template) =>
+    !template.kinds?.length || template.kinds.includes(kind)
+  );
+  const counts = new Map<string, number>();
+  for (const template of candidates) {
+    const fields = new Set(template.sections?.flatMap((section) => section.fields || []) || []);
+    for (const code of Array.from(fields)) if (defs.fields?.[code]?.applicable_kinds?.includes(kind)) {
+      counts.set(code, (counts.get(code) || 0) + 1);
+    }
+  }
+  const ranked = candidates.map((template) => ({
+    template,
+    score: Array.from(new Set(template.sections?.flatMap((section) => section.fields || []) || []))
+      .filter((code) => present.has(code) && defs.fields?.[code]?.applicable_kinds?.includes(kind))
+      .reduce((score, code) => score + 1 / (counts.get(code) || 1), 0),
+  })).sort((a, b) => b.score - a.score);
+  // 同分意味着字段组合不足以判定布局；保留通用事实展示，不猜媒介类别。
+  if (!ranked[0]?.score || (ranked[1] && Math.abs(ranked[0].score - ranked[1].score) < 1e-9)) return [];
+  return [ranked[0].template];
 }
 
 export function getRelationName(
@@ -439,15 +428,11 @@ const TAGS_VOCABULARY = "tags";
 /**
  * tagCode：标签的原始值（写库/进 URL 的那个）归一化。
  *
- * attributes.tags 的官方形状是字符串数组；历史与导入数据里出现过 `{name}` 对象，
- * 读取端统一在此兼容。展示端只依赖它做"查词表 + 拼链接"，不改写实体数据。
+ * attributes.tags 只接受字符串数组；旧对象形状在一次性迁移中规范化。
  */
 export function tagCode(tag: unknown): string {
   if (typeof tag === "string") return tag;
-  if (tag && typeof tag === "object" && typeof (tag as { name?: unknown }).name === "string") {
-    return (tag as { name: string }).name;
-  }
-  return tag == null ? "" : String(tag);
+  return "";
 }
 
 /** 反查键归一化：去空白 + 小写（CJK 无大小写，等于原样比较）。 */
@@ -538,7 +523,7 @@ export function resolveTagTermCode(
  * 命中后一律走 resolveLocalizedName(term.names, locale, 原始值)，沿用全站既有的语种回退链。
  *
  * 只用于展示：链接参数（/explore?tags=<原始 tag>）、筛选请求、编辑回写必须继续用原始 tag 值
- * （attributes.tags 不做迁移），不得把本地化名写回数据——写回等于伪造数据，且检索参数会对不上。
+ * 不得把本地化名写回数据——写回等于伪造数据，且检索参数会对不上。
  */
 export function getTagName(
   defs: DynamicDefinitions | null | undefined,

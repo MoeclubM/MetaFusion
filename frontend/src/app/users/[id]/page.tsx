@@ -27,7 +27,6 @@ import { useAuth } from "@/lib/authContext";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { classifyLoadFailure, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { isoDate, isoTimestamp, localDateTime } from "@/lib/datetime";
-import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import ReportButton from "@/components/report/ReportButton";
 import { DiffViewer } from "@/components/editor/DiffViewer";
@@ -72,7 +71,7 @@ export default function UserDetailPage() {
   // 收藏筛选与条目角标的层级名：服务端 definitions.kinds 优先，服务端未给时才退回内置
   // 骨架清单，字典只作名称兜底（缺键退原始码）。
   const kindLabel = (code: string) => getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
-  const kindOptions = resolveKindOptions(kinds, fallbackKinds);
+  const kindOptions = resolveKindOptions(kinds);
 
   // 只保留真有数据源的页签：目录服务只服务 all/revisions/works/releases/artists
   // （其余取值 400 invalid_tab），收藏由互动服务承载。主题/回复/审计没有"按用户列清单"的端点，

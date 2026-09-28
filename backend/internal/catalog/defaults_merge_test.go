@@ -7,7 +7,6 @@ func TestMergeSeedDefinitionsIsAdditiveOnly(t *testing.T) {
 	seed := Defaults()
 	// 现状：只保留一半关系，并把其中一个关系改名（模拟后台的人工调整）
 	cur := Definitions{
-		Types:        map[string]TypeDefinition{},
 		Fields:       map[string]Field{},
 		Vocabularies: map[string]Vocabulary{},
 		Relations:    map[string]RelationDefinition{},

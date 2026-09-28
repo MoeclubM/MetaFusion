@@ -16,7 +16,7 @@ func TestDefaultsAndDynamicFields(t *testing.T) {
 	if err := d.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	d.Types["personal_photo"] = TypeDefinition{Names: names("个人写真", "Personal photography"), Kinds: []string{"work"}, Enabled: true, Fields: []string{"language"}, Template: "photography"}
+	d.Fields["personal_photo_note"] = Field{Names: names("个人影像备注", "Personal photo note"), Type: "text", ApplicableKinds: []string{"work"}, Enabled: true}
 	if err := d.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestPostgresCatalog(t *testing.T) {
 	}
 	entity := func(kind, title string) Entity {
 		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
+		return Entity{Kind: kind, Title: title, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	song := save(entity("work", "原创歌曲"))
 	album := save(entity("work", "个人专辑"))
@@ -723,7 +723,7 @@ func TestRolePublishMatrix(t *testing.T) {
 	admin, editor, member := fixtureUser("admin"), fixtureUser("editor"), fixtureUser("user")
 
 	mk := func(title string) Entity {
-		return Entity{Kind: "work", Types: []string{"novel"}, Title: title,
+		return Entity{Kind: "work", Title: title,
 			OriginalLanguage: "ja", Translations: map[string]Translation{"ja": {Title: title}}}
 	}
 
@@ -815,7 +815,7 @@ func TestExpressionDetailsBatch(t *testing.T) {
 	}
 	entity := func(kind, title string) Entity {
 		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
+		return Entity{Kind: kind, Title: title, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	song := save(entity("work", "批量歌曲"))
 	album := save(entity("work", "批量专辑"))
@@ -898,7 +898,7 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 	}
 	entity := func(kind, title string) Entity {
 		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
+		return Entity{Kind: kind, Title: title, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	// 同 Work 两集：各自独立收录，不应互相污染。
 	work := save(entity("work", "分集动画"))

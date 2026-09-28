@@ -53,9 +53,9 @@ func AuditActions() map[string]string {
 // （PUT /api/admin/modules/:id）的动作码在 capabilities 包，见那里的 AuditActions。
 func AuditExempt() map[string]string {
 	return map[string]string{
-		"POST /api/catalog/expressions/details": "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
-		"POST /api/importer/preview":            "来源预览：出站抓取 + 组装草稿，零落库（落库入口是 POST /api/importer/import）",
-		"POST /api/catalog/entities/identity":   "批量身份解析（X01 别名集合的只读投影）：POST 只为把最多 500 个 id 放进 body，零写入",
+		"POST /api/catalog/expressions/details":      "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
+		"POST /api/importer/preview":                 "来源预览：出站抓取 + 组装草稿，零落库（落库入口是 POST /api/importer/import）",
+		"POST /api/catalog/entities/identity":        "批量身份解析（X01 别名集合的只读投影）：POST 只为把最多 500 个 id 放进 body，零写入",
 		"POST /api/admin/catalog-definitions/impact": "定义影响检查：只读回放提交的文档，零写入",
 	}
 }
@@ -197,7 +197,6 @@ func externalDatabaseDetail(before, after *ExternalDatabase) map[string]any {
 // 不是"文档全文是什么"——整份定义文档既不合适进审计行，也不该用 8KB 截断去猜。
 func definitionsSummary(d Definitions) map[string]int {
 	return map[string]int{
-		"types":        len(d.Types),
 		"fields":       len(d.Fields),
 		"vocabularies": len(d.Vocabularies),
 		"relations":    len(d.Relations),

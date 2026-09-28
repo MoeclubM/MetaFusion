@@ -29,14 +29,11 @@ func TestPostgresStartupSeedMergeToleratesDanglingReferences(t *testing.T) {
 	}
 	old := v.Document
 	delete(old.Fields, "air_date")
-	cu := old.Types["content_unit"]
-	cu.Fields = []string{"language", "entry_role"}
-	old.Types["content_unit"] = cu
 	f.publish(old, v.ETag)
 
 	// 事故形态的脏数据：attributes.publisher 指向的那一行已经不存在。
-	gone := f.save(Entity{Kind: "agent", Title: "已被删除的发行主体", Types: []string{"organization"}})
-	f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Types: []string{"release"}, Attributes: map[string]any{"publisher": gone.ID}})
+	gone := f.save(Entity{Kind: "agent", Title: "已被删除的发行主体"})
+	f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Attributes: map[string]any{"publisher": gone.ID}})
 	if _, err = f.s.DB.ExecContext(ctx, "DELETE FROM catalog.entities WHERE id=$1", gone.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -124,9 +121,6 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 	}
 	old := v.Document
 	delete(old.Fields, "air_date")
-	cu := old.Types["content_unit"]
-	cu.Fields = []string{"language", "entry_role"}
-	old.Types["content_unit"] = cu
 	f.publish(old, v.ETag)
 	// f.publish 换了一版：判定基准是**当前**已发布版本。
 	cur, err := f.s.Definitions(ctx)
@@ -134,10 +128,10 @@ func TestPostgresStartupSeedMergeBlocksWithoutDraftPileUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 定义冲突（不是悬挂引用）：实体带了一个任何类型都没声明的属性键。
+	// 定义冲突（不是悬挂引用）：实体带了一个未声明的属性键。
 	// 写路径今天会拒绝它，所以它同样只能是存量数据。
 	// attributes 必须非空：jsonb_set 只能往存在的对象里加键（对 null 不会创建子键）。
-	work := f.save(Entity{Kind: "work", Title: "带野字段的作品", Types: []string{"animation"}, Attributes: map[string]any{"language": "ja"}})
+	work := f.save(Entity{Kind: "work", Title: "带野字段的作品", Attributes: map[string]any{"language": "ja"}})
 	if _, err = f.s.DB.ExecContext(ctx, "UPDATE catalog.entities SET document = jsonb_set(document, '{attributes,legacy_orphan}', to_jsonb('x'::text)) WHERE id=$1", work.ID); err != nil {
 		t.Fatal(err)
 	}

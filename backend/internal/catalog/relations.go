@@ -465,20 +465,6 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	if r.Position < 0 {
 		return fmt.Errorf("invalid_position")
 	}
-	matches := func(allowed, actual []string) bool {
-		if len(allowed) == 0 {
-			return true
-		}
-		for _, x := range actual {
-			if contains(allowed, x) {
-				return true
-			}
-		}
-		return false
-	}
-	if !matches(rt.SourceTypes, src.Types) || !matches(rt.TargetTypes, tgt.Types) {
-		return fmt.Errorf("invalid_endpoint_types")
-	}
 	if err := validateRelationAttributes(d, r.Type, r.Attributes, ref, historical); err != nil {
 		return err
 	}
@@ -1197,7 +1183,6 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 //
 // 判定严格来自每条关系自己的 CountsAsCredit 声明，不再看分组码：分组是展示归类，
 // 后台把某条关系挪出 credits 组属于改展示，不该静默改变"哪些关系算署名"的行为口径。
-// 无标记老文档由合并时一次性回填并置 credit_declared 标记（见 mergeSeedDefinitions），之后全关即全关；
 // 停用码一律不计入。返回排序后的码，保证 SQL 占位符顺序稳定。
 func creditRelationTypes(d Definitions) []string {
 	out := []string{}

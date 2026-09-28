@@ -29,16 +29,13 @@ func collectFieldNames(path string, f Field, add func(prefix, code string, n Nam
 	}
 }
 
-// seededNames 收集所有"种子名称"（类型/字段及嵌套子字段与单位/词表及词项/关系及正反名与分组名/模板与分区/场景方案）。
+// seededNames 收集所有"种子名称"（字段及嵌套子字段与单位/词表及词项/关系及正反名与分组名/模板与分区/场景方案）。
 func seededNames(d Definitions) map[string]Names {
 	out := map[string]Names{}
 	add := func(prefix, code string, n Names) {
 		if len(n) > 0 {
 			out[prefix+":"+code] = n
 		}
-	}
-	for code, t := range d.Types {
-		add("type", code, t.Names)
 	}
 	for code, f := range d.Fields {
 		collectFieldNames(code, f, add)

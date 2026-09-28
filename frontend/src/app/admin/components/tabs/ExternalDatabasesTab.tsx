@@ -15,7 +15,6 @@ import { DynamicNamesEditor, MultilingualBadges, missingRequiredLocales } from "
 import { Modal } from "@/components/ui/Modal";
 import { UI_LOCALE_CODES } from "@/lib/languages";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
-import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
@@ -24,7 +23,7 @@ export function ExternalDatabasesTab() {
   const { t, tr, locale } = useI18n();
   const { kinds: serverKinds } = useDefinitions();
   // 适用范围候选与显示名都取服务端 kinds（后台停用的骨架不再出现），字典只作兜底。
-  const kindOptions = resolveKindOptions(serverKinds, fallbackKinds);
+  const kindOptions = resolveKindOptions(serverKinds);
   const [items, setItems] = useState<ExternalDatabaseDefinition[]>([]);
   // 有导入适配器的 code 集合，来自 GET /importer/sources（后端同一份事实：
   // 适配器在代码里、元数据在注册表）。null = 还没取到或取不到，与"无适配器"分开显示。

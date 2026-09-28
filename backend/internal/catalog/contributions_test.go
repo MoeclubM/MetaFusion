@@ -62,8 +62,8 @@ func TestContributionTabAndKindMapping(t *testing.T) {
 // 差异口径与前端 revisionData.ts 的 revisionChanges 逐条对齐：忽略每次写入都变的键，
 // attributes / translations 下钻一层，其余按顶层字段比。
 func TestContributionDiffMatchesRevisionChanges(t *testing.T) {
-	before := []byte(`{"id":"a","kind":"work","version":1,"created_by":"u-1","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","title":"旧题名","status":"draft","types":["novel"],"attributes":{"tags":["a"],"duration":100},"translations":{"zh-CN":{"title":"旧题名"}}}`)
-	after := []byte(`{"id":"a","kind":"work","version":2,"created_by":"u-1","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-02-01T00:00:00Z","title":"新题名","status":"published","types":["novel"],"attributes":{"tags":["a","b"],"duration":100},"translations":{"zh-CN":{"title":"新题名"},"en":{"title":"New"}}}`)
+	before := []byte(`{"id":"a","kind":"work","version":1,"created_by":"u-1","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","title":"旧题名","status":"draft","attributes":{"tags":["a"],"duration":100},"translations":{"zh-CN":{"title":"旧题名"}}}`)
+	after := []byte(`{"id":"a","kind":"work","version":2,"created_by":"u-1","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-02-01T00:00:00Z","title":"新题名","status":"published","attributes":{"tags":["a","b"],"duration":100},"translations":{"zh-CN":{"title":"新题名"},"en":{"title":"New"}}}`)
 	got := contributionDiff(before, after)
 	keys := make([]string, 0, len(got))
 	for key := range got {
@@ -81,7 +81,7 @@ func TestContributionDiffMatchesRevisionChanges(t *testing.T) {
 		t.Fatalf("tags 差异取了未归一的值: %s", encode(got["attributes.tags"].New))
 	}
 	// 只有被忽略的键变了（version/updated_at）：nil，响应里整个 diff 键省略。
-	same := contributionDiff(before, []byte(`{"id":"a","kind":"work","version":9,"created_by":"u-1","created_at":"2026-03-01T00:00:00Z","updated_at":"2026-03-01T00:00:00Z","title":"旧题名","status":"draft","types":["novel"],"attributes":{"tags":["a"],"duration":100},"translations":{"zh-CN":{"title":"旧题名"}}}`))
+	same := contributionDiff(before, []byte(`{"id":"a","kind":"work","version":9,"created_by":"u-1","created_at":"2026-03-01T00:00:00Z","updated_at":"2026-03-01T00:00:00Z","title":"旧题名","status":"draft","attributes":{"tags":["a"],"duration":100},"translations":{"zh-CN":{"title":"旧题名"}}}`))
 	if same != nil {
 		t.Fatalf("无字段变化应返回 nil: %+v", same)
 	}

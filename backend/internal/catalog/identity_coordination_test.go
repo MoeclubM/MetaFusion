@@ -87,9 +87,9 @@ func TestPostgresMergeRewritesAttributeOnlyRefs(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 	w := f.save(Entity{Kind: "work", Title: "作品"})
-	performer := f.save(Entity{Kind: "agent", Title: "配音者", Types: []string{"person"}})
-	charOld := f.save(Entity{Kind: "agent", Title: "旧角色", Types: []string{"character"}})
-	charNew := f.save(Entity{Kind: "agent", Title: "存活角色", Types: []string{"character"}})
+	performer := f.save(Entity{Kind: "agent", Title: "配音者"})
+	charOld := f.save(Entity{Kind: "agent", Title: "旧角色"})
+	charNew := f.save(Entity{Kind: "agent", Title: "存活角色"})
 	rel, err := f.s.SaveRelation(ctx, RelationEdit{Relation: Relation{
 		Type: "voiced_by", SourceID: w.ID, TargetID: performer.ID,
 		Attributes: map[string]any{"character": charOld.ID},

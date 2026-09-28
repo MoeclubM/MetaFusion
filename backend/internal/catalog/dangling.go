@@ -243,15 +243,12 @@ func existingEntityIDs(ctx context.Context, q queryer, ids []string) (map[string
 // 引用完整性一旦被绕过（历史数据、手工改库），体检仍要看得见。
 func (d Definitions) entityRefSites(e Entity) []refSite {
 	out := []refSite{}
-	// 类型声明不合法（invalid_type）时属性键无从谈起：那属定义冲突，由 impact 的阻断项报出。
-	if keys, err := d.attributeKeys(e, true); err == nil {
-		for _, k := range keys {
-			f, ok := d.Fields[k]
-			if !ok {
-				continue
-			}
-			collectRefSites(f, k, e.Attributes[k], "entity", e.ID, kindAttribute, &out)
+	for _, k := range d.attributeKeys(e.Kind) {
+		f, ok := d.Fields[k]
+		if !ok {
+			continue
 		}
+		collectRefSites(f, k, e.Attributes[k], "entity", e.ID, kindAttribute, &out)
 	}
 	structural := e.structuralRefs()
 	for _, name := range sortedRefKeys(structural) {

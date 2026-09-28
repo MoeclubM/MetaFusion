@@ -120,12 +120,12 @@ func TestImporterReleaseAttrsWritesVocabDimensions(t *testing.T) {
 // 关系吞错收窄：invalid_relation_type / cardinality_exceeded / relation_cycle
 // 是真实完整性冲突，不得再当外部数据吞掉；只保留重复/端点形态跳过。
 func TestImporterRelationSkippableNarrowed(t *testing.T) {
-	for _, ok := range []string{"duplicate_relation", "invalid_endpoint_types", "invalid_endpoints"} {
+	for _, ok := range []string{"duplicate_relation", "invalid_endpoints"} {
 		if !importerRelationSkippable(errString(ok)) {
 			t.Errorf("%s should be skippable", ok)
 		}
 	}
-	for _, bad := range []string{"invalid_relation_type", "cardinality_exceeded", "relation_cycle", "forbidden", "db down"} {
+	for _, bad := range []string{"invalid_relation_type", "invalid_endpoint_types", "cardinality_exceeded", "relation_cycle", "forbidden", "db down"} {
 		if importerRelationSkippable(errString(bad)) {
 			t.Errorf("%s must not be swallowed", bad)
 		}

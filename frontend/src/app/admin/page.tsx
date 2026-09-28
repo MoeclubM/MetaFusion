@@ -11,8 +11,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
-import { useDefinitions, getKindName, getTypeName, resolveKindOptions } from "@/lib/definitions";
-import { kinds as fallbackKinds } from "@/components/catalog/api";
+import { useDefinitions, getKindName, resolveKindOptions } from "@/lib/definitions";
 import { PageContainer } from "@/components/ui/PageShell";
 import { Select } from "@/components/ui/Select";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
@@ -144,12 +143,12 @@ function AdminInner() {
   const { user, loading: authLoading } = useAuth();
   const { t, tr, locale } = useI18n();
 
-  const { definitions: defs, kinds } = useDefinitions();
+  const { kinds } = useDefinitions();
 
   // 层级名与可选项：服务端 definitions.kinds 优先，服务端未给时退回内置骨架清单，
   // 字典只作名称兜底（缺键退原始码）。
   const kindLabel = (code: string) => getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
-  const kindOptions = resolveKindOptions(kinds, fallbackKinds);
+  const kindOptions = resolveKindOptions(kinds);
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const selectTab = (tab: AdminTab) => {
@@ -918,7 +917,6 @@ function AdminInner() {
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colTitle")}</th>
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colKind")}</th>
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colStatus")}</th>
-                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colTypes")}</th>
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colVersion")}</th>
                         <th className="py-2.5 px-3 font-medium text-right">{t("admin.entities.colActions")}</th>
                       </tr>
@@ -947,15 +945,6 @@ function AdminInner() {
                             }`}>
                               {tr(`catalog.status.${e.status}`, e.status)}
                             </span>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex flex-wrap gap-1">
-                              {(e.types || []).map((tCode: string) => (
-                                <span key={tCode} className="px-1 py-0.2 rounded bg-surfaceSubtle text-[9px] text-text-muted font-mono">
-                                  {getTypeName(defs, tCode, locale)}
-                                </span>
-                              ))}
-                            </div>
                           </td>
                           <td className="py-2.5 px-3 font-mono text-[11px] text-text-muted">
                             v{e.version || 1}

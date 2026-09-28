@@ -36,6 +36,19 @@ var requiredCatalogTables = []string{
 // 已发布定义存在，不写库、不加载实体/关系全集（EnsureSeedDefinitions 的启动扫描在此之后
 // 不再执行）。失败即 Fatal：库没准备好时拒绝服务，而不是降级成“能起但行为不对”。
 func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
+	var migrated bool
+	if err := s.DB.QueryRowContext(ctx, `SELECT to_regclass('schema_migrations') IS NOT NULL`).Scan(&migrated); err != nil {
+		return err
+	}
+	if !migrated {
+		return fmt.Errorf("incompatible_schema: migration 000016 required (run mf-migrate up)")
+	}
+	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=16 AND dirty=false)`).Scan(&migrated); err != nil {
+		return err
+	}
+	if !migrated {
+		return fmt.Errorf("incompatible_schema: migration 000016 required (run mf-migrate up)")
+	}
 	for _, t := range requiredCatalogTables {
 		var ok bool
 		if err := s.DB.QueryRowContext(ctx, `SELECT to_regclass($1) IS NOT NULL`, t).Scan(&ok); err != nil {

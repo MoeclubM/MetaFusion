@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { User, Mic, Building2 } from "lucide-react";
+import { User, Mic } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { relationParticipantSlot, useDefinitions, type ParticipantSlot } from "@/lib/definitions";
 import type { StaffCredit } from "./staffCredits";
@@ -93,22 +93,16 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   // 参与者槽位由关系定义声明（person/character/peer）。为什么不用"fields 里有没有 character"：
   // 29 个关系码共用同一份 fields（含 character），那个判定对每条关系都成立，
   // 于是 isCast 恒真、人员网格永不渲染、图标恒为麦克风。槽位是逐条关系声明的语义。
-  // 类型化读取（见 lib/definitions.ts relationParticipantSlot）：非法槽位与未声明都归空串，
-  // 下面的兼容回退（字段判定/宽松口径）保持不变。
-  const participantSlot = (code: string): ParticipantSlot => relationParticipantSlot(defs, code);
-  // 定义缺失（老实例的定义文档还没有槽位声明）时退回旧的字段判定，避免把关系判成"非署名"而丢展示。
+  const participantSlot = (code: string): ParticipantSlot | undefined => relationParticipantSlot(defs, code);
   const relationDeclaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
-  // 角色类关系：对端是虚构角色，或数据里这条边已经带上了角色。
-  const isCharacterRelation = (code: string) =>
-    participantSlot(code) === "character" || (!participantSlot(code) && relationDeclaresCharacter(code));
-  // 署名类关系：对端是署名主体（人/机构）。槽位未声明时才退回"只要不是角色类"的宽松口径。
-  const isCreditRelation = (code: string) =>
-    !!participantSlot(code) && participantSlot(code) !== "character";
+  // 角色类关系与署名主体都由逐条声明决定，不按字段或分组猜测。
+  const isCharacterRelation = (code: string) => participantSlot(code) === "character";
+  const isCreditRelation = (code: string) => participantSlot(code) === "person";
   const isCast = (c: StaffCredit) => !!c.character || isCharacterRelation(c.relationType);
   // 人物网格收录全部署名主体（人/机构）：不再按分组码切出"核心主创"——creative 组装的是
   // 作品派生关系，拿它当"主创"永远命不中，那条页签恒空。
   const humanCredits = useMemo(
-    () => credits.filter((c) => isCreditRelation(c.relationType) || (!participantSlot(c.relationType) && !isCast(c))),
+    () => credits.filter((c) => isCreditRelation(c.relationType)),
     [credits, defs],
   );
 
@@ -201,9 +195,6 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const isVoiceCredit = (c: StaffCredit) =>
     participantSlot(c.relationType) === "person" && relationDeclaresCharacter(c.relationType);
   const agentIcon = (c: StaffCredit) => {
-    if (c.agent.types.includes("organization") || c.agent.types.includes("publisher")) {
-      return <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" strokeWidth={1.5} />;
-    }
     if (isVoiceCredit(c)) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" strokeWidth={1.5} />;
     return <User className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={1.5} />;
   };

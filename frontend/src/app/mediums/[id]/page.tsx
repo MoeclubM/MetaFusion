@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
+import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
 import { useKindRedirect } from "@/lib/useKindRedirect";
 import { useDefinitions, getTermName } from "@/lib/definitions";
@@ -52,7 +52,7 @@ type ReleaseTOC = {
   expressions: Record<string, Entity>;
 };
 
-// 载体详情页以发行 TOC 聚合读取曲目与表达，旧服务不可用聚合接口时回退实体查询。
+// 载体详情页以发行 TOC 聚合读取收录位置与表达。
 export default function MediumDetailPage() {
   const params = useParams();
   const mediumId = params.id as string;
@@ -98,10 +98,10 @@ export default function MediumDetailPage() {
         }
         setKindMismatch(null);
         setMedium(m);
+        if (!m.release_id) throw new Error("medium_release_required");
         let trackEntities: Entity[] = [];
-        let expressionEntities: Record<string, Entity> | null = null;
-        let tracksLoaded = false;
-        if (m.release_id) {
+        let expressionEntities: Record<string, Entity> = {};
+        {
           try {
             const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
             if (cancelled) return;
@@ -112,39 +112,15 @@ export default function MediumDetailPage() {
               if (!cancelled) setWork(w);
             }
           } catch { /* 关联实体不可用时仍展示载体与曲目。 */ }
-          try {
-            const toc = await fetchApi<ReleaseTOC>(`/catalog/releases/${encodeURIComponent(m.release_id)}/toc`);
-            const mediumTOC = (toc.media || []).find((item) => item.medium.id === m.id);
-            if (mediumTOC) {
-              trackEntities = mediumTOC.tracks || [];
-              expressionEntities = toc.expressions || {};
-              tracksLoaded = true;
-            }
-          } catch (error) {
-            if ((error as { status?: number }).status !== 404) throw error;
-            trackEntities = await fetchAllPages<Entity>(
-              `/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`,
-            );
-            tracksLoaded = true;
-          }
-        }
-        if (!tracksLoaded) {
-          trackEntities = await fetchAllPages<Entity>(`/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`);
+          const toc = await fetchApi<ReleaseTOC>(`/catalog/releases/${encodeURIComponent(m.release_id)}/toc`);
+          const mediumTOC = (toc.media || []).find((item) => item.medium.id === m.id);
+          if (!mediumTOC) throw new Error("medium_toc_missing");
+          trackEntities = mediumTOC.tracks || [];
+          expressionEntities = toc.expressions || {};
         }
         const exprTitles = new Map<string, string>();
-        if (expressionEntities) {
-          for (const [id, expression] of Object.entries(expressionEntities)) {
-            exprTitles.set(id, entityTitle(expression, locale) || expression.title || "");
-          }
-        } else {
-          // 仅兼容尚未部署聚合接口的旧目录服务。
-          const exprIds = Array.from(new Set(trackEntities.flatMap((tr) => (tr.contents || []).map((c) => c.expression_id)).filter(Boolean) as string[]));
-          await mapLimit(exprIds, 8, async (id) => {
-            try {
-              const e = await fetchApi<Entity>(`/catalog/entities/${id}`);
-              exprTitles.set(id, entityTitle(e, locale) || e.title || "");
-            } catch { /* 缺失的表达跳过 */ }
-          });
+        for (const [id, expression] of Object.entries(expressionEntities)) {
+          exprTitles.set(id, entityTitle(expression, locale) || expression.title || "");
         }
         if (cancelled) return;
         // 与发行页共用同一棵曲目树：保留父子层级与 position 次序，

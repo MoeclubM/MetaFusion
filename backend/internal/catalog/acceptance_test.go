@@ -64,17 +64,16 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	v, _ := f.s.Definitions(ctx)
 	d := v.Document
 	d.Vocabularies["custom_format"] = Vocabulary{Names: names("新增介质", "New formats"), Terms: map[string]Term{"cassette": {Names: names("磁带", "Cassette"), Enabled: true}}}
-	d.Fields["custom_format"] = Field{Names: names("新增格式", "Custom format"), Type: "enum", Vocabulary: "custom_format", Enabled: true, Searchable: true, Comparable: true}
-	d.Types["custom"] = TypeDefinition{Names: names("自定义类型", "Custom type"), Kinds: []string{"work"}, Fields: []string{"custom_format", "language"}, Template: "photography", Enabled: true}
+	d.Fields["custom_format"] = Field{Names: names("新增格式", "Custom format"), Type: "enum", Vocabulary: "custom_format", ApplicableKinds: []string{"work"}, Enabled: true, Searchable: true, Comparable: true}
 	d.Relations["edited_by"] = RelationDefinition{Names: names("编辑", "Edited by"), ReverseNames: names("编辑了", "Editor of"), SourceKinds: []string{"work"}, TargetKinds: []string{"agent"}, Fields: []string{"context", "character", "language"}, Enabled: true}
 	f.publish(d, v.ETag)
-	w := f.save(Entity{Kind: "work", Title: "个人影像集", Types: []string{"custom", "personal"}, Attributes: map[string]any{"custom_format": "cassette", "language": "ja"}})
+	w := f.save(Entity{Kind: "work", Title: "个人影像集", Attributes: map[string]any{"custom_format": "cassette", "language": "ja"}})
 	if items, err := f.s.List(ctx, ListOptions{Field: "custom_format", Value: "cassette"}, nil); err != nil || len(items) != 1 {
 		t.Fatalf("dynamic filter: %v %d", err, len(items))
 	}
-	actor := f.save(Entity{Kind: "agent", Title: "演职人员", Types: []string{"person"}})
+	actor := f.save(Entity{Kind: "agent", Title: "演职人员"})
 	for _, character := range []string{"角色一", "角色二"} {
-		c := f.save(Entity{Kind: "agent", Title: character, Types: []string{"character"}})
+		c := f.save(Entity{Kind: "agent", Title: character})
 		_, err := f.s.SaveRelation(ctx, RelationEdit{Relation: Relation{Type: "edited_by", SourceID: w.ID, TargetID: actor.ID, Attributes: map[string]any{"character": c.ID, "language": "zh-CN", "context": w.ID}}, EditNote: "role fixture", Sources: fixtureSources()}, f.u)
 		if err != nil {
 			t.Fatal(err)
@@ -88,22 +87,22 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	term := d.Vocabularies["custom_format"].Terms["cassette"]
 	term.Enabled = false
 	d.Vocabularies["custom_format"].Terms["cassette"] = term
-	typ := d.Types["custom"]
-	typ.Enabled = false
-	d.Types["custom"] = typ
+	field := d.Fields["custom_format"]
+	field.Enabled = false
+	d.Fields["custom_format"] = field
 	f.publish(d, v.ETag)
 	w.Attributes["language"] = "en-US"
 	w = f.save(w)
 	if w.Attributes["custom_format"] != "cassette" {
 		t.Fatal("retired term lost during unrelated edit")
 	}
-	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "work", Title: "invalid reuse", Status: "draft", Types: []string{"custom"}}, Sources: fixtureSources(), EditNote: "invalid"}, f.u); err == nil {
-		t.Fatal("retired type reused")
+	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "work", Title: "invalid reuse", Status: "draft", Attributes: map[string]any{"custom_format": "cassette"}}, Sources: fixtureSources(), EditNote: "invalid"}, f.u); err == nil {
+		t.Fatal("retired field reused")
 	}
 	v, _ = f.s.Definitions(ctx)
-	delete(v.Document.Types, "custom")
+	delete(v.Document.Fields, "custom_format")
 	if _, err := f.s.SaveDefinitions(ctx, v.Document, v.ETag, f.u, "invalid publish", fixtureSources()); err == nil {
-		t.Fatal("referenced type deleted")
+		t.Fatal("referenced field deleted")
 	}
 }
 
@@ -112,7 +111,7 @@ func TestPostgresEditReviewAndVersions(t *testing.T) {
 	ctx := context.Background()
 	editor := fixtureUser("editor")
 	for _, typ := range []string{"photobook", "indie_game", "song"} {
-		e, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "work", Title: typ, Status: "draft", Types: []string{typ, "personal"}}, EditNote: "author draft", Sources: fixtureSources()}, editor)
+		e, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "work", Title: typ, Status: "draft"}, EditNote: "author draft", Sources: fixtureSources()}, editor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -148,19 +147,19 @@ func TestPostgresEditReviewAndVersions(t *testing.T) {
 func TestPostgresReleaseComparisonAndReuse(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	song := f.save(Entity{Kind: "work", Title: "Song", Types: []string{"song"}})
-	album := f.save(Entity{Kind: "work", Title: "Album", Types: []string{"album"}})
-	mv := f.save(Entity{Kind: "work", Title: "Music video", Types: []string{"film"}})
-	x := f.save(Entity{Kind: "expression", Title: "Recording", WorkID: song.ID, Types: []string{"expression"}})
+	song := f.save(Entity{Kind: "work", Title: "Song"})
+	album := f.save(Entity{Kind: "work", Title: "Album"})
+	mv := f.save(Entity{Kind: "work", Title: "Music video"})
+	x := f.save(Entity{Kind: "expression", Title: "Recording", WorkID: song.ID})
 	mvx := f.save(Entity{Kind: "expression", Title: "Video", WorkID: mv.ID})
 	ids := []string{}
 	for i, name := range []string{"Standard", "Limited", "Regional"} {
-		r := f.save(Entity{Kind: "release", Title: name, Types: []string{"release"}, Subjects: []Subject{{WorkID: album.ID, Role: "primary"}, {WorkID: song.ID, Role: "compilation", Position: 1}, {WorkID: mv.ID, Role: "supplement", Position: 2}}, Attributes: map[string]any{"packaging": "box", "attachments": []any{map[string]any{"label": map[string]any{"en-US": "Booklet", "zh-CN": "小册子"}}}, "store_bonuses": []any{map[string]any{"label": map[string]any{"en-US": "Shop card", "zh-CN": "店铺卡片"}}}}})
+		r := f.save(Entity{Kind: "release", Title: name, Subjects: []Subject{{WorkID: album.ID, Role: "primary"}, {WorkID: song.ID, Role: "compilation", Position: 1}, {WorkID: mv.ID, Role: "supplement", Position: 2}}, Attributes: map[string]any{"packaging": "box", "attachments": []any{map[string]any{"label": map[string]any{"en-US": "Booklet", "zh-CN": "小册子"}}}, "store_bonuses": []any{map[string]any{"label": map[string]any{"en-US": "Shop card", "zh-CN": "店铺卡片"}}}}})
 		ids = append(ids, r.ID)
-		m := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r.ID, Types: []string{"medium"}, Attributes: map[string]any{"format": "cd"}})
+		m := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r.ID, Attributes: map[string]any{"format": "cd"}})
 		f.save(Entity{Kind: "track", Title: "Song", MediumID: m.ID, Number: "A1", Contents: []Inclusion{{ExpressionID: x.ID}}})
 		if i == 1 {
-			bd := f.save(Entity{Kind: "medium", Title: "Bonus BD", ReleaseID: r.ID, Types: []string{"medium"}, Attributes: map[string]any{"format": "bd", "role": "supplement"}})
+			bd := f.save(Entity{Kind: "medium", Title: "Bonus BD", ReleaseID: r.ID, Attributes: map[string]any{"format": "bd", "role": "supplement"}})
 			f.save(Entity{Kind: "track", Title: "MV", MediumID: bd.ID, Contents: []Inclusion{{ExpressionID: mvx.ID}}})
 		}
 		if i == 2 {

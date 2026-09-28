@@ -4,7 +4,7 @@ import { api, Capability } from "./api";
 import { useI18n } from "@/i18n/I18nProvider";
 
 // 目录页的共享上下文只保留非定义职责：模块开关与实例初始化状态。
-// 定义（types/fields/relations/vocabularies…）的唯一来源是 lib/definitions.ts 的
+// 定义（fields/relations/vocabularies…）的唯一来源是 lib/definitions.ts 的
 // useDefinitions()（带版本缓存、订阅与发布后失效）；会话用户来自 lib/authContext 的
 // useAuth()。这两样此前在这里各存了一份 React state，于是同一份数据有了第二份缓存：
 // 后台发布新定义后，只有拿到 Provider 那一份的组件会变，没挂 Provider 的路由

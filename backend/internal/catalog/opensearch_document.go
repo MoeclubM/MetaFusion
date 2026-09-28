@@ -13,7 +13,6 @@ type searchDocument struct {
 	Kind             string    `json:"kind"`
 	Status           string    `json:"status"`
 	CreatedBy        string    `json:"created_by"`
-	Types            []string  `json:"types"`
 	Tags             []string  `json:"tags"`
 	OriginalLanguage string    `json:"original_language"`
 	WorkID           string    `json:"work_id"`
@@ -90,7 +89,6 @@ func makeSearchDocument(e Entity) searchDocument {
 		Kind:             e.Kind,
 		Status:           e.Status,
 		CreatedBy:        e.CreatedBy,
-		Types:            e.Types,
 		Tags:             searchTags(e.Attributes["tags"]),
 		OriginalLanguage: e.OriginalLanguage,
 		WorkID:           e.WorkID,

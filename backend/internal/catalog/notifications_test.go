@@ -331,7 +331,7 @@ func TestNotificationProducersOnPostgres(t *testing.T) {
 		t.Fatalf("收录通知的容器/落点不符: %+v", items[0])
 	}
 	// 同一发行再存一次（subjects 未变）不重复通知。
-	f.saveAs(f.reviewer, Entity{ID: rel.ID, Version: rel.Version, Kind: "release", Title: "收录它的发行", Types: rel.Types, Subjects: []Subject{{WorkID: work.ID, Role: "primary"}}})
+	f.saveAs(f.reviewer, Entity{ID: rel.ID, Version: rel.Version, Kind: "release", Title: "收录它的发行", Subjects: []Subject{{WorkID: work.ID, Role: "primary"}}})
 	if items = f.notifs(f.owner); len(items) != 3 {
 		t.Fatalf("subjects 未变不该重复通知: %+v", items)
 	}

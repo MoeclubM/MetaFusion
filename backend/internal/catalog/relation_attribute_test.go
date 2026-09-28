@@ -11,9 +11,9 @@ import (
 func TestPostgresRelationAttributeReferences(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	work := f.save(Entity{Kind: "work", Title: "配音所属作品", Types: []string{"animation"}})
-	character := f.save(Entity{Kind: "agent", Title: "某角色", Types: []string{"character"}})
-	actor := f.save(Entity{Kind: "agent", Title: "某声优", Types: []string{"person"}})
+	work := f.save(Entity{Kind: "work", Title: "配音所属作品"})
+	character := f.save(Entity{Kind: "agent", Title: "某角色"})
+	actor := f.save(Entity{Kind: "agent", Title: "某声优"})
 	_, err := f.s.SaveRelation(ctx, RelationEdit{
 		Relation: Relation{Type: "voiced_by", SourceID: work.ID, TargetID: actor.ID,
 			Attributes: map[string]any{"character": character.ID}},

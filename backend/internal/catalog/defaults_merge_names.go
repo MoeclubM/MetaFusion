@@ -44,13 +44,6 @@ func backfillTranslations(out *Definitions, seed Definitions) []string {
 			out.Fields[code] = c
 		}
 	}
-	// 类型
-	for code, cur := range out.Types {
-		if se, ok := seed.Types[code]; ok {
-			cur.Names = mergeNames("types."+code, cur.Names, se.Names, &added)
-			out.Types[code] = cur
-		}
-	}
 	// 关系（正名 / 反向名 / 分组名）
 	for code, cur := range out.Relations {
 		if se, ok := seed.Relations[code]; ok {

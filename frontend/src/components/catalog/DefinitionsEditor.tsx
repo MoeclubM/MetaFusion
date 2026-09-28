@@ -7,7 +7,6 @@ import {
   Field,
   Names,
   Source,
-  kinds as fallbackKinds,
   local,
 } from "./api";
 import { CATALOG_DEFINITIONS_MANAGE, can } from "@/lib/permissions";
@@ -24,12 +23,12 @@ import type { DynamicDefinitions } from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
 
 // 同一份服务端定义文档在前端有两个方向不同的类型：lib/definitions.ts 的 DynamicDefinitions
-// 是只读消费视图（老文档缺键时为可选），./api 的 Definitions 是写入视图（字段齐全）。
+// 是只读消费视图，./api 的 Definitions 是写入视图。
 // 已发布文档就是写入视图的输入，这里按写入视图收窄，免得编辑器整篇跟着换类型。
 const asEditableDefinitions = (d: DynamicDefinitions): Definitions =>
   d as unknown as Definitions;
 
-const newField = (): Field => ({ names: {}, type: "text", enabled: true });
+const newField = (): Field => ({ names: {}, type: "text", enabled: true, applicable_kinds: [] });
 function Checks({
   values,
   selected,
@@ -180,7 +179,7 @@ function FieldDefinition({
   const kindNames = useMemo(
     () =>
       Object.fromEntries(
-        resolveKindOptions(serverKinds, fallbackKinds).map((k) => [
+        resolveKindOptions(serverKinds).map((k) => [
           k,
           getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k)),
         ]),
@@ -198,6 +197,7 @@ function FieldDefinition({
             onChange({
               ...newField(),
               names: value.names,
+              applicable_kinds: value.applicable_kinds,
               type: e.target.value,
               ...(e.target.value === "list"
                 ? { items: newField() }
@@ -239,6 +239,14 @@ function FieldDefinition({
           ),
         )}
       </div>
+      {!groupFields && (
+        <Checks
+          label={tr("catalog.applicableKinds", "适用实体层级")}
+          values={kindNames}
+          selected={value.applicable_kinds || []}
+          onChange={(applicable_kinds) => patch({ applicable_kinds })}
+        />
+      )}
       {/* 对比语义：闭集选择，只提供系统真正实现的规则，避免自由填写出不生效的配置。 */}
       <label>
         {t("catalog.semantics")}
@@ -382,7 +390,7 @@ export function DefinitionsEditor() {
   const [sources, setSources] = useState<Source[]>([
     { kind: "self", citation: "" },
   ]);
-  const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
+  const [tab, setTab] = useState<keyof Definitions | "schemes">("fields");
   useEffect(() => {
     if (published && etag !== null && !d) {
       setD(structuredClone(asEditableDefinitions(published)));
@@ -416,7 +424,7 @@ export function DefinitionsEditor() {
     );
   // 骨架层级名：服务端 definitions.kinds 优先，字典只作兜底（缺键退原始码）。
   const kindNames = Object.fromEntries(
-    resolveKindOptions(serverKinds, fallbackKinds).map((k) => [
+    resolveKindOptions(serverKinds).map((k) => [
       k,
       getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k)),
     ]),
@@ -438,7 +446,7 @@ export function DefinitionsEditor() {
       </details>
       <nav className="cv-tabs flex flex-wrap gap-2 rounded-xl border border-line-subtle bg-surfaceSubtle p-2" aria-label={t("catalog.configure")}>
         {(
-          ["types", "fields", "vocabularies", "relations", "templates", "schemes"] as const
+          ["fields", "vocabularies", "relations", "templates", "schemes"] as const
         ).map((k) => (
           <button
             key={k}
@@ -449,61 +457,6 @@ export function DefinitionsEditor() {
           </button>
         ))}
       </nav>
-      {tab === "types" && (
-        <Dictionary
-          value={d.types}
-          onChange={(types) => change({ ...d, types })}
-          create={() => ({
-            names: {},
-            kinds: ["work"],
-            fields: [],
-            template: "",
-            enabled: true,
-          })}
-          render={(v, set) => (
-            <>
-              <NamesEditor
-                value={v.names}
-                onChange={(names) => set({ ...v, names })}
-              />
-              <label className="cv-check">
-                <input
-                  type="checkbox"
-                  checked={v.enabled}
-                  onChange={(e) => set({ ...v, enabled: e.target.checked })}
-                />
-                {t("catalog.enabled")}
-              </label>
-              <Checks
-                label={t("catalog.allowedKinds")}
-                values={kindNames}
-                selected={v.kinds}
-                onChange={(kinds) => set({ ...v, kinds })}
-              />
-              <Checks
-                label={t("catalog.fields")}
-                values={names(d.fields)}
-                selected={v.fields}
-                onChange={(fields) => set({ ...v, fields })}
-              />
-              <label>
-                {t("catalog.template")}
-                <select
-                  value={v.template}
-                  onChange={(e) => set({ ...v, template: e.target.value })}
-                >
-                  <option value="">{t("catalog.none")}</option>
-                  {Object.entries(names(d.templates)).map(([k, n]) => (
-                    <option key={k} value={k}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          )}
-        />
-      )}
       {tab === "fields" && (
         <Dictionary
           value={d.fields}
@@ -594,13 +547,11 @@ export function DefinitionsEditor() {
             reverse_names: {},
             source_kinds: ["agent"],
             target_kinds: ["work"],
-            source_types: [],
-            target_types: [],
             fields: [],
             symmetric: false,
             acyclic: false,
             aggregate: false,
-            participant_slot: "",
+            participant_slot: "peer",
             counts_as_credit: false,
             max_outgoing: 0,
             max_incoming: 0,
@@ -622,8 +573,6 @@ export function DefinitionsEditor() {
                 [
                   "source_kinds",
                   "target_kinds",
-                  "source_types",
-                  "target_types",
                   "fields",
                 ] as const
               ).map((k) => (
@@ -631,11 +580,7 @@ export function DefinitionsEditor() {
                   key={k}
                   label={t(`catalog.${k}`)}
                   values={
-                    k.endsWith("kinds")
-                      ? kindNames
-                      : k === "fields"
-                        ? names(d.fields)
-                        : names(d.types)
+                    k.endsWith("kinds") ? kindNames : names(d.fields)
                   }
                   selected={v[k]}
                   onChange={(values) => set({ ...v, [k]: values })}
@@ -669,16 +614,12 @@ export function DefinitionsEditor() {
               <label>
                 {tr("catalog.participantSlot", "Participant slot")}
                 <select
-                  value={v.participant_slot || ""}
+                  value={v.participant_slot}
                   onChange={(e) =>
                     set({ ...v, participant_slot: e.target.value })
                   }
                 >
-                  {/* 闭集与后端 Validate 的 invalid_participant_slot 同源：下拉即约束，
-                      手造载荷由服务端再拦一次。空=未声明（老文档兼容口径）。 */}
-                  <option value="">
-                    {tr("catalog.participantSlotUnset", "Not set")}
-                  </option>
+                  {/* 闭集与后端 Validate 的 invalid_participant_slot 同源。 */}
                   <option value="person">
                     {tr("catalog.participantSlotPerson", "Person / organization")}
                   </option>
@@ -742,6 +683,7 @@ export function DefinitionsEditor() {
           onChange={(templates) => change({ ...d, templates })}
           create={() => ({
             names: {},
+            kinds: [],
             sections: [],
             columns: [],
             relation_groups: [],
@@ -753,6 +695,12 @@ export function DefinitionsEditor() {
               <NamesEditor
                 value={v.names}
                 onChange={(names) => set({ ...v, names })}
+              />
+              <Checks
+                label={t("catalog.allowedKinds")}
+                values={kindNames}
+                selected={v.kinds || []}
+                onChange={(kinds) => set({ ...v, kinds })}
               />
               {v.sections.map((s, i) => (
                 <fieldset key={i}>
@@ -868,7 +816,6 @@ export function DefinitionsEditor() {
             names: {},
             slot: "locator",
             kinds: [],
-            types: [],
             medium_formats: [],
             fields: [],
             required: [],
@@ -908,12 +855,6 @@ export function DefinitionsEditor() {
                   values={kindNames}
                   selected={v.kinds || []}
                   onChange={(kinds) => set({ ...v, kinds })}
-                />
-                <Checks
-                  label={t("catalog.schemeTypes")}
-                  values={names(d.types)}
-                  selected={v.types || []}
-                  onChange={(types) => set({ ...v, types })}
                 />
                 {v.slot !== "subject_attributes" && (!v.kinds?.length || v.kinds.includes("track")) && (
                   <Checks

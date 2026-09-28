@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Upload } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
+import { api, Entity, emptyEntity, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
@@ -15,7 +15,7 @@ import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { Select } from "@/components/ui/Select";
 import { Combobox } from "@/components/ui/Combobox";
-import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, getTermName, matchSchemes, resolveKindOptions, templatesForEntity, useDefinitions } from "@/lib/definitions";
 import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
 import {
   assetContentUrl,
@@ -61,11 +61,10 @@ export function EntityEditor({
   // 字典只作名称兜底（缺键退原始码）；后台改骨架名/停用种类前端即跟随。
   const kindLabel = (code: string) =>
     getKindName(serverKinds, code, locale, tr(`catalog.kind.${code}`, code));
-  const kindOptions = useMemo(() => resolveKindOptions(serverKinds, fallbackKinds), [serverKinds]);
+  const kindOptions = useMemo(() => resolveKindOptions(serverKinds), [serverKinds]);
   const [e, setE] = useState<Entity>(() => ({
     ...emptyEntity(initial?.kind || (initialKind && kindOptions.includes(initialKind) ? initialKind : undefined)),
     ...initial,
-    types: initial?.types || [],
     attributes: initial?.attributes || {},
     translations: initial?.translations || {},
     pictures: initial?.pictures || [],
@@ -73,12 +72,12 @@ export function EntityEditor({
     contents: initial?.contents || [],
     subjects: initial?.subjects || [],
   }));
-  const [profileOpen, setProfileOpen] = useState((initial?.types?.length || 0) > 0);
+  const [selectedFields, setSelectedFields] = useState<string[]>(Object.keys(initial?.attributes || {}));
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   // 结构属性按 scheme 收敛：与后端同一匹配规则；无匹配 scheme 时显示
-  // 全部全局子字段（向后兼容）。定位子字段顺序：有匹配时按 scheme 并集
+  // 全部全局子字段。定位子字段顺序：有匹配时按 scheme 并集
   // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
   const kindKey = e.kind;
-  const typesKey = JSON.stringify(e.types);
   const [mediumFormat, setMediumFormat] = useState("");
   const mediumID = e.kind === "track" ? e.medium_id : undefined;
   useEffect(() => {
@@ -94,37 +93,23 @@ export function EntityEditor({
       .catch(() => { if (active) setMediumFormat(""); });
     return () => { active = false; };
   }, [mediumID]);
-  // 字段方案由已发布 definitions.types 提供；空选项也可建档，分类由自由标签承载。
-  // 逗号拼接仅用于稳定 memo 键：定义码不含逗号。
-  const kindTypeOptionsKey = useMemo(() => {
-    if (!defs) return "";
-    return Array.from(new Set([
-      ...Object.entries(defs.types || {})
-        .filter(([, v]) => v.enabled && (v.kinds || []).includes(kindKey))
-        .map(([code]) => code),
-      ...(JSON.parse(typesKey) as string[]),
-    ]))
-      .sort()
-      .join(",");
-  }, [defs, kindKey, typesKey]);
-  const effTypes = React.useMemo(() => JSON.parse(typesKey) as string[], [typesKey]);
   const locatorFieldKeys = React.useMemo(() => {
-    const matched = matchSchemes(defs as any, "locator", kindKey, effTypes, mediumFormat);
+    const matched = matchSchemes(defs as any, "locator", kindKey, mediumFormat);
     const union = effectiveSchemeFields(matched);
     const f: any = defs?.fields?.["locator"];
     const keys = union.length > 0 ? union.filter((k) => f?.fields?.[k]) : Object.keys(f?.fields || {});
     const anchor = f?.anchor_key;
     return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
-  }, [defs, kindKey, effTypes, mediumFormat]);
+  }, [defs, kindKey, mediumFormat]);
   // 两个 GroupFieldInput 的收敛码：无匹配时传 undefined（显示全部全局子字段）。
   const subjectCodes = React.useMemo(() => {
-    const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey, effTypes));
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey));
     return union.length > 0 ? union : undefined;
-  }, [defs, kindKey, effTypes]);
+  }, [defs, kindKey]);
   const inclusionCodes = React.useMemo(() => {
-    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, effTypes, mediumFormat));
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, mediumFormat));
     return union.length > 0 ? union : undefined;
-  }, [defs, kindKey, effTypes, mediumFormat]);
+  }, [defs, kindKey, mediumFormat]);
   const [note, setNote] = useState(initialEditNote);
   // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
   const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);
@@ -162,31 +147,29 @@ export function EntityEditor({
     );
   }
   const d = definitions;
-  // 本层级可选的字段方案：服务端 definitions.types 中启用且适用于本 kind 的项。
-  // types 是现有持久化字段，作为字段白名单使用；自由分类只写 attributes.tags。
-  const kindTypeOptions: string[] = kindTypeOptionsKey ? kindTypeOptionsKey.split(",") : [];
-  // 模板快捷入口：模板本身不挂 kind，可适用性由"指向它的、启用的、适用于本 kind 的 type"
-  // 反推（type.template === 模板码 且 type.kinds 含当前 kind）。选模板即把这些 type 合并进
-  // e.types（并集，不丢已手选的类型）；编辑已有实体时不强制，仅新建时显示。
+  const applicableFields = Object.entries(d.fields).filter(([, field]) =>
+    field.enabled && field.applicable_kinds?.includes(kindKey)
+  );
+  // 模板仅提供字段布局。候选由模板字段与当前 kind 的适用范围交集决定。
   const templatePickOptions = (() => {
-    const byTemplate: Record<string, string[]> = {};
-    for (const [code, ty] of Object.entries(d.types || {})) {
-      if (!ty.enabled) continue;
-      if (!(ty.kinds || []).includes(kindKey)) continue;
-      if (!ty.template) continue;
-      (byTemplate[ty.template] ||= []).push(code);
-    }
     return Object.entries(d.templates || {})
-      .filter(([tpl]) => (byTemplate[tpl] || []).length > 0)
+      .filter(([, tpl]) => (!tpl.kinds?.length || tpl.kinds.includes(kindKey)) &&
+        tpl.sections?.some((sec) => sec.fields?.some((code) =>
+          d.fields[code]?.applicable_kinds?.includes(kindKey)
+        )))
       .map(([code, tpl]) => {
         const label = local(tpl.names, locale, code);
-        return { value: code, label, search: `${label} ${code}`, types: byTemplate[code] };
+        return { value: code, label, search: `${label} ${code}` };
       });
   })();
   const applyTemplate = (tplCode: string) => {
-    const tpl = templatePickOptions.find((o) => o.value === tplCode);
-    if (!tpl) return;
-    patch({ types: Array.from(new Set([...e.types, ...tpl.types])) });
+    const template = d.templates[tplCode];
+    if (!template) return;
+    setSelectedTemplate(tplCode);
+    setSelectedFields((current) => Array.from(new Set([
+      ...current,
+      ...template.sections.flatMap((sec) => sec.fields).filter((code) => d.fields[code]?.applicable_kinds?.includes(kindKey)),
+    ])));
   };
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：开放分类/检索词，不预置封闭的媒体或作品类型清单。----
@@ -264,11 +247,12 @@ export function EntityEditor({
   };
   const fields = Array.from(
     new Set([
-      ...effTypes.flatMap((k) => d.types[k]?.fields || []),
+      ...applicableFields.filter(([, field]) => field.required).map(([code]) => code),
+      ...selectedFields,
       ...Object.keys(e.attributes),
     ]),
-  );
-  // 动态结构：合并实体已选类型引用模板的 sections（保序去重）；剩余字段归入"其它信息"。
+  ).filter((code) => !!d.fields[code]);
+  // 动态结构：按所选布局或已存字段匹配模板 sections；剩余字段归入"其它信息"。
   // hidden 只表示"不进详情信息面板"，不代表不可编辑：这类字段（存档/检索用）
   // 收进折叠区仍可维护，否则 hidden + required 会变成填不出、存不下的死锁。
   // 注意：此处位于条件 return 之后，必须用普通计算，不得改成 useMemo。
@@ -278,11 +262,12 @@ export function EntityEditor({
   {
     const declared = new Set(fields);
     const seen = new Set<string>();
-    // 同名分区合并：字段来自已选类型的模板，而各模板都有自己的"基本信息"，
-    // 不合并就会出现多个同名分区（与"合并各类型模板 sections"的既有意图一致）。
+    // 同名分区合并，避免重复的"基本信息"区块。
     const byName = new Map<string, { names: Record<string, string>; fields: string[] }>();
-    for (const tc of effTypes) {
-      const tpl = d.templates?.[d.types[tc]?.template || ""];
+    const templates = selectedTemplate
+      ? [d.templates[selectedTemplate]].filter(Boolean)
+      : templatesForEntity(d, kindKey, e.attributes);
+    for (const tpl of templates) {
       for (const sec of tpl?.sections || []) {
         const fs = (sec.fields || []).filter(
           (f: string) =>
@@ -421,8 +406,7 @@ export function EntityEditor({
   };
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    // 空字段方案可保存基础身份和标签；填写动态字段时须选相应方案，
-    // 服务端按所选方案的字段白名单校验，历史数据仍按兼容规则处理。
+    // 服务端按字段的 applicable_kinds 校验；编辑器不提交布局或业务分类。
     // 应用层证据校验：HTML required 的原生气泡在部分环境不可见，
     // 曾表现为"点保存没反应"；noValidate 后统一在此给出明确提示。
     const missingEvidence =
@@ -522,9 +506,11 @@ export function EntityEditor({
             <Select
               value={e.kind}
               disabled={!!e.id}
-              onChange={(value) =>
-                setE({ ...emptyEntity(value), title: e.title })
-              }
+              onChange={(value) => {
+                setE({ ...emptyEntity(value), title: e.title });
+                setSelectedFields([]);
+                setSelectedTemplate("");
+              }}
               options={kindOptions.map((k) => ({ value: k, label: kindLabel(k) }))}
               aria-label={t("catalog.kindLabel")}
             />
@@ -605,54 +591,39 @@ export function EntityEditor({
           )}
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
-        {/* 字段方案：可选，来自 definitions；它决定可编辑字段，不充当分类标签。 */}
-        <details className="cv-tags" open={profileOpen} onToggle={(event) => setProfileOpen(event.currentTarget.open)}>
+        {/* 字段与布局均来自 definitions，不向实体写入分类或模板。 */}
+        <details className="cv-tags">
           <summary className="mf-focus">
-            <strong>{t("catalog.businessTypes")}</strong>
-            {e.types.length > 0 && ` · ${e.types.map((code) => getTypeName(defs as any, code, locale) || code).join(" · ")}`}
+            <strong>{tr("catalog.availableFields", "可用字段")}</strong>
           </summary>
-          {kindTypeOptions.length === 0 ? (
-            <p className="cv-hint">{t("catalog.noTypesForKind")}</p>
-          ) : (
-            <>
-              {/* 新建实体的模板快捷入口：选模板即自动勾选其下全部业务类型；
-                  编辑已有实体时不显示（保留手动 checkbox 流程）。 */}
-              {!initial && templatePickOptions.length > 0 && (
-                <div className="cv-row" style={{ marginBottom: 8 }}>
-                  <label style={{ display: "block", width: "100%" }}>
-                    {tr("editor.templatePick", "按模板快速填充业务类型")}
-                    <Combobox
-                      value=""
-                      onChange={applyTemplate}
-                      options={templatePickOptions}
-                      placeholder={tr("editor.templatePickPlaceholder", "选择模板…")}
-                      searchPlaceholder={tr("editor.templateSearch", "搜索模板…")}
-                      aria-label={tr("editor.templatePick", "按模板快速填充业务类型")}
-                    />
-                  </label>
-                </div>
-              )}
-              <div className="cv-checks">
-                {kindTypeOptions.map((code) => (
-                  <label key={code}>
-                    <input
-                      type="checkbox"
-                      checked={e.types.includes(code)}
-                      onChange={(x) =>
-                        patch({
-                          types: x.target.checked
-                            ? [...e.types, code]
-                            : e.types.filter((v) => v !== code),
-                        })
-                      }
-                    />
-                    {getTypeName(defs as any, code, locale) || code}
-                  </label>
-                ))}
-              </div>
-            </>
+          {templatePickOptions.length > 0 && (
+            <label style={{ display: "block", width: "100%" }}>
+              {tr("editor.templatePick", "字段布局模板")}
+              <Combobox
+                value={selectedTemplate}
+                onChange={applyTemplate}
+                options={templatePickOptions}
+                placeholder={tr("editor.templatePickPlaceholder", "选择布局模板…")}
+                searchPlaceholder={tr("editor.templateSearch", "搜索模板…")}
+                aria-label={tr("editor.templatePick", "字段布局模板")}
+              />
+            </label>
           )}
-          <p className="cv-hint">{t("catalog.businessTypesHint")}</p>
+          <div className="cv-checks">
+            {applicableFields.filter(([code]) => code !== "tags").map(([code, field]) => (
+              <label key={code}>
+                <input
+                  type="checkbox"
+                  checked={fields.includes(code)}
+                  disabled={field.required || Object.prototype.hasOwnProperty.call(e.attributes, code)}
+                  onChange={(event) => setSelectedFields((current) => event.target.checked
+                    ? [...current, code]
+                    : current.filter((item) => item !== code))}
+                />
+                {local(field.names, locale, "", code)}
+              </label>
+            ))}
+          </div>
         </details>
       </fieldset>
       <fieldset>
@@ -973,7 +944,6 @@ export function EntityEditor({
       <RelationEditorField
         entityId={e.id}
         entityKind={e.kind}
-        entityTypes={e.types}
         note={note}
         sources={sources}
         drafts={pendingRelations}
@@ -982,7 +952,7 @@ export function EntityEditor({
       {(sections.length > 0 || restFields.length > 0 || foldedFields.length > 0) && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
-          {/* 动态结构：字段按实体类型引用模板的 sections 分组（分区名/字段/次序
+          {/* 动态结构：字段按适用模板的 sections 分组（分区名/字段/次序
               全部来自服务端 definitions）；模板未覆盖的字段落入末尾"其它信息"，
               保证任何声明过的数据都可编辑。 */}
           {sections.map((sec, i) => (
@@ -1269,16 +1239,24 @@ export function EntityEditor({
                   {t("catalog.pictureInUseFrom")}
                   <input
                     placeholder="2025-01"
-                    value={p.in_use_from || ""}
-                    onChange={(x) => patchPicture(i, { in_use_from: x.target.value })}
+                    value={p.usage_period?.begin || ""}
+                    onChange={(x) => {
+                      const begin = x.target.value;
+                      const end = p.usage_period?.end || "";
+                      patchPicture(i, { usage_period: begin || end ? { begin, end } : undefined });
+                    }}
                   />
                 </label>
                 <label>
                   {t("catalog.pictureInUseUntil")}
                   <input
                     placeholder="2025-12"
-                    value={p.in_use_until || ""}
-                    onChange={(x) => patchPicture(i, { in_use_until: x.target.value })}
+                    value={p.usage_period?.end || ""}
+                    onChange={(x) => {
+                      const begin = p.usage_period?.begin || "";
+                      const end = x.target.value;
+                      patchPicture(i, { usage_period: begin || end ? { begin, end } : undefined });
+                    }}
                   />
                 </label>
               </div>

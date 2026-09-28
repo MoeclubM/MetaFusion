@@ -2,6 +2,7 @@
 
 > 范围声明：本文为只读架构评估，未修改任何代码、迁移或数据。所有结论以撰写时检出状态为准，证据为源码文件与行号。
 > 2026-09-27 更新：本文保留撰写时的评估证据，不代表当前接口。定义版本、diff、回滚机制已废弃；现行定义由 `catalog.definition_config` 的单份文档与 `etag` 驱动。第 2 节“盒装必含汇编 Work”的建议也已废弃；跨作品收录见 [媒体编目复核](./media-catalog-frontend-review-2026-09.md)。
+> 2026-09-28 更新：业务 `types` 和关系端点 `source_types` / `target_types` 已由迁移 `000016` 移除；下文关于这些字段的描述只属于当时快照，当前契约见 [架构基准](./spec-driven-requirements.md)。
 > 关联文档：[核心实现与模块边界](./catalog-core-implementation.md)、[媒体编目与用户前端复核](./media-catalog-frontend-review-2026-09.md)、[元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
 
 ## 0. 评估基线

@@ -18,19 +18,12 @@ func names4(zhCN, zhTW, ja, en string) Names {
 // floatPtr 便于在字段定义里声明 Min/Max 边界。
 func floatPtr(v float64) *float64 { return &v }
 
-// PrimaryDateField 返回某类型所属模板声明的主日期字段码（作品首发/发行日期）。
-// 代码不硬编码 edition_date：模板改 primary_date_field 即改变语义，
-// 未声明或类型未知时返回空，调用方不写日期（不虚构）。
-func (d Definitions) PrimaryDateField(typeCode string) string {
-	t, ok := d.Types[typeCode]
-	if !ok {
-		return ""
+// PrimaryDateField 返回作品的已发布首发日期字段；不由业务分类决定。
+func (d Definitions) PrimaryDateField() string {
+	if f, ok := d.Fields["edition_date"]; ok && contains(f.ApplicableKinds, "work") && f.Enabled {
+		return "edition_date"
 	}
-	tpl, ok := d.Templates[t.Template]
-	if !ok {
-		return ""
-	}
-	return tpl.PrimaryDateField
+	return ""
 }
 
 // KindNames 是固定八实体骨架的**多语言显示名**（服务端唯一来源）。
@@ -87,13 +80,6 @@ type termSeed struct {
 	names Names
 }
 
-// typeSeed 是类型的声明形状：四语名称（names4）+ 归属展示模板。
-type typeSeed struct {
-	code     string
-	names    Names
-	template string
-}
-
 // relSeed 是一条关系的声明形状：关系码 + 正向名 + 反向名（均为四语 names4）。
 type relSeed struct {
 	code  string
@@ -105,7 +91,7 @@ func Defaults() Definitions {
 	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
 	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
 	// TargetKinds 为空表示同层父节点（同域父节点）；Resources 表示该层级可挂资源文件。
-	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{},
+	d := Definitions{Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{},
 		Structure: map[string]StructureRule{
 			// 发行版没有上级，但有"发行对象"；收录位置额外有"收录内容"。两者都属于「所属与收录结构」，
 			// 在这里声明后，前端不必再写死"只有 release 才有发行对象/只有 track 才有收录内容"。
@@ -115,7 +101,7 @@ func Defaults() Definitions {
 			"medium":       {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
 			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true, Contents: true},
 		},
-		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}, CreditDeclared: true}
+		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, typ string, n Names) {
 		d.Fields[code] = Field{Names: n, Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
@@ -395,12 +381,12 @@ func Defaults() Definitions {
 		return commonSections(basics...)
 	}
 	for _, x := range []struct {
-		code       string
-		names      Names
-		sections   []Section
-		primary    string
-		badges     []string
-		facets     []string
+		code     string
+		names    Names
+		sections []Section
+		primary  string
+		badges   []string
+		facets   []string
 	}{
 		// --- 音乐 ---
 		{"single", names4("单曲", "單曲", "シングル", "Single"), tplSections(
@@ -479,143 +465,46 @@ func Defaults() Definitions {
 			Columns: []string{"edition_date"}, RelationGroups: []string{"credits", "creative", "membership"},
 			PrimaryDateField: x.primary, BadgeFields: x.badges, FacetFields: x.facets}
 	}
-	// 作品类型可写的字段集：与所属模板分区声明的字段保持一致，避免"声明了却没权限写"。
-	// 按媒体场景分别声明，而不是一份大字段集全类型共用——否则歌曲编辑页会出现
-	// ISBN/出版社这类出版字段，制片信息也会出现在专辑上。
-	// 归属原则：作品层只写"创作身份"（语言、时长、连载/放送信息、原始署名）；
-	// 品番、条码、ISBN、发行日期、出版社等**具体产品标识**归 Release/Medium。
-	commonWorkFields := []string{"language", "edition_date", "copyright", "imdb", "tags", "infobox", "events"}
-	workFieldsByType := map[string][]string{
-		// 音乐作品：时长、时长来源与词曲署名；专辑/歌曲不写出版与放送字段。
-		"music":         {"duration", "duration_source", "author"},
-		"song":          {"duration", "duration_source", "author"},
-		"album":         {"duration", "duration_source", "author"},
-		"single":        {"duration", "duration_source", "author"},
-		"original_album": {"duration", "duration_source", "author"},
-		"doujin_album":  {"duration", "duration_source", "author"},
-		// 文学：卷数、连载杂志、原始署名文本。
-		"novel":         {"volume_count", "magazine", "author"},
-		"novel_general": {"volume_count", "author"},
-		"light_novel":   {"volume_count", "magazine", "author"},
-		// 漫画：卷数、连载杂志、原始署名（DLsite 等来源的コミック/マンガ）。
-		"comic":           {"volume_count", "magazine", "author"},
-		"manga_volume":    {"volume_count", "magazine", "author"},
-		"manga_serialized": {"volume_count", "magazine", "author", "begin_date", "end_date"},
-		// 音声：时长、时长来源与署名（ASMR・广播剧等音频作品，区别于音乐）。
-		"audio":        {"duration", "duration_source", "author"},
-		"audio_drama":  {"duration", "duration_source", "author"},
-		"radio_drama":  {"duration", "duration_source", "episodes", "broadcast_start", "broadcast_end", "author"},
-		// 影视动画：话数、放送周期与电视台、平台。
-		"animation":    {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
-		"tv_anime":     {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
-		"theater_anime": {"duration", "platform"},
-		"ova":          {"episodes", "platform"},
-		"film":         {"duration", "platform"},
-		"tv_drama":     {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
-		// 写真集：卷数 + 摄影署名（作者文本字段承载原始署名）。
-		"photobook": {"volume_count", "author"},
-		// 游戏：平台与话数/卷数均可能。
-		"game":          {"platform", "episodes", "volume_count"},
-		"commercial_game": {"platform", "episodes", "volume_count"},
-		"indie_game":    {"platform", "episodes"},
-		"visual_novel":  {"platform", "episodes", "volume_count"},
-		"eroge":         {"platform", "episodes"},
-		"personal":      {"duration"},
+	// 字段直接声明适用的结构层级。不同出版物通过实际字段组合表达，
+	// 不写“小说/音乐”等业务分类，也不需要预先选择字段方案。
+	applicableByKind := map[string][]string{
+		"agent":      {},
+		"collection": {"language"},
+		"work": {"language", "edition_date", "copyright", "imdb", "infobox", "events",
+			"duration", "duration_source", "author", "volume_count", "magazine", "begin_date",
+			"end_date", "episodes", "platform", "broadcast_start", "broadcast_weekday",
+			"broadcast_end", "air_network"},
+		"content_unit": {"language", "entry_role", "air_date"},
+		"expression":   {"language", "duration", "version_label", "isrc", "events"},
+		"release": {"catalog_number", "barcode", "isbn", "edition_date", "edition_type",
+			"edition_batch", "country", "publisher", "packaging", "distribution_channel",
+			"platform", "attachments", "store_bonuses", "events"},
+		"medium": {"catalog_number", "format", "role"},
+		"track":  {"duration", "role"},
 	}
-	for _, x := range []typeSeed{
-		{"music", names4("音乐作品", "音樂作品", "音楽作品", "Music work"), "music"},
-		{"song", names4("歌曲", "歌曲", "楽曲", "Song"), "single"},
-		{"album", names4("专辑", "專輯", "アルバム", "Album"), "original_album"},
-		{"single", names4("单曲", "單曲", "シングル", "Single"), "single"},
-		{"original_album", names4("原创专辑", "原創專輯", "オリジナルアルバム", "Original album"), "original_album"},
-		{"doujin_album", names4("同人专辑", "同人專輯", "同人アルバム", "Doujin album"), "doujin_album"},
-		{"novel", names4("小说", "小說", "小説", "Novel"), "novel_general"},
-		{"novel_general", names4("一般小说", "一般小說", "一般小説", "General novel"), "novel_general"},
-		{"light_novel", names4("轻小说", "輕小說", "ライトノベル", "Light novel"), "light_novel"},
-		{"comic", names4("漫画", "漫畫", "コミック", "Comic"), "manga_volume"},
-		{"manga_volume", names4("漫画单行本", "漫畫單行本", "単行本", "Manga volume"), "manga_volume"},
-		{"manga_serialized", names4("连载漫画", "連載漫畫", "連載漫画", "Serialized manga"), "manga_serialized"},
-		{"audio", names4("音声作品", "音聲作品", "音声作品", "Audio work"), "audio_drama"},
-		{"audio_drama", names4("音声作品", "音聲作品", "音声作品", "Audio drama"), "audio_drama"},
-		{"radio_drama", names4("广播剧", "廣播劇", "ラジオドラマ", "Radio drama"), "radio_drama"},
-		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "tv_anime"},
-		{"tv_anime", names4("TV动画", "TV動畫", "TVアニメ", "TV animation"), "tv_anime"},
-		{"theater_anime", names4("剧场动画", "劇場動畫", "劇場アニメ", "Theatrical animation"), "theater_anime"},
-		{"ova", names4("OVA", "OVA（原創動畫錄影帶）", "OVA（オリジナルビデオアニメ）", "OVA"), "ova"},
-		{"film", names4("电影", "電影", "映画", "Film"), "film"},
-		{"tv_drama", names4("电视剧", "電視劇", "テレビドラマ", "TV drama"), "tv_drama"},
-		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photobook"},
-		{"game", names4("游戏", "遊戲", "ゲーム", "Game"), "commercial_game"},
-		{"commercial_game", names4("商业游戏", "商業遊戲", "コンシューマーゲーム", "Commercial game"), "commercial_game"},
-		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Independent game"), "indie_game"},
-		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), "visual_novel"},
-		{"eroge", names4("美少女游戏", "美少女遊戲", "美少女ゲーム", "Eroge"), "eroge"},
-		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), "personal"},
-	} {
-		// edition_date 用于承载作品首发/出版日期（列表与详情展示）；发行版自身的日期仍在 release.edition_date。
-		fields := append(append([]string{}, workFieldsByType[x.code]...), commonWorkFields...)
-		d.Types[x.code] = TypeDefinition{Names: x.names, Kinds: []string{"work"}, Fields: fields, Template: x.template, Enabled: true}
-	}
-	for _, x := range []typeSeed{
-		{"person", names4("个人", "個人", "個人", "Person"), "generic"},
-		{"organization", names4("组织", "組織", "組織", "Organization"), "generic"},
-		{"group", names4("团体", "團體", "グループ", "Group"), "generic"},
-		{"character", names4("虚构角色", "虛構角色", "架空のキャラクター", "Fictional character"), "generic"},
-	} {
-		d.Types[x.code] = TypeDefinition{Names: x.names, Kinds: []string{"agent"}, Fields: []string{}, Template: x.template, Enabled: true}
-	}
-	// 骨架类型的显示名：四语齐备，与 KindNames()/Kinds 对齐，不再按 zh/en 两语构造。
-	kindTypeNames := map[string]Names{
-		"collection":   names4("集合", "集合", "コレクション", "Collection"),
-		"content_unit": names4("内容单元", "內容單元", "コンテンツ単位", "Content unit"),
-		"expression":   names4("内容表达", "內容表達", "内容表現", "Expression"),
-		"release":      names4("发行版", "發行版", "リリース", "Release"),
-		"medium":       names4("载体", "載體", "メディア", "Medium"),
-		"track":        names4("收录位置", "收錄位置", "収録位置", "Content position"),
-	}
-
-	for _, k := range []string{"collection", "content_unit", "expression", "release", "medium", "track"} {
-		keys := []string{"language"}
-		switch k {
-		case "content_unit":
-			// entry_role 记录篇目类型（本篇/OP/ED/预告）：集数编号在各类型间各自起算，
-			// 不记录就无法区分"第1话"与"第1首片头曲"。
-			// air_date 记录该篇目自身的放送日：集数编号相同但放送日期不同的话数靠它区分。
-			keys = []string{"language", "entry_role", "air_date"}
-		case "expression":
-			keys = []string{"language", "duration", "version_label", "isrc", "events"}
-		case "release":
-			keys = []string{"catalog_number", "barcode", "isbn", "edition_date", "edition_type", "edition_batch", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
-		case "medium":
-			// catalog_number 复用 release 级同名字段：多碟装各自品番落在 medium.attributes，
-			// release.attributes 只保留总品番/代表品番。
-			keys = []string{"catalog_number", "format", "role"}
-		case "track":
-			// Entity 无 title_override 列：同一 expression 在不同版本中的时长/署名差异
-			// 由各 pressing 下自建的 track.attributes（duration/role）承载，
-			// 通过 TrackContent 引用同一 CanonicalEntry/Expression 实现复用。
-			keys = []string{"duration", "role"}
+	for kind, keys := range applicableByKind {
+		for _, code := range keys {
+			field := d.Fields[code]
+			field.ApplicableKinds = append(field.ApplicableKinds, kind)
+			d.Fields[code] = field
 		}
-		// 发行版有专用模板：其"属性分区"与"列表列"是发行这一媒体特有的编排，
-		// 由模板声明（可在后台改），避免把 edition_type/country/packaging… 写进代码。
-		tpl := "generic"
-		if k == "release" {
-			d.Templates["release"] = Template{
-				Names: names4("发行版", "發行版", "リリース", "Release"), Directory: "tree", Kinds: []string{"release"},
-				Sections: []Section{
-					{Names: names4("版本信息", "版本資訊", "版情報", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
-					{Names: names4("载体与包装", "載體與包裝", "メディア・パッケージ", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
-					{Names: names4("附加内容", "附加內容", "特典・同梱物", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
-				},
-				Columns:          []string{"edition_type", "edition_batch", "country", "packaging", "catalog_number", "edition_date"},
-				PrimaryDateField: "edition_date",
-				BadgeFields:      []string{"edition_type", "edition_batch", "country"},
-				FacetFields:      []string{"edition_type", "edition_batch", "format", "country"},
-				RelationGroups:   []string{"credits", "creative", "membership"},
-			}
-			tpl = "release"
-		}
-		d.Types[k] = TypeDefinition{Names: kindTypeNames[k], Kinds: []string{k}, Fields: keys, Template: tpl, Enabled: true}
+	}
+	// 自由标签是八种实体共通的属性；其取值不承担业务分类约束。
+	tags := d.Fields["tags"]
+	tags.ApplicableKinds = append([]string{}, Kinds...)
+	d.Fields["tags"] = tags
+	d.Templates["release"] = Template{
+		Names: names4("发行版", "發行版", "リリース", "Release"), Directory: "tree", Kinds: []string{"release"},
+		Sections: []Section{
+			{Names: names4("版本信息", "版本資訊", "版情報", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
+			{Names: names4("载体与包装", "載體與包裝", "メディア・パッケージ", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
+			{Names: names4("附加内容", "附加內容", "特典・同梱物", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
+		},
+		Columns:          []string{"edition_type", "edition_batch", "country", "packaging", "catalog_number", "edition_date"},
+		PrimaryDateField: "edition_date",
+		BadgeFields:      []string{"edition_type", "edition_batch", "country"},
+		FacetFields:      []string{"edition_type", "edition_batch", "format", "country"},
+		RelationGroups:   []string{"credits", "creative", "membership"},
 	}
 	// 关系分组名：credits/creative/membership 三组，四语齐备（前端按组折叠展示）。
 	groupNames := map[string]Names{

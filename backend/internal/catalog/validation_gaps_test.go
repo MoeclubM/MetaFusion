@@ -397,8 +397,8 @@ func TestDefinitionsValidateStructure(t *testing.T) {
 	}
 	withoutStructure := Defaults()
 	withoutStructure.Structure = nil
-	if err := withoutStructure.Validate(); err != nil {
-		t.Fatalf("legacy definitions without structure must remain valid: %v", err)
+	if err := withoutStructure.Validate(); err == nil || err.Error() != "definitions_required" {
+		t.Fatalf("definitions without structure must be rejected: %v", err)
 	}
 	resources := Defaults()
 	rule := resources.Structure["work"]

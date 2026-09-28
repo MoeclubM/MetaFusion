@@ -9,7 +9,6 @@ func TestMergeSeedDefinitionsKeepsExplicitFalse(t *testing.T) {
 	seed := Defaults()
 	mkCur := func() Definitions {
 		return Definitions{
-			Types:        map[string]TypeDefinition{},
 			Fields:       map[string]Field{},
 			Vocabularies: map[string]Vocabulary{},
 			Relations: map[string]RelationDefinition{
@@ -18,9 +17,8 @@ func TestMergeSeedDefinitionsKeepsExplicitFalse(t *testing.T) {
 				"includes":     withFlags(seed.Relations["includes"], false, false),
 				"performed_by": withFlags(seed.Relations["performed_by"], false, false),
 			},
-			Templates:      map[string]Template{}, // 有标记文档：升级后后台明确关过开关的版本，回填分支不得再碰它。
-			CreditDeclared: true,
-			Schemes:        map[string]Scheme{},
+			Templates: map[string]Template{}, // 有标记文档：升级后后台明确关过开关的版本，回填分支不得再碰它。
+			Schemes:   map[string]Scheme{},
 		}
 	}
 	merged, added := mergeSeedDefinitions(mkCur(), seed)

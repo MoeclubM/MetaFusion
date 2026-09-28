@@ -2,12 +2,12 @@
 
 import React, { useMemo } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { DynamicDefinitions, resolveLocalizedName, getFieldName, getTermName } from "@/lib/definitions";
+import { DynamicDefinitions, resolveLocalizedName, getFieldName, getTermName, templatesForEntity } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
 const NO_EXCLUDED_FIELDS: string[] = [];
 
-// WorkFacts：作品/实体的信息面板，按实体**自身类型**引用的模板分区渲染。
+// WorkFacts：作品/实体的信息面板，按 kind 与已存字段匹配模板分区渲染。
 // 两个详情页（/works/[id] 与 /catalog/[id]）共用同一实现，避免字段集合与
 // 展示次序各写一份而漂移。分区、字段、次序全部来自服务端 definitions，
 // 代码不写死任何字段码；hidden 字段（如资料表原始条目）不进面板但仍可检索。
@@ -18,7 +18,7 @@ export function WorkFacts({
   className = "",
   excludeFields = NO_EXCLUDED_FIELDS,
 }: {
-  entity: { kind?: string; types?: string[] | null; attributes?: Record<string, any> | null } | null;
+  entity: { kind?: string; attributes?: Record<string, any> | null } | null;
   defs: DynamicDefinitions | null | undefined;
   locale: string;
   className?: string;
@@ -36,13 +36,7 @@ export function WorkFacts({
       if (defs?.fields?.[code]?.hidden) return false;
       return true;
     };
-    const typeCodes = entity?.types || [];
-    // 合并该实体全部类型引用的模板分区，按声明次序去重。
-    const templates = Array.from(
-      new Set(typeCodes.map((c) => defs?.types?.[c]?.template).filter(Boolean) as string[]),
-    )
-      .map((code) => defs?.templates?.[code])
-      .filter(Boolean) as any[];
+    const templates = templatesForEntity(defs, entity?.kind || "", attrs);
 
     const seen = new Set<string>();
     const out: { names: Record<string, string>; fields: string[] }[] = [];
@@ -116,15 +110,12 @@ export default WorkFacts;
 // entityBadges 按模板声明计算标题旁的徽章：主日期字段 + badge_fields。
 // 字段码来自服务端模板，两个详情页共用，避免各自写死 edition_date/format。
 export function entityBadges(
-  entity: { types?: string[] | null; attributes?: Record<string, any> | null } | null,
+  entity: { kind?: string; attributes?: Record<string, any> | null } | null,
   defs: DynamicDefinitions | null | undefined,
   locale: string,
 ): { kind: "date" | "field"; text: string }[] {
   const attrs: Record<string, any> = entity?.attributes || {};
-  const typeCodes = entity?.types || [];
-  const templates = typeCodes
-    .map((c) => defs?.templates?.[defs?.types?.[c]?.template || ""])
-    .filter(Boolean) as any[];
+  const templates = templatesForEntity(defs, entity?.kind || "", attrs);
   const out: { kind: "date" | "field"; text: string }[] = [];
   const dateField = templates.map((tp) => tp.primary_date_field).find(Boolean) as string | undefined;
   if (dateField && attrs[dateField] && !defs?.fields?.[dateField]?.hidden) {

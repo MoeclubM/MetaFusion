@@ -60,9 +60,6 @@ export interface SlotSemantics {
 export interface CompareSemantics {
   locator: SlotSemantics;
   inclusion_attributes: SlotSemantics;
-  /** 向前兼容旧顶层数组 */
-  content?: string[];
-  locating?: string[];
 }
 
 function collectSlotPaths(groupDef: any, prefix = ""): { path: string; semantics: string }[] {
@@ -100,8 +97,6 @@ export function compareSemanticsOf(defs: any): CompareSemantics {
   return {
     locator: locSlot,
     inclusion_attributes: incSlot,
-    content: [...locSlot.content, ...incSlot.content],
-    locating: [...locSlot.locating, ...incSlot.locating],
   };
 }
 

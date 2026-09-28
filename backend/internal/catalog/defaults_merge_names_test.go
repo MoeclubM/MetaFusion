@@ -7,7 +7,6 @@ func TestMergeSeedDefinitionsBackfillsOnlyPlaceholderTranslations(t *testing.T) 
 	seed := Defaults()
 	// 构造一个旧文档：character 字段只有中英两种，繁中/日文缺失；locale 字段的日文是人工改过的。
 	cur := Definitions{
-		Types:        map[string]TypeDefinition{},
 		Fields:       map[string]Field{},
 		Vocabularies: map[string]Vocabulary{},
 		Relations:    map[string]RelationDefinition{},

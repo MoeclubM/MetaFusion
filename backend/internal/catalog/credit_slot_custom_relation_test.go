@@ -15,7 +15,7 @@ func TestRelationParticipantSlotValidation(t *testing.T) {
 	if err := d.Validate(); err == nil || !strings.Contains(err.Error(), "invalid_participant_slot") {
 		t.Fatalf("拼错的 participant_slot 应报 invalid_participant_slot，实际 %v", err)
 	}
-	for _, slot := range []string{"", "person", "character", "peer"} {
+	for _, slot := range []string{"person", "character", "peer"} {
 		ok := Defaults()
 		rt := ok.Relations["voiced_by"]
 		rt.ParticipantSlot = slot
@@ -23,6 +23,13 @@ func TestRelationParticipantSlotValidation(t *testing.T) {
 		if err := ok.Validate(); err != nil {
 			t.Fatalf("合法槽位 %q 应放行：%v", slot, err)
 		}
+	}
+	missing := Defaults()
+	rt := missing.Relations["voiced_by"]
+	rt.ParticipantSlot = ""
+	missing.Relations["voiced_by"] = rt
+	if err := missing.Validate(); err == nil || !strings.Contains(err.Error(), "invalid_participant_slot") {
+		t.Fatalf("缺失参与者槽位应被拒绝：%v", err)
 	}
 }
 

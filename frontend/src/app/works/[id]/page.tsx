@@ -11,7 +11,7 @@ import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { fetchApi, fetchEntityPosts, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
-import { useDefinitions, getFieldName, getRelationName, getTermName, getTagName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getRelationName, getTermName, getTagName, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useKindRedirect } from "@/lib/useKindRedirect";
@@ -149,7 +149,7 @@ export default function WorkDirectoryPage() {
 
  // 发行版列表的列与可筛选字段：均由发行版模板声明（columns / facet_fields），
  // 后台可改，代码不写死 edition_type/format/country 等字段码。
- // 作品自身的信息面板不在这里取字段码：WorkFacts 会按作品类型引用的模板渲染。
+ // 作品自身的信息面板由 WorkFacts 按已有字段与适用模板渲染。
 const { definitions: defs } = useDefinitions();
 const directoryData = useWorkDirectoryData(work?.id || "");
 const directoryVisible = directoryData.status !== "ready" || hasWorkDirectoryContent(
@@ -157,42 +157,22 @@ const directoryVisible = directoryData.status !== "ready" || hasWorkDirectoryCon
   work?.id || "",
   (code) => defs?.relations?.[code]?.aggregate === true,
 );
-// 多方案的可合并栏目取并集；目录形态只能取一个，按实体明确声明的 types 顺序优先。
+// 多个适用模板的栏目取并集；目录形态取首个匹配模板。
 // 信息字段在 WorkFacts 中已按各模板分区去重合并，这里不能再静默丢掉其余模板的关系栏目。
 const workTemplates = useMemo(() => {
-  const codes = Array.from(new Set((work?.types || []).map((code) => defs?.types?.[code]?.template).filter(Boolean) as string[]));
-  return codes.map((code) => defs?.templates?.[code]).filter(Boolean);
+  return templatesForEntity(defs, work?.kind || "work", work?.attributes);
 }, [defs, work]);
 const workDirectoryMode = workTemplates.map((tpl) => tpl?.directory).find(Boolean);
 const workRelationGroups = useMemo(
   () => Array.from(new Set(workTemplates.flatMap((tpl) => tpl?.relation_groups || []))),
   [workTemplates],
 );
-// 发行版列表的列与筛选字段由**实际发行类型**引用的模板解析（多类型取并集），
-// 后台新增或替换发行类型即刻生效；列表未加载时回退到声明 kind=release 的启用类型。
-// 不再写死业务类型码 "release"：类型码可被后台改名，模板必须跟着实际类型走。
-const releaseTypeCodes = useMemo(() => {
-  const used = new Set<string>();
-  for (const e of releaseEntities) {
-    for (const c of e.types || []) if (defs?.types?.[c]) used.add(c);
-  }
-  if (used.size === 0) {
-    for (const [code, type] of Object.entries(defs?.types || {})) {
-      if (type?.enabled !== false && (type?.kinds || []).includes("release")) used.add(code);
-    }
-  }
-  return Array.from(used);
-}, [defs, releaseEntities]);
+// 发行列表仅使用实际发行实体命中的模板；没有发行事实时不臆测栏目。
 const releaseTemplates = useMemo(
-  () =>
-    (Array.from(
-      new Set(
-        releaseTypeCodes
-          .map((c) => defs?.types?.[c]?.template)
-          .filter(Boolean) as string[]
-      )
-    ).map((code) => defs?.templates?.[code]).filter(Boolean) as any[]),
-  [defs, releaseTypeCodes]
+  () => Array.from(new Set(releaseEntities.flatMap((entity) =>
+    templatesForEntity(defs, entity.kind, entity.attributes)
+  ))),
+  [defs, releaseEntities]
 );
 const releaseColumns = useMemo(
   () =>
@@ -475,8 +455,7 @@ const staffCredits = useMemo<StaffCredit[]>(
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
-         {/* 作品信息按作品自身类型引用的模板渲染；过去这里传的是发行版 definitions，
-             字段集合与次序都不匹配，导致作品字段显示错配或缺失。 */}
+         {/* 作品信息按 kind 与已存字段匹配模板渲染；歧义时展示通用字段列表。 */}
          <WorkFacts entity={work} defs={defs} locale={locale} />
        </section>
        {tags.length > 0 && <section>

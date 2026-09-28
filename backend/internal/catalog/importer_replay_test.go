@@ -15,7 +15,7 @@ package catalog
 //   |-----------------|-------------------------------------|------------------------------------------|------|
 //   | name            | OriginalName（与 Name 配对）         | translations[original_lang].title / 回填 | name_cn 为空时 Name=OriginalName=name |
 //   | name_cn（缺失） | Name=name（bangumiTitlePair 回退）   | title=name                               | 本快照无 name_cn，原名与标题相同 |
-//   | type=3          | EntityType="group"（bangumiAgentType）；外层 envelope 按 agentType 折叠为 "organization" | 落库 Types 取预览的精确类型 → ["group"]（envelope 的 organization 是旧兼容折叠，精确类型优先），预览 MediaType="group" | 1=person 2=organization 3=group |
+//   | type=3          | EntityType="group"（Bangumi 来源类别） | 落库为 agent，不写业务分类 | 1=person 2=organization 3=group |
 //   | career[0]       | Role                                | 不落库（Entity 无 role 列）               | 本快照 career=["artist"] |
 //   | summary         | Biography + 翻译行 Summary          | translations 单行时回填 Summary           | 原语言为空且仅 1 行翻译时落 summary |
 //   | images.best()   | AvatarURL（large→common→medium…）   | 不落库（本阶段不下载图片）                | 只做预览透传 |
@@ -27,7 +27,7 @@ package catalog
 //   |-----------------|-------------------------------------|--------------------------------------------|------|
 //   | name            | OriginalTitle（与 Title 配对）       | translations 回填 / title                  | — |
 //   | name_cn（空）   | Title=name（bangumiTitlePair 回退）  | title=name                                 | 本快照 name_cn=""，标题=原标题 |
-//   | type=2          | MediaType="animation"，catalog_metadata.bangumi_type=2 | types=["animation"]（经 workTypeFromMetadata 还原） | 1=novel 2=animation 3=music 4=game 6=personal |
+//   | type=2          | MediaType="animation"，catalog_metadata.bangumi_type=2 | 落库为 work，不写业务分类 | 来源类型保留在预览供识别 |
 //   | date            | ReleaseDate                         | 不直接落库（发行日期落在 release.attributes.edition_date） | 需合法 YYYY[-MM[-DD]] 才收录 |
 //   | platform        | catalog_metadata.bangumi_platform   | 不落库（未知 platform 不虚构类型/属性）     | — |
 //   | summary         | Summary + 翻译行 Summary            | translations 单行时回填 Summary             | 与 person 同规则 |
@@ -39,7 +39,7 @@ package catalog
 // 3) character 快照（抽样 chars/c_127790.json）
 //   | 快照字段        | 预览 DTO（ImporterArtistPreview）    | Entity（agent）                            | 备注 |
 //   |-----------------|-------------------------------------|--------------------------------------------|------|
-//   | name            | Name + OriginalName（name_cn 缺失时相同）| title=name，types=["character"]         | 角色固定 EntityType="character" |
+//   | name            | Name + OriginalName（name_cn 缺失时相同）| title=name，kind=agent                   | 来源 EntityType="character" |
 //   | name_cn（缺失） | 同上（bangumiTitlePair 回退）        | 同上                                       | 本快照无 name_cn 键 |
 //   | summary         | Biography + 翻译行 Summary          | translations 单行时回填 Summary             | 与 person 同规则 |
 //   | images.best()   | AvatarURL                           | 不落库                                     | 只做预览透传 |
@@ -359,10 +359,7 @@ func runReplayImportFlowDB(t *testing.T, ctx context.Context, f fixture) {
 	if first.Artist.ExternalIDs["metafusion_import"] != "bangumi:person:45638" {
 		t.Fatalf("bad stored import key: %v", first.Artist.ExternalIDs)
 	}
-	// 落库用预览的精确类型：type=3 是真乐队 → group，而非 envelope 折叠出的 organization。
-	if len(first.Artist.Types) != 1 || first.Artist.Types[0] != "group" {
-		t.Fatalf("bad stored agent types: %v", first.Artist.Types)
-	}
+	// Bangumi 的 type=3 是来源事实，目录实体仍使用通用 agent 骨架。
 
 	// 幂等：两次 import 同一快照返回同一 ID、不建重复。
 	before := len(mustList(t, f, ListOptions{Kind: "agent"}))
@@ -379,10 +376,10 @@ func runReplayImportFlowDB(t *testing.T, ctx context.Context, f fixture) {
 
 	// 证据必填：Save 层 edit_note 为空或 sources 为空一律拒绝（evidence_required），
 	// Import 侧走同一校验——此处直接对 Save 断言负例，再验证 Import 显式证据可落库。
-	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "agent", Title: "证据负例", Types: []string{"person"}}, Sources: fixtureSources()}, f.u); err == nil || err.Error() != "evidence_required" {
+	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "agent", Title: "证据负例"}, Sources: fixtureSources()}, f.u); err == nil || err.Error() != "evidence_required" {
 		t.Fatalf("empty edit_note accepted: %v", err)
 	}
-	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "agent", Title: "证据负例", Types: []string{"person"}}, EditNote: "有 note 无 sources"}, f.u); err == nil || err.Error() != "evidence_required" {
+	if _, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "agent", Title: "证据负例"}, EditNote: "有 note 无 sources"}, f.u); err == nil || err.Error() != "evidence_required" {
 		t.Fatalf("empty sources accepted: %v", err)
 	}
 	if _, err := f.s.SaveRelation(ctx, RelationEdit{
@@ -607,7 +604,7 @@ func TestImporterReplayImportMapping(t *testing.T) {
 	if err := json.Unmarshal(roundTrip, &workPayload); err != nil {
 		t.Fatal(err)
 	}
-	work, err := buildWorkEntity(&workPayload, workTypeFromMetadata(workPayload.CatalogMetadata), "bangumi", wkey, "", whas, "edition_date")
+	work, err := buildWorkEntity(&workPayload, "bangumi", wkey, "", whas, "edition_date")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -616,9 +613,6 @@ func TestImporterReplayImportMapping(t *testing.T) {
 	}
 	if work.ExternalIDs["bangumi"] != "428735" || work.ExternalIDs["metafusion_import"] != wkey {
 		t.Fatalf("bad work external_ids: %v", work.ExternalIDs)
-	}
-	if len(work.Types) != 1 || work.Types[0] != "animation" {
-		t.Fatalf("bad work types from metadata: %v", work.Types)
 	}
 	// 翻译行映射：预览的 ja 单行原样落 translations["ja"]；
 	// 手动指定 OriginalLanguage=zh-CN 后，简介按原语言路由到 translations["zh-CN"]

@@ -38,7 +38,7 @@ import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
-import { getKindName, getTermName, getTypeName, useDefinitions } from "@/lib/definitions";
+import { getKindName, getTermName, useDefinitions } from "@/lib/definitions";
 
 interface Props {
   isOpen: boolean;
@@ -106,11 +106,9 @@ export function OmniImportModal({
   const router = useRouter();
   const titleOrder = useTitleDisplayOrder();
 
-  // 预览条目的层级名与业务类型名都取服务端 definitions；字典只作层级名兜底，
-  // 类型名缺定义时退回原始码（显示码总好过空白，但不是首选）。
+  // 预览条目的层级名取服务端 definitions；字典只作层级名兜底。
   const kindLabel = (code: string) =>
     getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
-  const typeLabel = (code: string) => getTypeName(defs, code, locale);
 
   // 实体类型切换 (Work / Artist / Organization / Character)
   const [entityType, setEntityType] = useState<"work" | "artist" | "organization" | "character">(initialEntityType);
@@ -1368,7 +1366,6 @@ export function OmniImportModal({
                                       </div>
                                       <div className="text-[10px] text-text-muted truncate">
                                         {kindLabel(ar.kind)}
-                                        {ar.types?.[0] ? ` · ${typeLabel(ar.types[0])}` : ""}
                                       </div>
                                     </div>
                                     <Check className="w-3.5 h-3.5 text-primary shrink-0 opacity-0 hover:opacity-100" />

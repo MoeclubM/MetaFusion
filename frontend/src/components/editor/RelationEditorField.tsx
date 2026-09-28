@@ -38,9 +38,6 @@ interface Props {
   /** 新建未保存时为空：此时提示先保存条目。 */
   entityId?: string;
   entityKind: string;
-  /** 本实体自身的动态业务类型：与 kind 一起决定本端能出现的"关系＋方向"选项，
-   *  服务端 invalid_endpoint_types 按 source_types/target_types 校验同一口径。 */
-  entityTypes?: string[];
   /** 复用编辑器 Evidence 区的修改说明与来源：关系写入同样强制证据。 */
   note: string;
   sources: Source[];
@@ -49,9 +46,7 @@ interface Props {
   onDraftsChange?: (next: RelationDraft[]) => void;
 }
 
-// 选项同时携带对端可接受的 kind 与动态业务类型：服务的 invalid_endpoint_types
-// 校验按"两端类型命中其一"判定，选择器据此收敛候选，避免选到必被拒绝的对端。
-type TypeOption = { code: string; forward: boolean; targetKinds: string[]; targetTypes: string[] };
+type TypeOption = { code: string; forward: boolean; targetKinds: string[] };
 
 // 选项值编码"关系＋方向"：两端同 kind 的关系（如 Work→Work）正向/反向是两个选项。
 const optionKey = (o: TypeOption) => `${o.code}|${o.forward ? "f" : "r"}`;
@@ -66,7 +61,7 @@ const optionKey = (o: TypeOption) => `${o.code}|${o.forward ? "f" : "r"}`;
  * 关系可携带的属性字段由关系定义的 fields 声明，创建与编辑共用同一套动态表单；
  * 已有关系的属性可就地修改（PUT，端点与类型不可变，version 乐观锁）。
  */
-export function RelationEditorField({ entityId, entityKind, entityTypes, note, sources, drafts, onDraftsChange }: Props) {
+export function RelationEditorField({ entityId, entityKind, note, sources, drafts, onDraftsChange }: Props) {
   const { t, locale } = useI18n();
   const { definitions: defs } = useDefinitions();
   const { user } = useAuth();
@@ -136,26 +131,21 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   }, [load]);
 
   // 本实体可用的"关系＋方向"选项：kind 在 source_kinds → 正向；在 target_kinds → 反向。
-  // 关系若声明了 source_types/target_types，本实体的业务类型也必须命中其一，
-  // 否则服务端 invalid_endpoint_types 会拒绝——选项阶段就收敛，不让人白填。
   const typeOptions = useMemo(() => {
     const out: TypeOption[] = [];
-    const mine = entityTypes || [];
-    const typesMatch = (allowed?: string[]) =>
-      !allowed?.length || mine.some((code) => allowed.includes(code));
     for (const [code, rel] of Object.entries(defs?.relations || {})) {
       if (!rel.enabled) continue;
       const inSource = rel.source_kinds?.includes(entityKind) ?? false;
       const inTarget = rel.target_kinds?.includes(entityKind) ?? false;
       // 正向：本实体为 source，对端是 target；反向反之。
-      if (inSource && typesMatch(rel.source_types))
-        out.push({ code, forward: true, targetKinds: rel.target_kinds || [], targetTypes: rel.target_types || [] });
-      if (inTarget && typesMatch(rel.target_types))
-        out.push({ code, forward: false, targetKinds: rel.source_kinds || [], targetTypes: rel.source_types || [] });
+      if (inSource)
+        out.push({ code, forward: true, targetKinds: rel.target_kinds || [] });
+      if (inTarget)
+        out.push({ code, forward: false, targetKinds: rel.source_kinds || [] });
     }
     out.sort((a, b) => optionKey(a).localeCompare(optionKey(b)));
     return out;
-  }, [defs, entityKind, entityTypes]);
+  }, [defs, entityKind]);
 
   const selected = typeOptions.find((o) => optionKey(o) === addType);
   const evidenceReady =
@@ -617,7 +607,6 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
             {selected && (
               <EntityPicker
                 kinds={selected.targetKinds}
-                types={selected.targetTypes}
                 value={addTarget}
                 onChange={setAddTarget}
               />

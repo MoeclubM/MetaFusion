@@ -96,10 +96,14 @@ function normalizeQuery(query?: ShelfQuery | null): ShelfQuery {
   };
 }
 
-/** 读取到的偏好做一次归一：后端缺字段、旧文档无 sections 时也不该让弹窗崩掉。 */
-export function normalizePreferences(raw?: Partial<HomePreferences> | null): HomePreferences {
-  const p = raw || {};
-  const sections: CustomSection[] = (Array.isArray(p.sections) ? p.sections : [])
+/** 编辑器内部归一化：服务端缺少任一数组属于契约错误，不伪装成空偏好。 */
+export function normalizePreferences(raw?: HomePreferences | null): HomePreferences {
+  if (!raw) return EMPTY_PREFERENCES;
+  if (!Array.isArray(raw.order) || !Array.isArray(raw.hidden) || !Array.isArray(raw.sections)) {
+    throw new Error("invalid_response: home_preferences");
+  }
+  const p = raw;
+  const sections: CustomSection[] = p.sections
     .filter((s): s is CustomSection => !!s && typeof s.slug === "string" && s.slug !== "")
     .map((s) => ({
       slug: s.slug,
@@ -109,8 +113,8 @@ export function normalizePreferences(raw?: Partial<HomePreferences> | null): Hom
       icon: s.icon || "",
     }));
   return {
-    order: (Array.isArray(p.order) ? p.order : []).filter((x): x is string => typeof x === "string" && x !== ""),
-    hidden: (Array.isArray(p.hidden) ? p.hidden : []).filter((x): x is string => typeof x === "string" && x !== ""),
+    order: p.order.filter((x): x is string => typeof x === "string" && x !== ""),
+    hidden: p.hidden.filter((x): x is string => typeof x === "string" && x !== ""),
     sections,
   };
 }

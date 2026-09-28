@@ -53,7 +53,7 @@ func TestUnpublishDemotesToDraftOnPostgres(t *testing.T) {
 	admin := f.u
 	// 目录编辑码不含生命周期码（permission.go 的角色兜底也一样）。
 	editor := fixtureUser("editor")
-	pub := f.save(Entity{Kind: "work", Title: "待下架作品", Types: []string{"novel"}})
+	pub := f.save(Entity{Kind: "work", Title: "待下架作品"})
 
 	// 权限：无生命周期码者被拒，条目状态不变。
 	if _, err := f.s.Unpublish(ctx, pub.ID, UnpublishEdit{ExpectedVersion: pub.Version, EditNote: "n", Sources: fixtureSources()}, editor); !errors.Is(err, errForbidden) {

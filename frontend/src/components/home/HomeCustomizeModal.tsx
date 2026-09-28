@@ -48,6 +48,7 @@ type Props = {
   feedSections: FeedLike[];
   defs: DynamicDefinitions | null;
   saving: boolean;
+  loadFailed: boolean;
   error: string;
   onClose: () => void;
   onSave: (payload: HomePreferences) => void;
@@ -62,6 +63,7 @@ export function HomeCustomizeModal({
   feedSections,
   defs,
   saving,
+  loadFailed,
   error,
   onClose,
   onSave,
@@ -395,7 +397,7 @@ export function HomeCustomizeModal({
           <button
             type="button"
             onClick={handleReset}
-            disabled={saving}
+            disabled={saving || loadFailed}
             className="inline-flex items-center gap-1.5 text-xs font-mono text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -414,7 +416,7 @@ export function HomeCustomizeModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loadFailed}
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
             >
               {saving ? t("common.saving") : t("common.save")}

@@ -27,7 +27,6 @@ type HomePreferences struct {
 	Hidden []string `json:"hidden"`
 	// Sections 是"覆盖 + 自建"的分区列表：slug 命中系统货架即覆盖该货架给本人看的
 	// names/query/sort/icon（系统默认对其他用户不变），不命中即追加一个只属于本人的分区。
-	// 老载荷没有这个键，读入时归一成空数组（向后兼容）。
 	Sections []HomeSection `json:"sections"`
 }
 
@@ -47,34 +46,26 @@ func emptyHomePreferences() HomePreferences {
 }
 
 func (s *Store) GetHomePreferences(ctx context.Context, userID string) (HomePreferences, error) {
-	out := emptyHomePreferences()
 	if userID == "" {
-		return out, nil
+		return emptyHomePreferences(), nil
 	}
 	var b []byte
 	err := s.DB.QueryRowContext(ctx, `SELECT home_shelves FROM catalog.user_preferences WHERE user_id=$1`, userID).Scan(&b)
 	if err == sql.ErrNoRows {
-		return out, nil
+		return emptyHomePreferences(), nil
 	}
 	if err != nil {
 		return emptyHomePreferences(), err
 	}
 	if len(b) == 0 {
-		return out, nil
+		return HomePreferences{}, fmt.Errorf("invalid_home_preferences")
 	}
+	var out HomePreferences
 	if err = json.Unmarshal(b, &out); err != nil {
-		// 库内 JSON 不可解析时按"没有偏好"处理：首页宁可退回系统默认序，也不能整页失败。
-		return emptyHomePreferences(), nil
+		return HomePreferences{}, err
 	}
-	if out.Order == nil {
-		out.Order = []string{}
-	}
-	if out.Hidden == nil {
-		out.Hidden = []string{}
-	}
-	// 老载荷是 {"order":[],"hidden":[]}，没有 sections。
-	if out.Sections == nil {
-		out.Sections = []HomeSection{}
+	if out.Order == nil || out.Hidden == nil || out.Sections == nil {
+		return HomePreferences{}, fmt.Errorf("invalid_home_preferences")
 	}
 	return out, nil
 }
@@ -85,6 +76,9 @@ func (s *Store) GetHomePreferences(ctx context.Context, userID string) (HomePref
 // 管理员删货架后不能让用户连保存都失败；这些 slug 在 feed 合并阶段自然被忽略，
 // 货架以同名重建时用户的排序也立刻恢复。
 func (s *Store) SaveHomePreferences(ctx context.Context, userID string, in HomePreferences) (HomePreferences, error) {
+	if in.Order == nil || in.Hidden == nil || in.Sections == nil {
+		return HomePreferences{}, fmt.Errorf("invalid_home_preferences")
+	}
 	out, err := normalizeHomePreferences(in)
 	if err != nil {
 		return HomePreferences{}, err

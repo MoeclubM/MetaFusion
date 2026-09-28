@@ -141,7 +141,7 @@ func TestApplyHomePreferencesAppendsCustomSections(t *testing.T) {
 	if indie.SortOrder != customShelfSortBase || got[4].SortOrder != customShelfSortBase+1 {
 		t.Fatalf("自建分区排序位应取基准值+声明顺序：%d/%d", indie.SortOrder, got[4].SortOrder)
 	}
-	// 收录规则原样交给求值层：types 与词表项都保留。
+	// 收录规则原样交给求值层：标签与词表项都保留。
 	if !contains(indie.Query.Tags, "game") || indie.Query.VocabTerms["tags"][0] != "indie" {
 		t.Fatalf("自建分区应保留完整收录规则：%+v", indie.Query)
 	}
@@ -268,37 +268,15 @@ func TestNormalizeHomePreferencesNormalizesValues(t *testing.T) {
 	}
 }
 
-// 向后兼容：老载荷 {"order":[...],"hidden":[]}（没有 sections）必须仍能读、能写，
-// sections 归一成空数组；sections 为 null 时同样归一成空数组；query 没写的子条件不出现在 JSON 里。
-func TestHomePreferencesLegacyPayloadCompatibility(t *testing.T) {
-	var legacy HomePreferences
-	if err := json.Unmarshal([]byte(`{"order":["films","removed-shelf"],"hidden":[]}`), &legacy); err != nil {
-		t.Fatalf("老载荷应能解码：%v", err)
-	}
-	out, err := normalizeHomePreferences(legacy)
-	if err != nil {
-		t.Fatalf("老载荷必须仍能保存：%v", err)
-	}
-	if !reflect.DeepEqual(out.Order, []string{"films", "removed-shelf"}) || len(out.Hidden) != 0 {
-		t.Fatalf("老载荷的 order/hidden 应原样保留（未知 slug 不报错）：%+v", out)
-	}
-	if out.Sections == nil || len(out.Sections) != 0 {
-		t.Fatalf("缺 sections 的老载荷应归一成空数组，实际 %v", out.Sections)
-	}
-	b, err := json.Marshal(out)
-	if err != nil {
+// 当前偏好契约的三个数组都显式存在；内部归一化仍保证返回非 nil 数组。
+func TestHomePreferencesCanonicalPayload(t *testing.T) {
+	var current HomePreferences
+	if err := json.Unmarshal([]byte(`{"order":["films","removed-shelf"],"hidden":[],"sections":[]}`), &current); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `"sections":[]`) {
-		t.Fatalf("旧偏好重新保存后应带空的 sections 数组：%s", b)
-	}
-	// sections 显式为 null 的载荷同样归一成空数组。
-	var nulled HomePreferences
-	if err := json.Unmarshal([]byte(`{"order":[],"hidden":[],"sections":null}`), &nulled); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := normalizeHomePreferences(nulled); err != nil || out.Sections == nil {
-		t.Fatalf("sections=null 应归一成空数组：%+v err=%v", out, err)
+	out, err := normalizeHomePreferences(current)
+	if err != nil || out.Sections == nil || !reflect.DeepEqual(out.Order, []string{"films", "removed-shelf"}) {
+		t.Fatalf("当前偏好形状应保留未知 slug 并输出三个数组：%+v err=%v", out, err)
 	}
 	// query 里的空子条件不落 JSON（omitempty）：前端可以整份回传给 PUT。
 	payload, err := json.Marshal(HomeSection{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"game"}}, Sort: "updated", Icon: "Gamepad2"})
@@ -311,7 +289,7 @@ func TestHomePreferencesLegacyPayloadCompatibility(t *testing.T) {
 }
 
 // 真库用例：偏好整份存 catalog.user_preferences.home_shelves（JSONB，无需迁移），
-// 含 sections 与未知 order slug；老形状仍可写、可读。
+// 含 sections 与未知 order slug；输入输出均使用当前形状。
 func TestPostgresHomePreferencesRoundTrip(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -368,11 +346,8 @@ func feedShelves(items []feedEntry) []Shelf {
 // 自建分区追加在后并标 custom，order/hidden 对两类都生效，未知 order slug 不再让保存失败。
 func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 	f := newFixture(t)
-	f.save(Entity{Kind: "work", Title: "首页分区电影", Types: []string{"film"}})
-	// game 是展示模板码、不是可赋值类型：作品类型只能是 music/song/album/novel/animation/film/
-	// photobook/indie_game/visual_novel/personal（defaults.go 的 typeSeed 列表）。写成 "game"
-	// 会被 attributeKeys 判 invalid_type，只在带 DSN 跑真库用例时才会暴露。
-	f.save(Entity{Kind: "work", Title: "首页分区独立游戏", Types: []string{"indie_game"}})
+	f.save(Entity{Kind: "work", Title: "首页分区电影", Attributes: map[string]any{"tags": []any{"film"}}})
+	f.save(Entity{Kind: "work", Title: "首页分区独立游戏", Attributes: map[string]any{"tags": []any{"indie_game"}}})
 
 	key := testKey(t)
 	f.s.Verifier = testVerifier(t, key)
@@ -467,7 +442,7 @@ func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 	if n := len(bySlug["films"].Items); n != 1 {
 		t.Fatalf("覆盖后的电影分区应求值出 1 条，实际 %d", n)
 	}
-	// 自建分区走的是同一套服务端求值（types=game），不是前端近似匹配。
+	// 自建分区走的是同一套服务端标签求值，不是前端近似匹配。
 	if n := len(bySlug["my-indie"].Items); n != 1 {
 		t.Fatalf("自建分区应求值出 1 条，实际 %d", n)
 	}
@@ -479,14 +454,14 @@ func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 	if len(after) != 6 || after[2].Shelf.Names["zh-CN"] != "电影" {
 		t.Fatalf("覆盖不应影响匿名视角：%d 个分区，电影名 %q", len(after), after[2].Shelf.Names["zh-CN"])
 	}
-	// 向后兼容：老客户端只发 order/hidden（没有 sections）仍能保存。
+	// 缺少 sections 的旧接口载荷不再接受。
 	old := httptest.NewRequest(http.MethodPut, "/api/catalog/me/home-preferences", strings.NewReader(`{"order":[],"hidden":[]}`))
 	old.Header.Set("Content-Type", "application/json")
 	old.Header.Set("Authorization", "Bearer "+token)
 	res = httptest.NewRecorder()
 	engine.ServeHTTP(res, old)
-	if res.Code != http.StatusOK {
-		t.Fatalf("老载荷保存 = %d: %s", res.Code, res.Body.String())
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("旧载荷应拒绝，实际 = %d: %s", res.Code, res.Body.String())
 	}
 }
 
@@ -502,7 +477,7 @@ func TestShelfFilterEmptyQueryFallsBackToWorkKind(t *testing.T) {
 	}
 }
 
-// types 走 JSONB 存在性判断；fields / vocab_terms 走 attributes 取值比较；
+// tags 走 JSONB 存在性判断；fields / vocab_terms 走 attributes 取值比较；
 // relations 走 EXISTS 子查询。子条件之间 AND，同数组内 OR。
 func TestShelfFilterCompilesAllConditionKinds(t *testing.T) {
 	sh := Shelf{Query: ShelfQuery{
@@ -653,13 +628,12 @@ func TestListFilterTagContainerMatch(t *testing.T) {
 	}
 }
 
-// 关系编辑器对端的候选约束必须落在 SQL 侧：kinds 用 = ANY、types 用 jsonb ?|，
+// 关系编辑器对端的候选 kind 约束必须落在 SQL 侧，用 = ANY，
 // 否则前端先取固定条数再过滤会把合法候选截断丢弃。
-func TestListFilterSupportsMultiValueKindAndType(t *testing.T) {
+func TestListFilterSupportsMultiValueKind(t *testing.T) {
 	args := []any{}
 	parts, err := listFilter(context.Background(), &Store{}, ListOptions{
 		Kinds: []string{"work", "collection"},
-		Types: []string{"album", "song"},
 	}, nil, &args)
 	if err != nil {
 		t.Fatal(err)
@@ -668,8 +642,8 @@ func TestListFilterSupportsMultiValueKindAndType(t *testing.T) {
 	if !strings.Contains(joined, "kind = ANY(") {
 		t.Fatalf("multi-kind filter missing: %s", joined)
 	}
-	if !strings.Contains(joined, "document->'types' ?| ") {
-		t.Fatalf("multi-type filter missing jsonb ?|: %s", joined)
+	if strings.Contains(joined, "document->'types'") {
+		t.Fatalf("kind filter must not query removed types: %s", joined)
 	}
 	// 空切片不应产生任何谓词。
 	empty := []any{}
@@ -678,6 +652,6 @@ func TestListFilterSupportsMultiValueKindAndType(t *testing.T) {
 		t.Fatal(err)
 	}
 	if joined := strings.Join(parts, " AND "); strings.Contains(joined, "ANY(") || strings.Contains(joined, "?|") {
-		t.Fatalf("empty kinds/types must add no predicate, got %s", joined)
+		t.Fatalf("empty kinds must add no predicate, got %s", joined)
 	}
 }

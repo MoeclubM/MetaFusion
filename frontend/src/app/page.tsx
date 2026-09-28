@@ -33,7 +33,6 @@ type EntityItem = CoverBearing & {
   title: string;
   original_language?: string;
   translations?: Record<string, { title?: string; summary?: string; aliases?: string[] }>;
-  types?: string[];
   attributes?: { tags?: string[] };
   version?: number;
 };
@@ -56,6 +55,7 @@ export default function HomePage() {
   const [prefs, setPrefs] = useState<HomePreferences>(EMPTY_PREFERENCES);
   const [templates, setTemplates] = useState<ShelfLike[]>([]);
   const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsLoadFailed, setPrefsLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -88,6 +88,7 @@ export default function HomePage() {
 
   const openCustomize = async () => {
     setSaveError("");
+    setPrefsLoadFailed(false);
     setCustomizing(true);
     if (!user) return;
     setPrefsLoading(true);
@@ -101,8 +102,8 @@ export default function HomePage() {
       setPrefs(normalizePreferences(loaded));
       setTemplates(Array.isArray(tpl.items) ? tpl.items : []);
     } catch {
-      setPrefs(EMPTY_PREFERENCES);
-      setTemplates([]);
+      setPrefsLoadFailed(true);
+      setSaveError(t("catalog.loadFailed"));
     } finally {
       setPrefsLoading(false);
     }
@@ -283,6 +284,7 @@ export default function HomePage() {
         feedSections={sections}
         defs={definitions}
         saving={saving}
+        loadFailed={prefsLoadFailed}
         error={saveError}
         onClose={() => setCustomizing(false)}
         onSave={(payload) => void savePrefs(payload)}

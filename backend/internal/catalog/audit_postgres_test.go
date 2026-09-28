@@ -138,11 +138,8 @@ func (f *auditFixture) expect(status int, w *httptest.ResponseRecorder, what str
 	}
 }
 
-func auditEntityBody(kind, status, title string, types []string, expected int64) string {
+func auditEntityBody(kind, status, title string, expected int64) string {
 	entity := map[string]any{"kind": kind, "title": title, "status": status}
-	if len(types) > 0 {
-		entity["types"] = types
-	}
 	if status == "published" {
 		entity["translations"] = map[string]any{"en": map[string]any{"title": "audit e2e english"}}
 	}
@@ -169,7 +166,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 
 	// 1) 建实体（标题里带邮箱：验证"值里的邮箱被遮罩"在真实落库路径上生效）
 	email := "jane.doe@example.com"
-	w := f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "draft", "审计用例 联系 "+email, nil, 0), "rid-entity-create")
+	w := f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "draft", "审计用例 联系 "+email, 0), "rid-entity-create")
 	f.expect(200, w, "建实体")
 	var created Entity
 	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
@@ -199,7 +196,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 	}
 
 	// 2) 改实体：before/after 都要有（title 与 status 各一条）
-	w = f.do(engine, http.MethodPut, "/api/catalog/entities/"+created.ID, auditEntityBody("work", "pending_review", "审计用例 改过", nil, created.Version), "rid-entity-update")
+	w = f.do(engine, http.MethodPut, "/api/catalog/entities/"+created.ID, auditEntityBody("work", "pending_review", "审计用例 改过", created.Version), "rid-entity-update")
 	f.expect(200, w, "改实体")
 	row = f.waitRow("rid-entity-update")
 	audited++
@@ -234,7 +231,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 	}
 
 	// 4) 下架（published → draft）
-	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "下架用例", nil, 0), "rid-published-create")
+	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "下架用例", 0), "rid-published-create")
 	f.expect(200, w, "建已发布实体")
 	audited++
 	var pub Entity
@@ -252,7 +249,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 	}
 
 	// 5) 关系：创建 / 修改 / 删除
-	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("agent", "published", "演职人员", []string{"person"}, 0), "rid-agent-create")
+	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("agent", "published", "演职人员", 0), "rid-agent-create")
 	f.expect(200, w, "建人物实体")
 	audited++
 	var actorEntity Entity
@@ -260,7 +257,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.waitRow("rid-agent-create")
-	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("agent", "published", "所属团体", []string{"group"}, 0), "rid-group-create")
+	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("agent", "published", "所属团体", 0), "rid-group-create")
 	f.expect(200, w, "建团体实体")
 	audited++
 	var groupEntity Entity
@@ -268,7 +265,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.waitRow("rid-group-create")
-	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "关系用例作品", nil, 0), "rid-work-create")
+	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "关系用例作品", 0), "rid-work-create")
 	f.expect(200, w, "建作品实体")
 	audited++
 	var workEntity Entity
@@ -413,7 +410,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 	}
 
 	// 10) 外部提案（服务端强制进待审）
-	w = f.do(engine, http.MethodPost, "/api/exchange/proposals", auditEntityBody("work", "draft", "提案用例", nil, 0), "rid-proposal")
+	w = f.do(engine, http.MethodPost, "/api/exchange/proposals", auditEntityBody("work", "draft", "提案用例", 0), "rid-proposal")
 	f.expect(200, w, "提交提案")
 	row = f.waitRow("rid-proposal")
 	audited++
@@ -422,7 +419,7 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 	}
 
 	// 11) 失败路径：版本冲突必须留 result=failure + error_code（与响应体同值）
-	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "冲突用例", nil, 0), "rid-conflict-create")
+	w = f.do(engine, http.MethodPost, "/api/catalog/entities", auditEntityBody("work", "published", "冲突用例", 0), "rid-conflict-create")
 	f.expect(200, w, "建冲突用例实体")
 	audited++
 	var conflict Entity

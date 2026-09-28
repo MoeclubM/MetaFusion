@@ -51,7 +51,7 @@ export function prepareRevisionRestore(current: Entity, snapshot: Entity): Entit
     if ((snapshot[key] || "") !== (current[key] || "")) throw new Error("revision_incompatible");
   }
   const result = structuredClone(current);
-  const contentFields = ["title", "original_language", "translations", "types", "attributes",
+  const contentFields = ["title", "original_language", "translations", "attributes",
     "external_ids", "pictures", "content_unit_id", "parent_id", "position", "number", "contents", "subjects"] as const;
   for (const key of contentFields) {
     if (Object.prototype.hasOwnProperty.call(snapshot, key)) {

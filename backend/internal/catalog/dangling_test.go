@@ -23,8 +23,8 @@ func TestPostgresDanglingReferencesReport(t *testing.T) {
 	}
 
 	// 反例：正常引用现有实体，体检必须 0 条（否则报告没有可用性）。
-	agent := f.save(Entity{Kind: "agent", Title: "发行主体", Types: []string{"organization"}})
-	f.save(Entity{Kind: "release", Title: "正常发行版", Types: []string{"release"}, Attributes: map[string]any{"publisher": agent.ID}})
+	agent := f.save(Entity{Kind: "agent", Title: "发行主体"})
+	f.save(Entity{Kind: "release", Title: "正常发行版", Attributes: map[string]any{"publisher": agent.ID}})
 	report, err := f.s.DanglingReferences(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -37,19 +37,19 @@ func TestPostgresDanglingReferencesReport(t *testing.T) {
 	}
 
 	// 正例 1（事故形态）：attributes.publisher 指向的行已经被删除。
-	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体", Types: []string{"organization"}})
-	damaged := f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Types: []string{"release"}, Attributes: map[string]any{"publisher": gone.ID}})
+	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体"})
+	damaged := f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Attributes: map[string]any{"publisher": gone.ID}})
 	// 删行走 SQL：写路径今天会拒绝一个指向不存在行的取值，所以这种数据只可能是存量欠账。
 	exec("DELETE FROM catalog.entities WHERE id=$1", gone.ID)
 
 	// 正例 2：取值根本不是 uuid，指向不了任何行。
-	garbage := f.save(Entity{Kind: "release", Title: "垃圾取值发行版", Types: []string{"release"}, Attributes: map[string]any{"publisher": agent.ID}})
+	garbage := f.save(Entity{Kind: "release", Title: "垃圾取值发行版", Attributes: map[string]any{"publisher": agent.ID}})
 	exec("UPDATE catalog.entities SET document = jsonb_set(document, '{attributes,publisher}', to_jsonb('not-a-uuid'::text)) WHERE id=$1", garbage.ID)
 
 	// 正例 3：关系的目标端点行不存在。两端有外键，正常路径下插不出这种行，
 	// 因此这里显式去掉约束来证明体检**确实覆盖关系端点**（外键被绕过、或早期数据就是这样）。
 	exec("ALTER TABLE catalog.relations DROP CONSTRAINT relations_target_id_fkey")
-	src := f.save(Entity{Kind: "work", Title: "关系源作品", Types: []string{"animation"}})
+	src := f.save(Entity{Kind: "work", Title: "关系源作品"})
 	missing := uuid.NewString()
 	relID := uuid.NewString()
 	rel := Relation{ID: relID, Version: 1, Type: "member_of", SourceID: src.ID, TargetID: missing, Attributes: map[string]any{}}
@@ -114,8 +114,8 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 	f := newFixture(t)
 	ctx := context.Background()
 
-	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体", Types: []string{"organization"}})
-	f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Types: []string{"release"}, Attributes: map[string]any{"publisher": gone.ID}})
+	gone := f.save(Entity{Kind: "agent", Title: "将被删除的发行主体"})
+	f.save(Entity{Kind: "release", Title: "悬挂引用发行版", Attributes: map[string]any{"publisher": gone.ID}})
 	if _, err := f.s.DB.ExecContext(ctx, "DELETE FROM catalog.entities WHERE id=$1", gone.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 		t.Fatal("悬挂引用没有进警告报告（不许静默吞掉）")
 	}
 
-	// 定义非法仍然必须阻断，而且要与悬挂引用**分开列**：给实体塞一个没有任何类型声明的
+	// 定义非法仍然必须阻断，而且要与悬挂引用**分开列**：给实体塞一个未声明的
 	// 属性键（存量脏数据的另一种形态），Issues 必须非空——它不可能靠修数据之外的方式绕过。
 	if _, err = f.s.DB.ExecContext(ctx, "UPDATE catalog.entities SET document = jsonb_set(document, '{attributes,publisher}', to_jsonb('not-a-uuid'::text)) WHERE document->'attributes'->>'publisher' = $1", gone.ID); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 
 	// 阻断的最终口径在 Publish 上：拿一份**自身合法**的定义去发布，只要与存量数据冲突就发不出去。
 	d := v.Document
-	d.Types["dangling_test_type"] = TypeDefinition{Names: names("悬挂测试类型", "Dangling test type"), Kinds: []string{"work"}, Template: "generic", Enabled: true}
+	d.Fields["dangling_test_field"] = Field{Names: names("悬挂测试字段", "Dangling test field"), Type: "text", ApplicableKinds: []string{"work"}, Enabled: true}
 	if _, err := f.s.SaveDefinitions(ctx, d, v.ETag, f.u, "publish with conflicting data", fixtureSources()); err == nil {
 		t.Fatal("与存量数据冲突的定义被发布了")
 	} else if !strings.Contains(err.Error(), "definition_impact") {

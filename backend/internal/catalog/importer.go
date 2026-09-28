@@ -1028,10 +1028,10 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 // 避免 husband 等误命中。
 var bangumiBandPattern = regexp.MustCompile(`乐队|樂隊|バンド|\bband\b`)
 
-// bangumiCharacterAgentType 把 Bangumi "角色"条目收敛到 agent 定义类型。
+// bangumiCharacterAgentType 把 Bangumi "角色"条目收敛到导入器的 agent 角色标记。
 // Bangumi 把乐队/组合等虚构团体也挂在角色列表（如 MyGO!!!!! 是 subject 428735
 // 角色表里的"配角"），API 没有类型字段；保守启发：无性别信息且简介含
-// 乐队/band 类关键词才判 group，其余保持 character。误判可在后台编辑器改类型。
+// 乐队/band 类关键词才判 group，其余保持 character。该判断只作为预览标记与标签建议。
 func bangumiCharacterAgentType(gender *string, summary string) string {
 	if gender != nil && strings.TrimSpace(*gender) != "" {
 		return "character"
@@ -1042,8 +1042,8 @@ func bangumiCharacterAgentType(gender *string, summary string) string {
 	return "character"
 }
 
-// bangumiWorkType 把 subject type 映射到 definitions 现有 work 类型；
-// 无法判断时返回空（调用方保持 Types 为空，不虚构类型）。
+// bangumiWorkType 把来源 subject type 映射为预览标记；
+// 无法判断时返回空，不在实体上虚构业务类型。
 // Bangumi 文档：1=书籍 2=动画 3=音乐 4=游戏 6=三次元。
 func bangumiWorkType(t int) string {
 	switch t {
@@ -1062,7 +1062,7 @@ func bangumiWorkType(t int) string {
 	}
 }
 
-// bangumiAgentType 把 person type 映射到 definitions 现有 agent 类型。
+// bangumiAgentType 把来源 person type 映射为导入器的 agent 角色标记。
 // Bangumi 人物：1=个人 2=公司 3=组合。
 func bangumiAgentType(t int) string {
 	switch t {
@@ -2158,8 +2158,7 @@ func assocAgentDedup(a ImporterStaffAssociation) string {
 // importerRelationSkippable 判断关系写入失败是否属于外部数据形态导致的既定跳过。
 // 只收窄到"重复/端点不匹配"这类明确的外部形态问题：
 //   - duplicate_relation：同一载荷内重复边（去重键已尽力，残留的由服务端判重）；
-//   - invalid_endpoint_types / invalid_endpoints：关联端点类型不在该关系定义内
-//     （如把组织挂到只收个人的关系上），属上游数据形态问题。
+//   - invalid_endpoints：关联端点结构层级不在该关系定义内。
 //
 // 以下一律不吞（调用方直接返回错误，避免掩盖真实完整性冲突）：
 //   - invalid_relation_type：关系码本身不存在/被禁用，须由预检提前暴露；
@@ -2170,36 +2169,10 @@ func importerRelationSkippable(err error) bool {
 		return false
 	}
 	switch err.Error() {
-	case "duplicate_relation", "invalid_endpoint_types", "invalid_endpoints":
+	case "duplicate_relation", "invalid_endpoints":
 		return true
 	}
 	return false
-}
-
-// workTypeFromMetadata 从预览回带 catalog_metadata 还原 Bangumi 条目类型，
-// 手工拼装的载荷没有该字段时返回空（不虚构类型）。
-//
-// catalog_metadata 声明为 any：走 HTTP JSON 往返后数值是 float64，
-// 而同进程直接调用（预览结果原样传给 Import）保留 Go int。两种形态都要接受，
-// 否则会静默丢失类型、进而把该类型允许的字段判成未知字段。
-func workTypeFromMetadata(v any) string {
-	m, ok := v.(map[string]any)
-	if !ok {
-		return ""
-	}
-	// 适配器已映射好的合法类型码（dlsite / dmm 等）直接采用。
-	if t := scalarString(m["work_type"]); t != "" {
-		return t
-	}
-	switch t := m["bangumi_type"].(type) {
-	case float64:
-		return bangumiWorkType(int(t))
-	case int:
-		return bangumiWorkType(t)
-	case int64:
-		return bangumiWorkType(int(t))
-	}
-	return ""
 }
 
 func applyWorkSummary(e *Entity, summary string) {
@@ -2366,16 +2339,9 @@ func mergeImporterMeta(existing Entity, lang string, translations map[string]Tra
 }
 
 // mergeAgentMetadata 为已存在的 agent 补齐/纠正元数据，返回结果与是否有变化。
-// 只在原值为空时补齐；类型只做"person → organization/group"的纠正（上游把企业
-// 标成个人是已知数据问题），不把组织降级成个人。简介与语言同理只在缺失时写。
+// 只在原值为空时补齐；简介与语言同理只在缺失时写。
 func mergeAgentMetadata(existing Entity, assoc ImporterStaffAssociation) (Entity, bool) {
 	changed := false
-	// 类型纠正：现有是 person 且新判定更具体（organization/group）时覆盖。
-	want := staffAgentType(assoc.EntityType)
-	if want != "" && want != "person" && (len(existing.Types) == 0 || contains(existing.Types, "person")) && !contains(existing.Types, want) {
-		existing.Types = []string{want}
-		changed = true
-	}
 	if existing.OriginalLanguage == "" {
 		if lang := originalLanguageOrEmpty(assoc.Language); lang != "" {
 			existing.OriginalLanguage = lang
@@ -2420,12 +2386,7 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 			changed = true
 		}
 	}
-	// 属性补齐：仅限类型已声明字段，且只在缺值时写入。
-	workType := workTypeFromMetadata(w.CatalogMetadata)
-	if workType != "" && len(existing.Types) == 0 {
-		existing.Types = []string{workType}
-		changed = true
-	}
+	// 属性补齐：仅限字段自身声明适用于 work 的字段，且只在缺值时写入。
 	if existing.Attributes == nil {
 		existing.Attributes = map[string]any{}
 	}
@@ -2439,28 +2400,26 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 	}
 	// 品番（catalog_number）是发行层标识，不写作品层；由发行属性改写补入 Release。
 	// 标签与 infobox 派生字段：只在缺失时补，绝不覆盖已编目的值。
-	if workType != "" {
-		if _, ok := existing.Attributes["tags"]; !ok && len(w.Tags) > 0 {
-			existing.Attributes["tags"] = toAnySlice(w.Tags)
+	if _, ok := existing.Attributes["tags"]; !ok && len(w.Tags) > 0 {
+		existing.Attributes["tags"] = toAnySlice(w.Tags)
+		changed = true
+	}
+	for k, v := range w.Fields {
+		// 产品标识（条码/ISBN）归发行层，由发行属性改写，不写作品。
+		if isReleaseLevelField(k) {
+			continue
+		}
+		if _, ok := existing.Attributes[k]; ok {
+			continue
+		}
+		if val, ok := dynamicFieldValue(v); ok {
+			existing.Attributes[k] = val
 			changed = true
 		}
-		for k, v := range w.Fields {
-			// 产品标识（条码/ISBN）归发行层，由发行属性改写，不写作品。
-			if isReleaseLevelField(k) {
-				continue
-			}
-			if _, ok := existing.Attributes[k]; ok {
-				continue
-			}
-			if val, ok := dynamicFieldValue(v); ok {
-				existing.Attributes[k] = val
-				changed = true
-			}
-		}
-		if _, ok := existing.Attributes["infobox"]; !ok && len(w.Infobox) > 0 {
-			existing.Attributes["infobox"] = toAnySlice(w.Infobox)
-			changed = true
-		}
+	}
+	if _, ok := existing.Attributes["infobox"]; !ok && len(w.Infobox) > 0 {
+		existing.Attributes["infobox"] = toAnySlice(w.Infobox)
+		changed = true
 	}
 	// 外部 ID：官网等只在缺失时补。
 	if existing.ExternalIDs == nil {
@@ -2493,10 +2452,8 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 	return existing, changed
 }
 
-// buildWorkEntity 组装 work 实体。dateField 为该类型模板声明的主日期字段码
-// （见 Definitions.PrimaryDateField），由调用方从 definitions 解析后传入，
-// 避免把 edition_date 这类字段码硬编码进代码。
-func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID string, hasKey bool, dateField string) (Entity, error) {
+// buildWorkEntity 组装 work 实体；dateField 由已发布字段定义决定。
+func buildWorkEntity(w *ImporterWorkPreview, source, key, sourceID string, hasKey bool, dateField string) (Entity, error) {
 	if w == nil || strings.TrimSpace(w.Title) == "" {
 		return Entity{}, fmt.Errorf("invalid_payload")
 	}
@@ -2508,36 +2465,25 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		ExternalIDs:      map[string]string{},
 		Attributes:       map[string]any{},
 	}
-	// 属性只能落在类型声明的字段集内：类型未识别时保持属性为空，
-	// 否则校验会把未知字段判为错误、整条导入失败。
-	if workType != "" {
-		e.Types = []string{workType}
-		if lang := strings.TrimSpace(w.Language); lang != "" {
-			e.Attributes["language"] = lang
+	if lang := strings.TrimSpace(w.Language); lang != "" {
+		e.Attributes["language"] = lang
+	}
+	if d := cleanImporterDate(w.ReleaseDate); d != "" && dateField != "" {
+		e.Attributes[dateField] = d
+	}
+	if len(w.Tags) > 0 {
+		e.Attributes["tags"] = toAnySlice(w.Tags)
+	}
+	for k, v := range w.Fields {
+		if isReleaseLevelField(k) {
+			continue
 		}
-		// 作品首发/出版日期：写入模板声明的主日期字段（默认 edition_date），
-		// 供列表与详情展示。字段码来自 definitions，不在代码里写死。
-		if d := cleanImporterDate(w.ReleaseDate); d != "" && dateField != "" {
-			e.Attributes[dateField] = d
+		if val, ok := dynamicFieldValue(v); ok {
+			e.Attributes[k] = val
 		}
-		// 标签：以字符串列表落库，支持按标签检索（jsonb 容器包含走函数索引）。
-		if len(w.Tags) > 0 {
-			e.Attributes["tags"] = toAnySlice(w.Tags)
-		}
-		// infobox 映射出的动态字段：仅写入非空值，字段码均已在 defaults.go 声明。
-		// 产品标识（条码/ISBN）改由发行层承载，不写作品。
-		for k, v := range w.Fields {
-			if isReleaseLevelField(k) {
-				continue
-			}
-			if val, ok := dynamicFieldValue(v); ok {
-				e.Attributes[k] = val
-			}
-		}
-		// infobox 原文快照：完整保留以便追溯，不参与展示分区。
-		if len(w.Infobox) > 0 {
-			e.Attributes["infobox"] = toAnySlice(w.Infobox)
-		}
+	}
+	if len(w.Infobox) > 0 {
+		e.Attributes["infobox"] = toAnySlice(w.Infobox)
 	}
 	if hasKey {
 		e.ExternalIDs["metafusion_import"] = key
@@ -2564,17 +2510,6 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 	return e, nil
 }
 
-func agentTypeForEntityType(entityType string) string {
-	switch entityType {
-	case "organization":
-		return "organization"
-	case "character":
-		return "character"
-	default:
-		return "person"
-	}
-}
-
 func agentTypeForPreviewValue(v string) string {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "person", "organization", "group", "character":
@@ -2591,16 +2526,11 @@ func buildAgentEntity(name, originalName, biography, avatarURL, lang, entityType
 	if name == "" {
 		return Entity{}, fmt.Errorf("invalid_payload")
 	}
-	agentType := agentTypeForEntityType(entityType)
-	if t := agentTypeForPreviewValue(entityType); t != "" {
-		agentType = t
-	}
 	e := Entity{
 		Kind:             "agent",
 		Title:            name,
 		OriginalLanguage: originalLanguageOrEmpty(lang),
 		Translations:     toEntityTranslations(translations),
-		Types:            []string{agentType},
 		ExternalIDs:      stringScalarMap(externalIDs),
 		Attributes:       map[string]any{},
 	}
@@ -2684,9 +2614,7 @@ func (s *Store) listWorkContentUnits(ctx context.Context, workID string, u *User
 // contentUnitID 非空时表达归属该篇目（Work → ContentUnit → Expression）。
 func (s *Store) createExpression(ctx context.Context, actor User, note string, sources []Source, workID, contentUnitID, title, number string, pos int, duration float64, externalIDs map[string]any) (Entity, error) {
 	exprAttrs := map[string]any{}
-	var exprTypes []string
 	if duration > 0 {
-		exprTypes = []string{"expression"}
 		exprAttrs["duration"] = duration
 	}
 	return s.importerSave(ctx, Entity{
@@ -2696,37 +2624,30 @@ func (s *Store) createExpression(ctx context.Context, actor User, note string, s
 		ContentUnitID: contentUnitID,
 		Number:        strings.TrimSpace(number),
 		Position:      pos,
-		Types:         exprTypes,
 		Attributes:    exprAttrs,
 		ExternalIDs:   stringScalarMap(externalIDs),
 	}, actor, note, sources)
 }
 
-// importerEntryExpressionAttrs 计算 canonical entry 表达本体的类型与属性：载荷声明的属性
-// 原样带上（nil 跳过），只有声明了时长才给表达类型并写 duration——写路径
-// （createExpressionWithMeta）与导入预检共用，避免"预检按 A 字段集放行、Save 按 B 字段集拒绝"
-// 这类偏差（无时长时类型为空，属性按 kind 回退校验：expression 适用字段仍可写，
-// 见 validation.go 的 attributeKeys；非本 kind 字段仍是 unknown_field）。
-func importerEntryExpressionAttrs(ce ImporterCanonicalEntryPreview) ([]string, map[string]any) {
+// importerEntryExpressionAttrs 计算表达本体属性；写路径与预检共用。
+func importerEntryExpressionAttrs(ce ImporterCanonicalEntryPreview) map[string]any {
 	attrs := map[string]any{}
 	for k, v := range ce.Attributes {
 		if v != nil {
 			attrs[k] = v
 		}
 	}
-	var types []string
 	if ce.DurationSeconds > 0 {
-		types = []string{"expression"}
 		attrs["duration"] = ce.DurationSeconds
 	}
-	return types, attrs
+	return attrs
 }
 
 // createExpressionWithMeta 从 canonical entry 建表达，除标题/编号/时长/外部编号外
 // 一并落多语言与原语言（旧实现漏掉这些字段，导致预览里已解析的翻译丢失）。
 // importKey 非空时写入 external_ids.metafusion_import，供同一清单重试时幂等复用。
 func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note string, sources []Source, workID, contentUnitID, title string, ce ImporterCanonicalEntryPreview, pos int, importKey string) (Entity, error) {
-	exprTypes, exprAttrs := importerEntryExpressionAttrs(ce)
+	exprAttrs := importerEntryExpressionAttrs(ce)
 	externalIDs := importerEntryExternalIDs(ce, importKey)
 	return s.importerSave(ctx, Entity{
 		Kind:             "expression",
@@ -2735,7 +2656,6 @@ func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note s
 		ContentUnitID:    contentUnitID,
 		Number:           strings.TrimSpace(ce.Number),
 		Position:         pos,
-		Types:            exprTypes,
 		Attributes:       exprAttrs,
 		ExternalIDs:      externalIDs,
 		Translations:     importerTranslationsFromAny(ce.Translations),
@@ -2875,28 +2795,20 @@ func importerContentUnitAttrs(fields map[string]bool, ce ImporterCanonicalEntryP
 	return out
 }
 
-// importerFieldSet 汇总某实体类型码声明的属性字段码白名单，用于写库前预检
+// importerFieldSet 按实体 kind 汇总字段自身的适用范围，用于写库前预检
 // unknown_field，避免先建发行/载体再在曲目处失败留下半成品。
-// 自由输入字段（见 validation.go 的 freeInputAttributes）同样计入：
 // 该预检只是提前失败，最终判定仍是 validateEntityContent，两边须同口径。
-func importerFieldSet(defs Definitions, typeCode string) map[string]bool {
+func importerFieldSet(defs Definitions, kind string) map[string]bool {
 	set := map[string]bool{}
-	if t, ok := defs.Types[typeCode]; ok {
-		for _, f := range t.Fields {
-			set[f] = true
-		}
-	}
-	for _, free := range freeInputAttributes {
-		if _, ok := defs.Fields[free]; ok {
-			set[free] = true
-		}
+	for _, code := range defs.attributeKeys(kind) {
+		set[code] = true
 	}
 	return set
 }
 
-// importerCheckAttrs 校验属性键都属于目标类型字段集；键为空集时放行。
-func importerCheckAttrs(defs Definitions, typeCode string, attrs map[string]any) error {
-	set := importerFieldSet(defs, typeCode)
+// importerCheckAttrs 校验属性键都适用于目标结构层级。
+func importerCheckAttrs(defs Definitions, kind string, attrs map[string]any) error {
+	set := importerFieldSet(defs, kind)
 	for k, v := range attrs {
 		if v == nil {
 			continue
@@ -3200,7 +3112,7 @@ func importerUnsupportedPayloadFields(req ImporterImportRequest, entityType stri
 	reject := func(field string) error {
 		return fmt.Errorf("unsupported_field_for_entity_type: entity_type=%s field=%s", entityType, field)
 	}
-	// media_category：Entity 无此列，medium 类型字段集也只有 catalog_number/format/role。
+	// media_category：Entity 无此列，当前适用于 medium 的字段也不含它。
 	for i, m := range req.Mediums {
 		if strings.TrimSpace(m.MediaCategory) != "" {
 			return reject(fmt.Sprintf("mediums[%d].media_category", i))
@@ -3224,18 +3136,18 @@ func importerUnsupportedPayloadFields(req ImporterImportRequest, entityType stri
 	if strings.TrimSpace(rel.CoverAspect) != "" {
 		return reject("release.cover_aspect")
 	}
-	// 发行备注：Entity 没有 notes 列，发行类型字段集也没有同义字段。语种翻译行的 summary
+	// 发行备注：Entity 没有 notes 列，发行可用字段也没有同义字段。语种翻译行的 summary
 	// 是"某个语种的题名简介"，本条备注没有语种归属，塞进去等于编造语种。
 	if strings.TrimSpace(rel.Notes) != "" {
 		return reject("release.notes")
 	}
-	// catalog_metadata：作品路径上的同名对象是**来源结构载体**（bangumi_type → types、
+	// catalog_metadata：作品路径上的同名对象是**来源结构载体**（bangumi_type → tags、
 	// official_website → external_ids、catalog_number → 发行属性），发行预览没有对应的消费
 	// 口径，模型里也没有可存 blob 的列，收下只能丢。品番/条码有各自的一等字段，不走这里。
 	if importerJSONDeclaresData(rel.CatalogMetadata) {
 		return reject("release.catalog_metadata")
 	}
-	// language：release 类型字段集不含 language（defaults.go 的发行字段集），而
+	// language：release 的适用字段不含 language，而
 	// original_language 是另一个**已兑现**的槽位（Entity.OriginalLanguage）。两者合并进同一槽会
 	// 变成"同时声明时谁静默覆盖谁"，故不合并：要写语言用 original_language / translations。
 	if strings.TrimSpace(rel.Language) != "" {
@@ -3346,7 +3258,7 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
 //   - 载荷会落库的外部编号与 Store.Save 同口径（importerPreflightExternalIDs）；
 //   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
-//     必须属于对应类型字段集（unknown_field 提前暴露）；
+//     必须属于目标 kind 的适用字段（unknown_field 提前暴露）；
 //   - 写死映射（关系码/词表输出）仍被当前已发布定义支持（importer_mapping_stale
 //     提前暴露，避免后台改码后在 Save 阶段才报 invalid_relation_type 留半成品），
 //     只校验本次载荷实际用到的码与词表项；
@@ -3400,27 +3312,6 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 	}
 	if err := importerPreflightAssociations(defs.Document, assocs); err != nil {
 		return err
-	}
-	// 载荷自带的类型推断（作品 bangumi_type、关联 agent 类型）同样可能随后台改码过期：
-	// 类型被删除/禁用后，Save 阶段才报 invalid_type 会留下半成品，此处提前暴露。
-	if work != nil {
-		if wt := workTypeFromMetadata(work.CatalogMetadata); wt != "" {
-			t, ok := defs.Document.Types[wt]
-			if !ok || !t.Enabled || !contains(t.Kinds, "work") {
-				return fmt.Errorf("importer_mapping_stale:work_type=%s", wt)
-			}
-		}
-	}
-	for i, a := range assocs {
-		if strings.ToLower(strings.TrimSpace(a.Action)) == "skip" || strings.TrimSpace(a.TargetArtistID) != "" || strings.TrimSpace(a.ParsedName) == "" {
-			continue
-		}
-		if et := staffAgentType(a.EntityType); et != "" {
-			t, ok := defs.Document.Types[et]
-			if !ok || !t.Enabled || !contains(t.Kinds, "agent") {
-				return fmt.Errorf("importer_mapping_stale:association[%d].entity_type=%s", i, et)
-			}
-		}
 	}
 	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(req.Release, work)); err != nil {
 		return err
@@ -3489,8 +3380,8 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 		if err := defs.validateEntityContent(e, ref, true); err != nil {
 			return importerValueError(at, defs, e, ref, err)
 		}
-		// 停用项（类型/字段/词表项）：Store.Save 在 validateEntity 之后还有 retiredEntity——
-		// 新建实体没有旧值可比，用到的停用码一律拒绝（disabled_type/disabled_field/disabled_term）。
+		// 停用项（字段/词表项）：Store.Save 在 validateEntity 之后还有 retiredEntity——
+		// 新建实体没有旧值可比，用到的停用码一律拒绝（disabled_field/disabled_term）。
 		// 预检按同样的"全新实体"判定，否则后台停用某个词表项后，载荷仍会写到一半才失败。
 		if err := defs.retiredEntity(e, Entity{}); err != nil {
 			if code, value, ok := importerRetiredAttribute(e, err); ok {
@@ -3522,23 +3413,16 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 			return err
 		}
 		// 与 importNewAgent 同序：预览侧细化类型覆盖 URL 推断。
-		if et := agentTypeForPreviewValue(a.EntityType); et != "" && et != "person" {
-			agent.Types = []string{et}
-		}
 		if err := check("artist", agent); err != nil {
 			return err
 		}
 		return checkMeta("artist", a.Language, a.Translations)
 	}
 
-	workType := ""
-	if req.Work != nil {
-		workType = workTypeFromMetadata(req.Work.CatalogMetadata)
-	}
 	key, hasKey := importDedupKey(source, req, entityType)
 	// 作品本体与作品层声明的语言/翻译：append_release_to_work 不写作品，跳过。
 	if w := req.Work; w != nil && mode != "append_release_to_work" {
-		work, err := buildWorkEntity(w, workType, source, key, req.ExternalID, hasKey, defs.PrimaryDateField(workType))
+		work, err := buildWorkEntity(w, source, key, req.ExternalID, hasKey, defs.PrimaryDateField())
 		if err != nil {
 			return err
 		}
@@ -3551,7 +3435,7 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 	}
 	// 发行：属性同源。edition_date 经 cleanImporterDate 归一后仍可能是日历非法值
 	// （如 2024-13-45），Save 会以 invalid_date 拒绝——这里同样提前拦。
-	if err := check("release", Entity{Kind: "release", Types: []string{"release"}, Attributes: importerReleaseAttrs(req.Release, req.Work)}); err != nil {
+	if err := check("release", Entity{Kind: "release", Attributes: importerReleaseAttrs(req.Release, req.Work)}); err != nil {
 		return err
 	}
 	// 发行本体声明的语言/翻译与 medium 同源：写路径会写进发行实体，预检用同一实现判定。
@@ -3561,7 +3445,7 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 		}
 	}
 	for i, m := range req.Mediums {
-		if err := check(fmt.Sprintf("mediums[%d]", i), Entity{Kind: "medium", Types: []string{"medium"}, Attributes: importerMediumAttrs(m)}); err != nil {
+		if err := check(fmt.Sprintf("mediums[%d]", i), Entity{Kind: "medium", Attributes: importerMediumAttrs(m)}); err != nil {
 			return err
 		}
 		// 载体声明的原语言/翻译行会写进 medium 实体（见 importReleaseChain 的载体落库），
@@ -3570,7 +3454,7 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 			return err
 		}
 		for j, t := range m.Tracks {
-			if err := check(fmt.Sprintf("mediums[%d].tracks[%d]", i, j), Entity{Kind: "track", Types: []string{"track"}, Attributes: importerTrackAttrs(t)}); err != nil {
+			if err := check(fmt.Sprintf("mediums[%d].tracks[%d]", i, j), Entity{Kind: "track", Attributes: importerTrackAttrs(t)}); err != nil {
 				return err
 			}
 		}
@@ -3581,12 +3465,12 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 	for i, ce := range req.CanonicalEntries {
 		at := fmt.Sprintf("canonical_entries[%d]", i)
 		if strings.TrimSpace(ce.EntryKind) == "content_unit" {
-			if err := check(at, Entity{Kind: "content_unit", Types: []string{"content_unit"}, Attributes: importerContentUnitAttrs(cuFields, ce)}); err != nil {
+			if err := check(at, Entity{Kind: "content_unit", Attributes: importerContentUnitAttrs(cuFields, ce)}); err != nil {
 				return err
 			}
 		} else {
-			types, attrs := importerEntryExpressionAttrs(ce)
-			if err := check(at, Entity{Kind: "expression", Types: types, Attributes: attrs}); err != nil {
+			attrs := importerEntryExpressionAttrs(ce)
+			if err := check(at, Entity{Kind: "expression", Attributes: attrs}); err != nil {
 				return err
 			}
 		}
@@ -3637,7 +3521,7 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 }
 
 // importerRetiredAttribute 定位停用项错误里的字段码与取值：retiredValue 把错误构造成
-// "<字段码>: <错误码>"（类型停用则是 disabled_type: <类型码>），字段码若在实体属性里就回显取值。
+// "<字段码>: <错误码>"，字段码若在实体属性里就回显取值。
 func importerRetiredAttribute(e Entity, err error) (code, value string, ok bool) {
 	head, _, _ := strings.Cut(err.Error(), ":")
 	code = strings.TrimSpace(head)
@@ -3678,10 +3562,7 @@ func importerValueError(at string, defs Definitions, e Entity, ref func(string, 
 // 顺序与 Definitions.attributes 一致：先未声明字段（unknown_field），再按声明字段用同一个
 // d.value 复算；定位不到（理论上不会发生）时返回 ok=false，错误原文照旧透出。
 func importerOffendingAttribute(defs Definitions, e Entity, ref func(string, []string) error) (code, value string, unknown, ok bool) {
-	keys, kerr := defs.attributeKeys(e, true)
-	if kerr != nil {
-		return "", "", false, false
-	}
+	keys := defs.attributeKeys(e.Kind)
 	for k := range e.Attributes {
 		if !contains(keys, k) {
 			return k, importerValueText(e.Attributes[k]), true, true
@@ -3795,7 +3676,6 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 				ParentID:         parent,
 				Number:           strings.TrimSpace(ce.Number),
 				Position:         pos,
-				Types:            []string{"content_unit"},
 				Attributes:       importerContentUnitAttrs(cuFields, ce),
 				ExternalIDs:      stringScalarMap(ce.ExternalIDs),
 				Translations:     importerTranslationsFromAny(ce.Translations),
@@ -4104,7 +3984,6 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				ParentID:         parent,
 				Number:           strings.TrimSpace(ce.Number),
 				Position:         pos,
-				Types:            []string{"content_unit"},
 				Attributes:       importerContentUnitAttrs(cuFields, ce),
 				ExternalIDs:      stringScalarMap(ce.ExternalIDs),
 				Translations:     importerTranslationsFromAny(ce.Translations),
@@ -4210,7 +4089,6 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		created, cerr := s.importerSave(ctx, Entity{
 			Kind:             "release",
 			Title:            releaseTitle,
-			Types:            []string{"release"},
 			Attributes:       releaseAttrs,
 			ExternalIDs:      releaseExternalIDs,
 			Subjects:         subjects,
@@ -4251,7 +4129,6 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				ReleaseID:        release.ID,
 				Number:           strings.TrimSpace(m.Number),
 				Position:         medPos,
-				Types:            []string{"medium"},
 				Attributes:       mediumAttrs,
 				ExternalIDs:      mediumExternal,
 				OriginalLanguage: originalLanguageOrEmpty(m.OriginalLanguage),
@@ -4385,7 +4262,6 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				MediumID:    medium.ID,
 				Number:      trackNumber,
 				Position:    pos,
-				Types:       []string{"track"},
 				Attributes:  trackAttrs,
 				ExternalIDs: trackExternalIDs,
 				Contents:    []Inclusion{{ExpressionID: expressionID, Position: 0}},
@@ -4552,7 +4428,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	// 被校验拒绝（unknown_field）。改为与新建路径同一来源。
 	dateField := ""
 	if defs, derr := s.Definitions(ctx); derr == nil {
-		dateField = defs.Document.PrimaryDateField(workTypeFromMetadata(req.Work.CatalogMetadata))
+		dateField = defs.Document.PrimaryDateField()
 	}
 	var savedWork Entity
 	if hasKey {
@@ -4579,8 +4455,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		}
 	}
 	if savedWork.ID == "" {
-		workType := workTypeFromMetadata(req.Work.CatalogMetadata)
-		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey, dateField)
+		work, err := buildWorkEntity(req.Work, source, key, req.ExternalID, hasKey, dateField)
 		if err != nil {
 			return ImporterImportResponse{}, err
 		}
@@ -4666,7 +4541,6 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			Title:            name,
 			OriginalLanguage: originalLanguageOrEmpty(assoc.Language),
 			Translations:     toEntityTranslations(assoc.Translations),
-			Types:            []string{entityType},
 			Attributes:       map[string]any{},
 			ExternalIDs:      importerAgentExternalIDs(assoc.ExternalIDs),
 		}
@@ -4855,7 +4729,6 @@ func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sou
 	// 识别为 group，导入保持 group agent；character 行为不变；
 	// person 不覆盖请求推断（URL 推断的 artist/organization 语义更具体）。
 	if et := agentTypeForPreviewValue(a.EntityType); et != "" && et != "person" {
-		agent.Types = []string{et}
 		entityType = et
 	}
 	saved, serr := s.importerSave(ctx, agent, actor, note, sources)

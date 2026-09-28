@@ -97,10 +97,8 @@ export function revokeOAuthGrant(clientId: string): Promise<{ ok: boolean; revok
 // 无效/已吊销/已过期一律 401 invalid_token，不区分原因（免得被拿来探测令牌状态）；
 // 内省结果按 token_hash 进程内缓存 60 秒 —— 因此**撤销最长有 60 秒窗口**（UI 与文档同口径）。
 //
-// 形状以账号服务实现为准，这里做的是"别把服务端的合法变体读成空"：
-// 列表接受 {items:[…]} 或裸数组；创建响应接受 token/plaintext/plaintext_token/secret
-// 里的明文，元数据取 item/pat 平铺。明文读不到时抛错——静默返回空串会让用户
-// 抱走一个不存在的令牌，比报错更糟。
+// 形状以账号服务实现为准；不接受旧载荷变体。明文读不到时抛错，
+// 避免把不完整的创建响应展示为有效令牌。
 
 export interface PersonalAccessToken {
   id: string;
@@ -113,9 +111,8 @@ export interface PersonalAccessToken {
   created_at?: string;
   /** 非空即已撤销；撤销是写时间戳，行不删。 */
   revoked_at?: string | null;
-  /** 服务端算好的"这张还能用吗"（未吊销且未过期）。有它就别拿浏览器时间自己比：
-   *  两端时钟不一致时，本地判定会把刚过期的令牌显示成"有效"。 */
-  active?: boolean;
+  /** 服务端计算的有效状态，避免客户端时钟偏差。 */
+  active: boolean;
 }
 
 export interface CreatedPersonalAccessToken {
@@ -130,6 +127,7 @@ function strField(value: unknown): string | null {
 
 function normalizePersonalAccessToken(raw: unknown): PersonalAccessToken {
   const r = (raw || {}) as Record<string, unknown>;
+  if (typeof r.active !== "boolean") throw new Error("invalid_response: active");
   return {
     id: strField(r.id) ?? "",
     name: strField(r.name) ?? "",
@@ -139,8 +137,7 @@ function normalizePersonalAccessToken(raw: unknown): PersonalAccessToken {
     last_used_at: strField(r.last_used_at),
     created_at: strField(r.created_at) ?? undefined,
     revoked_at: strField(r.revoked_at),
-    // 只有真的是布尔才带上：缺字段/旧服务端时保持 undefined，界面回落到本地判定。
-    ...(typeof r.active === "boolean" ? { active: r.active } : {}),
+    active: r.active,
   };
 }
 

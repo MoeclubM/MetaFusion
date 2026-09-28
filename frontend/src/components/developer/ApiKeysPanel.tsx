@@ -25,7 +25,7 @@ import { ApiKeyCreateModal } from "@/app/developer/components/ApiKeyCreateModal"
 // （弹窗），打开状态由调用方（开发者中心 API Key 页签头的新建按钮）控制。
 //
 // 契约（账号服务）：
-//   GET    /api/auth/tokens      → { items: [{ id, name, token_prefix, scopes, expires_at, last_used_at, created_at, revoked_at }] }
+//   GET    /api/auth/tokens      → { items: [{ id, name, token_prefix, scopes, expires_at, last_used_at, created_at, revoked_at, active }] }
 //   POST   /api/auth/tokens      → 201 { token: "mfp_…", item: {…} }（明文只此一次）
 //   DELETE /api/auth/tokens/:id  → { ok: true }（写 revoked_at）
 // 明文库里只有 sha256，刷新页面就再也拿不回来：所以创建成功后必须**立刻**把明文摆在用户眼前，
@@ -129,17 +129,10 @@ export function ApiKeysPanel({ modalOpen, onModalClose }: { modalOpen: boolean; 
     }
   };
 
-  // 服务端算好的 active 优先：两端时钟不一致时，本地按 expires_at 比时间会把刚过期的
-  // 令牌显示成"有效"。只有缺这个字段（旧服务端）才回落到本地判定。
+  // 状态只使用服务端计算值，避免浏览器时钟偏差。
   const statusOf = (token: PersonalAccessToken): "revoked" | "expired" | "active" => {
-    if (token.active === true) return "active";
-    if (token.active === false) return token.revoked_at ? "revoked" : "expired";
-    if (token.revoked_at) return "revoked";
-    if (token.expires_at) {
-      const exp = new Date(token.expires_at);
-      if (!Number.isNaN(exp.getTime()) && exp.getTime() <= Date.now()) return "expired";
-    }
-    return "active";
+    if (token.active) return "active";
+    return token.revoked_at ? "revoked" : "expired";
   };
 
   return (

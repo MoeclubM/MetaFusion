@@ -130,8 +130,6 @@ func (c *OpenSearchClient) searchIDs(ctx context.Context, o ListOptions, u *User
 	terms("kind", o.Kinds)
 	term("status", o.Status)
 	term("original_language", o.OriginalLanguage)
-	term("types", o.Type)
-	terms("types", o.Types)
 	if o.HasPictures {
 		filters = append(filters, map[string]any{"term": map[string]any{"has_pictures": true}})
 	}

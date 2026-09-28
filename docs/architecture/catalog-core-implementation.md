@@ -2,7 +2,7 @@
 
 面向编目者的模型、例子与端点见 [编目教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)（文档在独立仓库 `metafusion-docs`）。
 
-核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、类型专用结构表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，迁移 `000003_notifications`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。所有核心写事务共用 advisory lock，乐观版本避免静默覆盖；复合外键和延迟触发器拒绝跨域父子和循环。该首版串行化核心写入，适合中小规模协作站；高写入量时需要按受影响图范围缩小锁粒度。
+核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、结构侧表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，迁移 `000003_notifications`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 使用事务级 advisory lock。乐观版本避免静默覆盖，复合外键和延迟触发器拒绝跨域父子和循环。
 
 关系读取的首批统一契约由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系继续由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。具体来源、样本判断及尚未实施的逐边溯源见[首批实施记录](./metadata-structure-first-implementation-2026-09.md)。
 
@@ -12,7 +12,13 @@
 
 前端 `/catalog` 使用独立 CatalogProvider，根布局不挂载全局播放器。资源、社区与个人记录组件动态导入，先检查能力再请求自己的 API。外部图片以带来源的核心引用保存，文件模块关闭不影响封面。
 
-`pictures[]` 是有序数组：**数组顺序即展示顺序、首张即当前展示封面**，服务端不重排。`taken_at` 是图自身的拍摄／发布时间；可选 `version_label`、`in_use_from`、`in_use_until` 分别记录版本／活动期名称与已知适用区间，不替代首图选择，也不禁止多个版本同时适用。旧主视觉应保留在同一实体的图集中；版别专属封面放在对应 Release，不把 Work 图复制成 Release 的权威图片。"哪张是封面"在前端只有 `src/lib/cover.ts` 一处判定（`coverPicture` / `coverUrl`）。每张图还可选 `role`（`picture_role` 词表）与 `asset_id`（存储资产 UUID，配 `binding_role=cover_image`）；重复 URL、数量、用途与区间由 `validation.go` 校验，见 `docs/requirements.md` 的 MEDIA-05。
+`pictures[]` 是有序数组：**数组顺序即展示顺序、首张即当前展示封面**，服务端不重排。`taken_at` 是图自身的拍摄／发布时间；可选 `version_label` 标识并存或先后的正确图像版本。`usage_period: {begin?, end?}` 以内嵌时间跨度记录已知使用期，借鉴 IFLA LRM E11 Time-span；仅知一端可只填一端，不新增目录实体。使用期可重叠，不替代首图选择。旧主视觉应保留在同一实体的图集中；版别专属封面放在对应 Release，不把 Work 图复制成 Release 的权威图片。"哪张是封面"在前端只有 `src/lib/cover.ts` 一处判定（`coverPicture` / `coverUrl`）。每张图还可选 `role`（`picture_role` 词表）与 `asset_id`（存储资产 UUID，配 `binding_role=cover_image`）；重复 URL、数量、用途与区间由 `validation.go` 校验，见 `docs/requirements.md` 的 MEDIA-05。迁移 `000016` 把旧平面 `in_use_from` / `in_use_until` 搬入 `usage_period`，非数组图片或冲突时间跨度列 ID 并中止，不把脏图片静默视为无图。
+
+`000016` 也是一次性元数据协议切换：实体及其修订快照、出站事件、幂等响应不再携带业务 `types`；定义文档删除 `types`，以字段的 `applicable_kinds` 表示可写层级，并移除关系定义、场景方案中的业务类型筛选。八种 `kind`、关系码 `type` 与字段值结构 `type` 保持原义。迁移与匹配的新后端/前端须停写同步切换；旧服务不能在迁移后继续写旧 JSON。定义 ETag 在迁移时更新，OpenSearch 消费者需按新契约重建索引，不能仅依赖已消费 outbox 的历史事件。
+
+同一次迁移把 `catalog.user_preferences.home_shelves` 中缺失或为 `null` 的 `order`、`hidden`、`sections` 归一为 `[]`，保留其它键值；非对象偏好或非数组值列出用户 ID 并中止。空库尚无 `definition_config` 行时不补旧定义，须先执行 `mf-migrate up`，再由匹配新契约的 `mf-migrate seed` 播种；不得让旧版服务在迁移后写回旧 `types`。
+
+定义关系还在本次切换中规范化：旧种子已有的空 `participant_slot` 按 `Defaults().relSlot` 中冻结的关系码映射回填；自定义关系码的空槽位无法确定，迁移列码中止。旧 `credit_declared=false` 的文档中，`group=credits` 的既有关系按旧合并逻辑补 `counts_as_credit=true`；原来明确为 `true` 的文档保留每条关系的布尔决定。迁移随后删除 `credit_declared`，运行时不再回填。关系 `type` 仍是关系码，不得误删。
 
 导入器对已有实体仍只在**完全无图**时补图，不会自动覆盖或提升主图；编辑者可以追加新图、保留旧图并把当前图移至首位。若上游同一 URL 的内容会原地变化，热链无法保存旧像素，需先将旧版作为独立自托管资产留存，再更新主图。日期与版本名不能代替对实际图像字节的保存。
 

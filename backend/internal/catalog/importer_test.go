@@ -174,7 +174,7 @@ func TestImporterRefParsing(t *testing.T) {
 	if _, err := s.Import(ctx, ImporterImportRequest{EntityType: "work", Source: "bangumi", LinkMode: "merge_translations", TargetWorkID: "00000000-0000-0000-0000-0000000000ff", Work: &ImporterWorkPreview{Title: "x"}}, me); err == nil || err.Error() != "invalid_link_mode" {
 		t.Fatalf("merge_translations must be rejected with invalid_link_mode: %v", err)
 	}
-	if _, err := buildWorkEntity(&ImporterWorkPreview{}, "", "bangumi", "", "", false, ""); err == nil {
+	if _, err := buildWorkEntity(&ImporterWorkPreview{}, "bangumi", "", "", false, ""); err == nil {
 		t.Fatal("empty work title accepted")
 	}
 }

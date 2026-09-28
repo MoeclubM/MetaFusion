@@ -107,7 +107,7 @@ func TestImporterPreflightRejectsDeclaredValues(t *testing.T) {
 			r.CanonicalEntries[0].Attributes = map[string]any{"entry_role": "special"}
 		}, []string{"invalid_attribute_value", "canonical_entries[0].entry_role", "invalid_term"}},
 		{"载荷属性非本 kind 适用字段", func(r *ImporterImportRequest) {
-			// 表达条目无时长时类型为空，属性按 kind 回退校验（duration 这类本 kind 字段可写，
+			// 表达条目无时长时仍按 kind 校验属性（duration 这类本 kind 字段可写，
 			// 见 validation.go 的 attributeKeys）；catalog_number 只属 release，在 expression
 			// 上仍是 unknown_field（写路径同口径）。结构预检先于取值预检，这里走前者。
 			r.CanonicalEntries[0].EntryKind = "expression"

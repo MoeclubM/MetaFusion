@@ -78,8 +78,6 @@ export interface RelationType {
   domain: string;
   names?: Record<string, string>;
   description?: string;
-  allowed_source_types?: string[];
-  allowed_target_types?: string[];
   is_symmetric: boolean;
   is_hierarchical: boolean;
   // 是否具有时间语义（任期/隶属/合约期）：为 true 时编辑器展示 begin/end/ended 输入。

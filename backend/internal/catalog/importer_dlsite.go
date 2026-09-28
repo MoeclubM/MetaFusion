@@ -469,10 +469,10 @@ var dlsiteGameWorkTypes = map[string]bool{
 	"TBL": true, "TYP": true, "QIZ": true, "SLN": true, "DNV": true, "DNT": true, "ETC": true,
 }
 
-// dlsiteMediaType 把 DLsite work_type 码映射为 definitions 合法的 work 类型码。
+// dlsiteMediaType 把 DLsite work_type 码映射为预览标记，不落实体业务类型。
 // 已按真实码校准（maniax）：SOU=音声→audio、MNG=漫画→comic、MUS=音乐、
 // DNV=视觉小说、其余游戏码→game、ICG=CG 集→photobook、MOV=动画。
-// 无法判定时落到 personal（generic 模板，含 tags/edition_date，不虚构属性）。
+// 无法判定时落到 personal（通用预览标记，不虚构实体属性）。
 func dlsiteMediaType(typeID string) string {
 	switch strings.ToUpper(strings.TrimSpace(typeID)) {
 	case "DNV", "DNT":

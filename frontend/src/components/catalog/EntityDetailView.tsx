@@ -44,7 +44,7 @@ import { buildStaffCredits } from "@/components/entity/staffCredits";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
-import { useDefinitions, getKindName, getTypeName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -118,25 +118,6 @@ const endTitleOf = (
   order: string[],
 ): string => (e ? title(e, locale, order) || e.title || id : id);
 
-/** relations.entities 归一化：后端 resolveRelated 返回 ID→Entity 映射（见 http.go:1072），
- *  旧响应可能为数组。数组按 id 建表（无 id 条目丢弃），非对象一律视为空表——
- *  对端按 id 取摘要渲染题名与封面，不再显示裸 UUID。 */
-function normalizeRelatedEntities(input: unknown): Record<string, Entity> {
-  if (!input || typeof input !== "object") return {};
-  if (Array.isArray(input)) {
-    const map: Record<string, Entity> = {};
-    for (const item of input) {
-      const ent = item as Partial<Entity> | null;
-      if (ent && typeof ent.id === "string" && ent.id) map[ent.id] = item as Entity;
-    }
-    return map;
-  }
-  const map: Record<string, Entity> = {};
-  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
-    if (v && typeof v === "object") map[k] = v as Entity;
-  }
-  return map;
-}
 
 /**
  * 展示分组键：定义声明了 group_names 才按自己的 group 分组；
@@ -196,8 +177,7 @@ export function EntityDetailView({ id }: { id: string }) {
   const [occurrences, setOccurrences] = useState<any[]>([]);
   const [relations, setRelations] = useState<Relation[]>([]);
   const [relatedEntities, setRelatedEntities] = useState<Record<string, Entity>>({});
-  // 响应标出的主体 id（/relations 的 subject_id）。旧响应没有该字段时留空，
-  // 由页面已知实体兜底，判定口径不变。
+  // 响应标出的主体 id（/relations 的 subject_id）。
   const [relationSubjectId, setRelationSubjectId] = useState<string>("");
   const [children, setChildren] = useState<Entity[]>([]);
   const [revisions, setRevisions] = useState<any[]>([]);
@@ -255,7 +235,7 @@ export function EntityDetailView({ id }: { id: string }) {
       let collectionsFailed = false;
       const [occRes, relRes, revRes, posts, collections] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[]; entities?: Record<string, Entity> | Entity[]; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
+        api<{ items: Relation[]; entities: Record<string, Entity>; subject_id: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: {} as Record<string, Entity>, subject_id: e.id || "" })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
         // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
@@ -267,14 +247,8 @@ export function EntityDetailView({ id }: { id: string }) {
       const relItems = Array.isArray(relRes.items) ? relRes.items : [];
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
       // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
-      // 保留逐条回退，使前端部署不依赖后端是否已上线这两个字段。
-      // 响应 entities 可能是映射（现行后端）或数组（旧响应）：归一化后进 state，
-      // 空表才走逐条回退；回退上限外的条目仍显示 id（不可见实体），不静默丢边。
-      const relatedMap = normalizeRelatedEntities(
-        (relRes as { entities?: unknown }).entities,
-      );
-      setRelatedEntities(relatedMap);
-      setRelationSubjectId(relRes.subject_id || e.id || "");
+      setRelatedEntities(relRes.entities);
+      setRelationSubjectId(relRes.subject_id);
       const revItems = Array.isArray(revRes.items) ? revRes.items : [];
       setOccurrences(occItems);
       setRelations(relItems);
@@ -332,39 +306,6 @@ export function EntityDetailView({ id }: { id: string }) {
             })
             .catch(() => {})
         );
-      }
-
-      // 后端未内嵌对端实体时的回退：逐条取。默认并发 8 并限制条数，
-      // 避免数百条关系同时打满连接；上限内之外的条目会退回显示 UUID。
-      // 取 id 集合时把每条边两端都算上：响应没有 entities 表时也要能渲染两端题名。
-      if (Object.keys(relatedMap).length === 0) {
-        const otherIds = Array.from(
-          new Set(
-            relItems
-              .flatMap((r) => [r.source_id, r.target_id])
-              .filter((x) => x && x !== e.id)
-          )
-        ).slice(0, 30);
-
-        if (otherIds.length > 0) {
-          parentPromises.push(
-            (async () => {
-              const map: Record<string, Entity> = {};
-              for (let i = 0; i < otherIds.length; i += 8) {
-                const batch = otherIds.slice(i, i + 8);
-                const results = await Promise.all(
-                  batch.map((targetId) =>
-                    api<Entity>(`/catalog/entities/${targetId}`).catch(() => null)
-                  )
-                );
-                results.forEach((target, idx) => {
-                  if (target) map[batch[idx]] = target;
-                });
-              }
-              setRelatedEntities(map);
-            })()
-          );
-        }
       }
 
       // Query children for work or release
@@ -438,8 +379,8 @@ export function EntityDetailView({ id }: { id: string }) {
         roleLabel: pictureRoleLabel(p.role),
         takenAt: String(p.taken_at || "").trim(),
         versionLabel: resolveLocalizedName(p.version_label, locale, ""),
-        inUseFrom: String(p.in_use_from || "").trim(),
-        inUseUntil: String(p.in_use_until || "").trim(),
+        inUseFrom: String(p.usage_period?.begin || "").trim(),
+        inUseUntil: String(p.usage_period?.end || "").trim(),
         isCover: i === COVER_PICTURE_INDEX,
         source: p.source,
       })),
@@ -665,11 +606,10 @@ export function EntityDetailView({ id }: { id: string }) {
   // 若少调用一次 hook，就会触发 "Rendered more hooks than during the previous render"。
   // 关系两端的摘要一律取自响应 entities 表（覆盖两端 + 主体自身）：
   // 主体一侧不再依赖"页面上已知的实体"，对端也不再只认页面上猜出的那一端。
-  // 旧响应缺 subject_id 时回退被查询实体，行为与改动前一致。
   const categorizedRelations = useMemo(
     () =>
       relations.map((r) => {
-        const subjectId = r.subject_id || relationSubjectId || entity?.id || "";
+        const subjectId = relationSubjectId;
         const isOutgoing = subjectId === r.source_id;
         const isIncoming = subjectId === r.target_id;
         const isEndpoint = isOutgoing || isIncoming;
@@ -679,9 +619,7 @@ export function EntityDetailView({ id }: { id: string }) {
         // 两端都不是主体）按边自身的方向展示 source → target，不硬把主体凑成一端。
         const fromId = isEndpoint ? subjectId : r.source_id;
         const toId = isEndpoint ? otherId : r.target_id;
-        const subject =
-          relatedEntities[subjectId] ||
-          (subjectId && subjectId === entity?.id ? entity ?? undefined : undefined);
+        const subject = relatedEntities[subjectId];
         return {
           ...r,
           subjectId,
@@ -737,11 +675,10 @@ export function EntityDetailView({ id }: { id: string }) {
     [categorizedRelations, defs]
   );
 
-  // 分类展示顺序：实体自身类型引用模板声明的 relation_groups（多类型声明合并去重）。
+  // 分类展示顺序：按实体 kind 与已有字段匹配的模板声明 relation_groups。
   const relationGroupOrder = useMemo(() => {
     const ordered: string[] = [];
-    for (const tc of entity?.types || []) {
-      const tpl = (defs as any)?.templates?.[(defs as any)?.types?.[tc]?.template || ""];
+    for (const tpl of templatesForEntity(defs, entity?.kind || "", entity?.attributes)) {
       for (const g of tpl?.relation_groups || []) {
         if (!ordered.includes(g)) ordered.push(g);
       }

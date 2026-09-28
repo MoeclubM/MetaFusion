@@ -10,6 +10,7 @@ export type Field = {
   type: string;
   enabled: boolean;
   required?: boolean;
+  applicable_kinds?: string[];
   searchable?: boolean;
   comparable?: boolean;
   /** 存档/检索用途：可写可检索但不进详情面板与编辑器分组区。 */
@@ -32,7 +33,6 @@ export type Scheme = {
   names: Names;
   slot: string;
   kinds?: string[];
-  types?: string[];
   medium_formats?: string[];
   fields: string[];
   required?: string[];
@@ -40,16 +40,6 @@ export type Scheme = {
   enabled: boolean;
 };
 export type Definitions = {
-  types: Record<
-    string,
-    {
-      names: Names;
-      kinds: string[];
-      fields: string[];
-      template: string;
-      enabled: boolean;
-    }
-  >;
   schemes?: Record<string, Scheme>;
   /** 各层级的"所属与收录结构"：由服务端下发，编辑器据此渲染结构字段与资源区块。 */
   structure?: Record<
@@ -78,8 +68,6 @@ export type Definitions = {
       reverse_names: Names;
       source_kinds: string[];
       target_kinds: string[];
-      source_types: string[];
-      target_types: string[];
       fields: string[];
       symmetric: boolean;
       acyclic: boolean;
@@ -100,6 +88,7 @@ export type Definitions = {
     string,
     {
       names: Names;
+      kinds?: string[];
       sections: { names: Names; fields: string[] }[];
       columns: string[];
       relation_groups: string[];
@@ -124,7 +113,6 @@ export type Entity = {
     string,
     { title: string; summary?: string; aliases?: string[] }
   >;
-  types: string[];
   attributes: Record<string, any>;
   external_ids: Record<string, string>;
   // 多图契约（见 backend/internal/catalog/types.go 的 PicturesJSON）：**数组顺序就是展示顺序**，
@@ -137,8 +125,7 @@ export type Entity = {
     caption: Names;
     taken_at?: string;
     version_label?: Names;
-    in_use_from?: string;
-    in_use_until?: string;
+    usage_period?: { begin?: string; end?: string };
     role?: string;
     asset_id?: string;
     source: Source;
@@ -175,8 +162,6 @@ export type Relation = {
   target_id: string;
   position: number;
   attributes: Record<string, any>;
-  /** 该边的主体实体（/relations 响应级 subject_id 的逐条形态）；旧响应没有该字段。 */
-  subject_id?: string;
 };
 // 会话用户类型只有一份：lib/api/client.ts 的 User（原始响应 → User 的唯一映射是
 // lib/api/auth.ts 的 normalizeSessionUser）。这里 re-export 只为兼容既有调用点，
@@ -284,7 +269,6 @@ export function emptyEntity(kind = "work"): Entity {
     status: "draft",
     original_language: "",
     translations: {},
-    types: [],
     attributes: {},
     external_ids: {},
     pictures: [],

@@ -83,11 +83,11 @@ func sortedEntityIDs(res relListResponse) []string {
 func TestPostgresRelationListEntitiesCoverBothEnds(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	subject := f.save(Entity{Kind: "agent", Title: "关系主体角色", Types: []string{"character"}})
-	work := f.save(Entity{Kind: "work", Title: "主体登场作品", Types: []string{"animation"}})
-	actor := f.save(Entity{Kind: "agent", Title: "某声优", Types: []string{"person"}})
-	group := f.save(Entity{Kind: "agent", Title: "所属团体", Types: []string{"group"}})
-	peer := f.save(Entity{Kind: "agent", Title: "另一团体", Types: []string{"group"}})
+	subject := f.save(Entity{Kind: "agent", Title: "关系主体角色"})
+	work := f.save(Entity{Kind: "work", Title: "主体登场作品"})
+	actor := f.save(Entity{Kind: "agent", Title: "某声优"})
+	group := f.save(Entity{Kind: "agent", Title: "所属团体"})
+	peer := f.save(Entity{Kind: "agent", Title: "另一团体"})
 	relate := func(r Relation) {
 		t.Helper()
 		if _, err := f.s.SaveRelation(ctx, RelationEdit{Relation: r, ExpectedVersion: 0,
@@ -167,7 +167,7 @@ func TestPostgresRelationListEntitiesCoverBothEnds(t *testing.T) {
 
 	// 只被实体型属性引用、自己不是任何一条边端点的实体（角色侧看"谁为它配音"）：
 	// 它出现在映射里的唯一通道就是"补主体"——只解析端点（含旧实现"只补另一端"）必定缺席。
-	charOnly := f.save(Entity{Kind: "agent", Title: "只被属性引用的角色", Types: []string{"character"}})
+	charOnly := f.save(Entity{Kind: "agent", Title: "只被属性引用的角色"})
 	relate(Relation{Type: "voiced_by", SourceID: work.ID, TargetID: peer.ID, Attributes: map[string]any{"character": charOnly.ID}})
 	charRes := decodeRelList(t, get("/api/catalog/entities/"+charOnly.ID+"/relations"))
 	if len(charRes.Items) != 1 || charRes.Items[0].Via != "character" {
@@ -192,10 +192,10 @@ func TestPostgresRelationListEntitiesCoverBothEnds(t *testing.T) {
 func TestPostgresRelationAttributeQueryHidesDraftEndpoint(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	character := f.save(Entity{Kind: "agent", Title: "公开角色", Types: []string{"character"}})
-	work := f.save(Entity{Kind: "work", Title: "公开作品", Types: []string{"animation"}})
-	publicActor := f.save(Entity{Kind: "agent", Title: "公开演员", Types: []string{"person"}})
-	draftActor := f.save(Entity{Kind: "agent", Title: "未公开演员", Types: []string{"person"}, Status: "draft"})
+	character := f.save(Entity{Kind: "agent", Title: "公开角色"})
+	work := f.save(Entity{Kind: "work", Title: "公开作品"})
+	publicActor := f.save(Entity{Kind: "agent", Title: "公开演员"})
+	draftActor := f.save(Entity{Kind: "agent", Title: "未公开演员", Status: "draft"})
 	for _, actor := range []Entity{publicActor, draftActor} {
 		if _, err := f.s.SaveRelation(ctx, RelationEdit{
 			Relation: Relation{Type: "voiced_by", SourceID: work.ID, TargetID: actor.ID,

@@ -59,11 +59,9 @@ func TestPostgresSearchTreatsWildcardsLiterally(t *testing.T) {
 	underscore := f.save(Entity{Kind: "work", Title: "下划线_样本"})
 	f.save(Entity{Kind: "work", Title: "普通题名"})
 	// 字面 %/_ 的标签，覆盖 /tags 那个 ILIKE 拼接点。
-	// 必须声明 Types：可写属性集合由实体已声明的类型决定（album 的字段集含 tags），
-	// 没有类型的实体 attributes 一律 unknown_field——那与 LIKE 转义无关，
-	// 是这条夹具原先少了类型声明（tags 本身是已启用的种子字段）。
-	f.save(Entity{Kind: "work", Title: "标签样本甲", Types: []string{"album"}, Attributes: map[string]any{"tags": []string{"销量100%"}}})
-	f.save(Entity{Kind: "work", Title: "标签样本乙", Types: []string{"album"}, Attributes: map[string]any{"tags": []string{"下划线_标签"}}})
+	// tags 是适用于 Work 的字段，这里只测试 LIKE 转义，不需业务分类。
+	f.save(Entity{Kind: "work", Title: "标签样本甲", Attributes: map[string]any{"tags": []string{"销量100%"}}})
+	f.save(Entity{Kind: "work", Title: "标签样本乙", Attributes: map[string]any{"tags": []string{"下划线_标签"}}})
 
 	all, err := f.s.Count(ctx, ListOptions{}, nil)
 	if err != nil {

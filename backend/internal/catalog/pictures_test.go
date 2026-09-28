@@ -94,16 +94,16 @@ func TestPictureVersionsCanCoexist(t *testing.T) {
 	current := testPicture("https://example.test/2026.jpg")
 	current.Role = "key_visual"
 	current.VersionLabel = Names{"zh-CN": "2026 年主视觉", "en-US": "2026 key visual"}
-	current.InUseFrom = "2026"
+	current.UsagePeriod = &TimeSpan{Begin: "2026"}
 	prior := testPicture("https://example.test/2025.jpg")
 	prior.Role = "key_visual"
 	prior.VersionLabel = Names{"zh-CN": "2025 年主视觉"}
-	prior.InUseFrom, prior.InUseUntil = "2025-01", "2025-12"
+	prior.UsagePeriod = &TimeSpan{Begin: "2025-01", End: "2025-12"}
 	if err := d.validateEntityContent(pictureOnlyEntity(current, prior), allowAllRef, false); err != nil {
 		t.Fatalf("先后版本应可共存：%v", err)
 	}
 	// 同时适用也可能真实存在：不同地区/渠道并行使用的主视觉不应被互斥约束拒绝。
-	prior.InUseUntil = "2026"
+	prior.UsagePeriod.End = "2026"
 	if err := d.validateEntityContent(pictureOnlyEntity(current, prior), allowAllRef, false); err != nil {
 		t.Fatalf("并行适用的版本应可共存：%v", err)
 	}
@@ -112,7 +112,7 @@ func TestPictureVersionsCanCoexist(t *testing.T) {
 func TestPictureVersionJSONRoundTrip(t *testing.T) {
 	p := testPicture("https://example.test/2026.jpg")
 	p.VersionLabel = Names{"zh-CN": "春季主视觉"}
-	p.InUseFrom, p.InUseUntil = "2026-03", "2026-06"
+	p.UsagePeriod = &TimeSpan{Begin: "2026-03", End: "2026-06"}
 	b, err := json.Marshal(PicturesJSON{p})
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestPictureVersionJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(b, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if len(decoded) != 1 || decoded[0].VersionLabel["zh-CN"] != p.VersionLabel["zh-CN"] || decoded[0].InUseFrom != p.InUseFrom || decoded[0].InUseUntil != p.InUseUntil {
+	if len(decoded) != 1 || decoded[0].VersionLabel["zh-CN"] != p.VersionLabel["zh-CN"] || decoded[0].UsagePeriod == nil || *decoded[0].UsagePeriod != *p.UsagePeriod {
 		t.Fatalf("图片版本元数据未完整往返：%+v", decoded)
 	}
 }
@@ -135,15 +135,24 @@ func TestPicturePeriodRejectsInvalidOrReversedDates(t *testing.T) {
 		{"2026-02-01", "2026-01"},
 	} {
 		p := testPicture("https://example.test/a.jpg")
-		p.InUseFrom, p.InUseUntil = tc.from, tc.until
+		p.UsagePeriod = &TimeSpan{Begin: tc.from, End: tc.until}
 		if err := d.validateEntityContent(pictureOnlyEntity(p), allowAllRef, false); err == nil || err.Error() != "invalid_picture_period" {
 			t.Fatalf("区间 %q..%q 应报 invalid_picture_period，实际 %v", tc.from, tc.until, err)
 		}
 	}
 	p := testPicture("https://example.test/a.jpg")
-	p.InUseFrom, p.InUseUntil = "2025-12", "2025"
+	p.UsagePeriod = &TimeSpan{Begin: "2025-12", End: "2025"}
 	if err := d.validateEntityContent(pictureOnlyEntity(p), allowAllRef, false); err != nil {
 		t.Fatalf("部分日期的共同有效区间应放行：%v", err)
+	}
+}
+
+func TestMalformedPicturesAreRejectedOnRead(t *testing.T) {
+	for _, raw := range []string{`{"url":"https://example.test/a.jpg"}`, `"https://example.test/a.jpg"`} {
+		var pics PicturesJSON
+		if err := json.Unmarshal([]byte(raw), &pics); err == nil {
+			t.Fatalf("图片只能是数组，错误形态 %s 不得静默当成无图", raw)
+		}
 	}
 }
 

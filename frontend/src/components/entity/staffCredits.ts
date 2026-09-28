@@ -14,7 +14,6 @@ export interface StaffCreditAgent {
   id: string;
   name: string;
   avatarUrl?: string;
-  types: string[];
 }
 
 export interface StaffCredit {
@@ -66,7 +65,7 @@ export function buildStaffCredits(args: {
         relationLabel: getRelationName(defs, r.type, true, locale),
         creditRole: attrText(r.attributes?.credit_role) || undefined,
         // 头像即对端的封面（首张图）：取值一律走 lib/cover，不在这里重新索引 pictures[0]。
-        agent: { id: target.id!, name: target.title || "", avatarUrl: coverUrl(target) || undefined, types: target.types || [] },
+        agent: { id: target.id!, name: target.title || "", avatarUrl: coverUrl(target) || undefined },
       };
       if (attrText(r.attributes?.character)) {
         const chId = attrText(r.attributes?.character);
@@ -85,14 +84,11 @@ export function buildStaffCredits(args: {
       // 登场角色：agent(角色) → 实体，方向与署名关系相反。
       // 显式要求对端是本实体：游离关系（两端都不是本实体）不得虚构成登场。
       //（关系端点口径与原来作品页内联版一致，API 只回本实体的边。）
-      // 番位码读 attributes.character_rank：番位词表是 character_rank（main/supporting/guest/
-      // ensemble/narrator/cameo），attributes.role 属"内容用途"词表（primary/supplement/extra），
-      // 只在兼容早期数据时读，不当作番位语义。
+      // 番位码只读 attributes.character_rank，不混用内容用途 role。
       const src = relEntities[r.source_id];
       if (!src || src.kind !== "agent") continue;
-      const rankFromVocab = attrText(r.attributes?.character_rank);
-      const rankCode = rankFromVocab || attrText(r.attributes?.role);
-      const rankTerm = rankFromVocab ? getTermName(defs, "character_rank", rankCode, locale) : "";
+      const rankCode = attrText(r.attributes?.character_rank);
+      const rankTerm = rankCode ? getTermName(defs, "character_rank", rankCode, locale) : "";
       const rankLabel = !rankCode
         ? ""
         : rankTerm && rankTerm !== rankCode
@@ -103,7 +99,7 @@ export function buildStaffCredits(args: {
         relationType: r.type,
         relationLabel: getRelationName(defs, r.type, true, locale),
         creditRole: attrText(r.attributes?.credit_role) || undefined,
-        agent: { id: src.id!, name: src.title || "", avatarUrl: coverUrl(src) || undefined, types: src.types || [] },
+        agent: { id: src.id!, name: src.title || "", avatarUrl: coverUrl(src) || undefined },
         character: {
           id: src.id!,
           name: src.title || "",

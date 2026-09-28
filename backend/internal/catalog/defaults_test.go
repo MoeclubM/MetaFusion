@@ -30,7 +30,7 @@ func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
 	}
 }
 
-// 默认定义必须自洽：类型的模板与字段、模板引用的字段、词表归属都要能通过校验，
+// 默认定义必须自洽：字段的适用层级、模板引用的字段、词表归属都要能通过校验，
 // 否则空库首次 Initialize 就会失败。
 func TestDefaultsValidate(t *testing.T) {
 	if err := Defaults().Validate(); err != nil {
@@ -81,33 +81,20 @@ func TestDefaultsEditionDimensionsAreSeparate(t *testing.T) {
 	}
 }
 
-// 作品字段集按媒体场景分开：歌曲不该出现 ISBN/出版社，动画才需要放送字段。
-// 一致的是"具体产品标识"（品番/条码/ISBN/出版社）不再出现在任何 Work 类型上——
-// 它们属于 Release/Medium。
-func TestDefaultsWorkFieldsArePerMediaType(t *testing.T) {
+// 字段适用范围由结构 kind 声明；同一 Work 可以组合不同媒介事实。
+func TestDefaultsFieldApplicability(t *testing.T) {
 	d := Defaults()
-	has := func(typeCode, field string) bool {
-		for _, f := range d.Types[typeCode].Fields {
-			if f == field {
-				return true
-			}
+	for _, field := range []string{"duration", "volume_count", "magazine", "broadcast_start", "air_network"} {
+		if !contains(d.Fields[field].ApplicableKinds, "work") {
+			t.Errorf("work 应可组合字段 %s", field)
 		}
-		return false
 	}
-	if has("song", "isbn") || has("album", "publisher_name") || has("music", "air_network") {
-		t.Fatalf("song/album/music type still carries publishing or broadcast fields")
-	}
-	if !has("animation", "air_network") || !has("animation", "episodes") {
-		t.Fatalf("animation type missing broadcast fields: %v", d.Types["animation"].Fields)
-	}
-	if !has("novel", "magazine") || !has("novel", "volume_count") {
-		t.Fatalf("novel type missing serialization fields: %v", d.Types["novel"].Fields)
-	}
-	for _, typeCode := range []string{"music", "song", "album", "novel", "animation", "film", "photobook", "game", "indie_game", "visual_novel", "personal"} {
-		for _, product := range []string{"catalog_number", "barcode", "isbn", "publisher_name"} {
-			if has(typeCode, product) {
-				t.Fatalf("work type %q should not carry product identifier %q", typeCode, product)
-			}
+	for _, field := range []string{"catalog_number", "barcode", "isbn", "publisher"} {
+		if contains(d.Fields[field].ApplicableKinds, "work") {
+			t.Errorf("产品标识 %s 不应直接属于 work", field)
+		}
+		if !contains(d.Fields[field].ApplicableKinds, "release") {
+			t.Errorf("产品标识 %s 应属于 release", field)
 		}
 	}
 }

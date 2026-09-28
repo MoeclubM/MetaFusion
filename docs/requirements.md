@@ -63,7 +63,7 @@ MetaFusion 是**元数据开放、媒体按绑定实体可见性受控**的多�
 | MEDIA-02 | 预览流未实现 | HLS 切片与音频/图像转码预览尚未实现；存储服务只收原始文件、不做转码或媒体分析。 |
 | MEDIA-03 | 秒传不绕过鉴权 | `POST /api/storage/upload/initiate` 的 SHA-256 秒传命中仍需登录，秒传只复用已验内容的存储对象，不复用他人的访问授权 |
 | MEDIA-04 | 封面策略 | 外部封面按来源与实体展示规则处理；若作为存储资产提供，访问权限按 MEDIA-01 判定。独立的原图分辨率阈值当前未实现 |
-| MEDIA-05 | 多图、版本与封面顺序 | 一个实体可挂多张图（`pictures[]`）：**数组顺序就是展示顺序，首张即当前展示封面**，服务端保存时不重排；`taken_at` 只是图自身拍摄／发布时间。每张图可选 `version_label`（四语版本／活动期名称）、`in_use_from` / `in_use_until`（已知适用区间，允许只知一端、部分日期及重叠区间），旧图留在图集中，不因新主视觉出现而变成错误图；空区间表示未知，日期不会自动选择封面。版别专属商品封面应挂 Release，作品跨期主视觉应挂 Work，页面借图须标明来源。每张图还可选 `role`（definitions 的 `picture_role` 用途码，空=未声明）与 `asset_id`（存储资产 UUID）。服务端拒绝：同实体内 URL 重复 `duplicate_picture`、超过 40 张 `too_many_pictures`、非法用途 `invalid_term`、非 UUID 资产 `invalid_picture_asset`、非法或确定倒置的区间 `invalid_picture_period`。目录侧**不跨服务校验**资产存在或封禁，取不到对象时前端退化为程序封面 |
+| MEDIA-05 | 多图、版本与封面顺序 | 一个实体可挂多张图（`pictures[]`）：**数组顺序就是展示顺序，首张即当前展示封面**，服务端保存时不重排；`taken_at` 只是图自身拍摄／发布时间。每张图可选 `version_label`（四语版本／活动期名称）、`usage_period: {begin?, end?}`（借鉴 IFLA LRM E11 Time-span 表达已知使用期，允许只知一端、部分日期及重叠区间），旧图留在图集中，不因新主视觉出现而变成错误图；不填时间跨度表示未知，日期不会自动选择封面。版别专属商品封面应挂 Release，作品跨期主视觉应挂 Work，页面借图须标明来源。每张图还可选 `role`（definitions 的 `picture_role` 用途码，空=未声明）与 `asset_id`（存储资产 UUID）。服务端拒绝：同实体内 URL 重复 `duplicate_picture`、超过 40 张 `too_many_pictures`、非法用途 `invalid_term`、非 UUID 资产 `invalid_picture_asset`、非法或确定倒置的区间 `invalid_picture_period`。目录侧**不跨服务校验**资产存在或封禁，取不到对象时前端退化为程序封面 |
 
 ### 2.4 社区与论坛
 
