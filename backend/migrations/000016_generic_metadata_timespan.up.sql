@@ -182,6 +182,7 @@ DECLARE
   end_value text;
   attr record;
   tag_entry record;
+  attrs jsonb;
 BEGIN
   IF jsonb_typeof(doc) <> 'object' THEN
     INSERT INTO mf_000016_issues VALUES (scope_name, row_id, 'document', 'expected entity object');
@@ -194,10 +195,18 @@ BEGIN
   IF doc ? 'types' AND jsonb_typeof(doc->'types') NOT IN ('array','null') THEN
     INSERT INTO mf_000016_issues VALUES (scope_name, row_id, 'types', 'expected array before removal');
   END IF;
-  IF doc ? 'attributes' AND jsonb_typeof(doc->'attributes') NOT IN ('object','null') THEN
-    INSERT INTO mf_000016_issues VALUES (scope_name, row_id, 'attributes', 'expected object');
-  ELSIF jsonb_typeof(doc->'attributes') = 'object' THEN
-    FOR attr IN SELECT * FROM jsonb_each(doc->'attributes') LOOP
+  attrs := doc->'attributes';
+  -- Six historical probe rows carry [null, {"tags": [...]}]. The leading
+  -- null has no information; normalize this exact shape once, not at runtime.
+  IF CASE WHEN jsonb_typeof(attrs) = 'array' THEN
+       jsonb_array_length(attrs) = 2 AND jsonb_typeof(attrs->0) = 'null'
+       AND jsonb_typeof(attrs->1) = 'object' ELSE false END THEN
+    attrs := attrs->1;
+  ELSIF doc ? 'attributes' AND jsonb_typeof(attrs) NOT IN ('object','null') THEN
+    INSERT INTO mf_000016_issues VALUES (scope_name, row_id, 'attributes', 'expected object or losslessly convertible [null, object]');
+  END IF;
+  IF jsonb_typeof(attrs) = 'object' THEN
+    FOR attr IN SELECT * FROM jsonb_each(attrs) LOOP
       IF NOT EXISTS (SELECT 1 FROM mf_000016_allowed a WHERE a.field_code = attr.key AND a.kind = doc->>'kind') THEN
         INSERT INTO mf_000016_issues VALUES (scope_name, row_id, 'attributes.' || attr.key, 'field has no applicable_kinds grant for entity kind');
       END IF;
@@ -299,6 +308,12 @@ RETURNS jsonb LANGUAGE plpgsql AS $convert_entity$
 DECLARE result jsonb;
 BEGIN
   result := doc - 'types';
+  IF CASE WHEN jsonb_typeof(result->'attributes') = 'array' THEN
+       jsonb_array_length(result->'attributes') = 2
+       AND jsonb_typeof(result->'attributes'->0) = 'null'
+       AND jsonb_typeof(result->'attributes'->1) = 'object' ELSE false END THEN
+    result := jsonb_set(result, '{attributes}', result->'attributes'->1);
+  END IF;
   IF jsonb_typeof(result->'attributes'->'tags') = 'array' THEN
     result := jsonb_set(result, '{attributes,tags}', COALESCE((
       SELECT jsonb_agg(
