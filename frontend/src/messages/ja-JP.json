@@ -1306,7 +1306,6 @@
   "release.detail.attachmentItem": "付属品{index}",
   "release.detail.comparableFields": "比較可能な項目",
   "release.detail.listCount": "全{count}件",
-  "release.detail.openInCatalog": "カタログ表示で開く",
   "release.detail.viewBonusDisc": "特典媒体を見る",
   "release.detail.compareAdd": "比較に追加",
   "release.detail.compareAdded": "比較に追加済み",

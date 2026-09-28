@@ -38,7 +38,6 @@ import {
   ExternalLink,
   Film,
   Layers,
-  Plus,
   Users,
 } from "lucide-react";
 
@@ -1165,12 +1164,6 @@ export default function ReleaseDetailPage() {
 
         <AggregateRelationList entityId={releaseId} />
 
-        <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
-          <Plus className="w-3 h-3" strokeWidth={1.6} />
-          <Link href={`/catalog/${release.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
-            {t("release.detail.openInCatalog")} <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
-          </Link>
-        </div>
       </PageShell>
     </div>
   );

@@ -1306,7 +1306,6 @@
   "release.detail.attachmentItem": "附件 {index}",
   "release.detail.comparableFields": "可对比字段一览",
   "release.detail.listCount": "共 {count} 项",
-  "release.detail.openInCatalog": "在目录视图中打开",
   "release.detail.viewBonusDisc": "查看特典载体",
   "release.detail.compareAdd": "加入对比",
   "release.detail.compareAdded": "已加入对比",
