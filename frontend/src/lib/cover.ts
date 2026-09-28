@@ -109,6 +109,11 @@ export interface CoverPicture {
   caption?: Record<string, string> | null;
   /** 这张图自身的时间（拍摄/发布/改版）。**只作展示元信息，不参与排序**。 */
   taken_at?: string | null;
+  /** 图像版本/活动期名称；与实体修订版本无关。 */
+  version_label?: Record<string, string> | null;
+  /** 已知使用区间；不会自动取代首图作为当前封面。 */
+  in_use_from?: string | null;
+  in_use_until?: string | null;
   /** 图片用途码，取值是 definitions 的 `picture_role` 词表；空 = 未声明用途（存量图全部如此）。 */
   role?: string | null;
   /** 自托管封面在存储服务里的 assets UUID；此时 url 指向 `/api/storage/assets/<uuid>/content`。 */

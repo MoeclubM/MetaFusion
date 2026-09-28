@@ -1,14 +1,15 @@
 package catalog
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 )
 
 // 多图契约的服务端一侧：pictures 是数组，**数组顺序就是展示顺序、pictures[0] 就是封面**，
 // 服务端不重排；role 是"这张图充当什么"的用途码（picture_role 词表），asset_id 指向
-// 存储服务里的自托管对象。本文件守住三条线：用途码合法、同实体内不重复、数量封顶，
-// 并且确认存量形态（没有 role/asset_id 键）照常放行——800+ 张历史封面全是那个形状。
+// 存储服务里的自托管对象。本文件守住用途码、适用区间、URL 去重与数量封顶，
+// 并且确认存量形态（没有新增可选键）照常放行。
 
 func pictureOnlyEntity(pics ...Picture) Entity {
 	return Entity{Kind: "work", Title: "W", Status: "draft", Pictures: pics}
@@ -72,7 +73,7 @@ func TestPictureRoleIsValidatedAgainstVocabulary(t *testing.T) {
 }
 
 // 存量形态回归：只有 url/caption/taken_at/source 四个键的历史封面必须照常通过，
-// 新加的 role/asset_id 都是可选键，不是新的必填项。
+// 新加的 role/asset_id/version_label/in_use_* 都是可选键，不是新的必填项。
 func TestLegacyPictureShapeStillPasses(t *testing.T) {
 	d := Defaults()
 	legacy := Picture{
@@ -85,6 +86,64 @@ func TestLegacyPictureShapeStillPasses(t *testing.T) {
 		if err := d.validateEntityContent(pictureOnlyEntity(legacy), allowAllRef, historical); err != nil {
 			t.Fatalf("historical=%v 时存量封面形态必须放行：%v", historical, err)
 		}
+	}
+}
+
+func TestPictureVersionsCanCoexist(t *testing.T) {
+	d := Defaults()
+	current := testPicture("https://example.test/2026.jpg")
+	current.Role = "key_visual"
+	current.VersionLabel = Names{"zh-CN": "2026 年主视觉", "en-US": "2026 key visual"}
+	current.InUseFrom = "2026"
+	prior := testPicture("https://example.test/2025.jpg")
+	prior.Role = "key_visual"
+	prior.VersionLabel = Names{"zh-CN": "2025 年主视觉"}
+	prior.InUseFrom, prior.InUseUntil = "2025-01", "2025-12"
+	if err := d.validateEntityContent(pictureOnlyEntity(current, prior), allowAllRef, false); err != nil {
+		t.Fatalf("先后版本应可共存：%v", err)
+	}
+	// 同时适用也可能真实存在：不同地区/渠道并行使用的主视觉不应被互斥约束拒绝。
+	prior.InUseUntil = "2026"
+	if err := d.validateEntityContent(pictureOnlyEntity(current, prior), allowAllRef, false); err != nil {
+		t.Fatalf("并行适用的版本应可共存：%v", err)
+	}
+}
+
+func TestPictureVersionJSONRoundTrip(t *testing.T) {
+	p := testPicture("https://example.test/2026.jpg")
+	p.VersionLabel = Names{"zh-CN": "春季主视觉"}
+	p.InUseFrom, p.InUseUntil = "2026-03", "2026-06"
+	b, err := json.Marshal(PicturesJSON{p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded PicturesJSON
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded) != 1 || decoded[0].VersionLabel["zh-CN"] != p.VersionLabel["zh-CN"] || decoded[0].InUseFrom != p.InUseFrom || decoded[0].InUseUntil != p.InUseUntil {
+		t.Fatalf("图片版本元数据未完整往返：%+v", decoded)
+	}
+}
+
+func TestPicturePeriodRejectsInvalidOrReversedDates(t *testing.T) {
+	d := Defaults()
+	for _, tc := range []struct{ from, until string }{
+		{"2026-13", ""},
+		{"", "not-a-date"},
+		{"2026", "2025"},
+		{"2026-02-01", "2026-01"},
+	} {
+		p := testPicture("https://example.test/a.jpg")
+		p.InUseFrom, p.InUseUntil = tc.from, tc.until
+		if err := d.validateEntityContent(pictureOnlyEntity(p), allowAllRef, false); err == nil || err.Error() != "invalid_picture_period" {
+			t.Fatalf("区间 %q..%q 应报 invalid_picture_period，实际 %v", tc.from, tc.until, err)
+		}
+	}
+	p := testPicture("https://example.test/a.jpg")
+	p.InUseFrom, p.InUseUntil = "2025-12", "2025"
+	if err := d.validateEntityContent(pictureOnlyEntity(p), allowAllRef, false); err != nil {
+		t.Fatalf("部分日期的共同有效区间应放行：%v", err)
 	}
 }
 

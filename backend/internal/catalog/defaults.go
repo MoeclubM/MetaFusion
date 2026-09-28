@@ -571,7 +571,7 @@ func Defaults() Definitions {
 		"expression":   names4("内容表达", "內容表達", "内容表現", "Expression"),
 		"release":      names4("发行版", "發行版", "リリース", "Release"),
 		"medium":       names4("载体", "載體", "メディア", "Medium"),
-		"track":        names4("收录位置", "收錄位置", "収録位置", "Track"),
+		"track":        names4("收录位置", "收錄位置", "収録位置", "Content position"),
 	}
 
 	for _, k := range []string{"collection", "content_unit", "expression", "release", "medium", "track"} {

@@ -136,6 +136,9 @@ export type Entity = {
     url: string;
     caption: Names;
     taken_at?: string;
+    version_label?: Names;
+    in_use_from?: string;
+    in_use_until?: string;
     role?: string;
     asset_id?: string;
     source: Source;

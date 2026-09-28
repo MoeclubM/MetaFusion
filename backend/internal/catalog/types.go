@@ -58,6 +58,13 @@ type Picture struct {
 	// TakenAt 这张图自身的时间（拍摄/发布/改版时刻），部分书目日期或 RFC3339。
 	// 只作展示元信息，**不决定顺序**：顺序契约见 PicturesJSON 的注释。
 	TakenAt string `json:"taken_at,omitempty"`
+	// VersionLabel 区分同一实体先后或并行使用的正确图像版本（例如年度主视觉）；
+	// 它不是实体版本，也不意味着旧图错误。可空，按语言解析。
+	VersionLabel Names `json:"version_label,omitempty"`
+	// InUseFrom/Until 是图像用于该实体的已知适用区间（两端包含），允许只知一端、
+	// 部分日期或并行区间。空值表示未知，不参与当前封面的自动挑选。
+	InUseFrom  string `json:"in_use_from,omitempty"`
+	InUseUntil string `json:"in_use_until,omitempty"`
 	// Role 这张图在该实体的语境里充当什么（主视觉、角色立绘、商品 jacket、剧照、
 	// 活动现场……）。取值是 definitions 的 picture_role 词表码，可空=未声明用途，
 	// 所以存量 800+ 张没有该键的历史数据照常通过校验；新增用途码只改定义不改代码。

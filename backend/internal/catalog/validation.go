@@ -97,6 +97,40 @@ func validPictureTime(s string) bool {
 	return err == nil
 }
 
+// 部分日期按所声明精度的起止边界比较；例如 2025-12 至 2025 不是倒置。
+// 仅用于拒绝确定不可能的区间，不做自动选图或互斥性判断。
+func pictureTimeStart(s string) time.Time {
+	v := strings.TrimSpace(s)
+	switch len(v) {
+	case 4:
+		t, _ := time.Parse("2006", v)
+		return t
+	case 7:
+		t, _ := time.Parse("2006-01", v)
+		return t
+	case 10:
+		t, _ := time.Parse("2006-01-02", v)
+		return t
+	default:
+		t, _ := time.Parse(time.RFC3339, v)
+		return t
+	}
+}
+
+func pictureTimeEnd(s string) time.Time {
+	t := pictureTimeStart(s)
+	switch len(strings.TrimSpace(s)) {
+	case 4:
+		return t.AddDate(1, 0, 0).Add(-time.Nanosecond)
+	case 7:
+		return t.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	case 10:
+		return t.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	default:
+		return t
+	}
+}
+
 func validateGroupRanges(f Field) error {
 	for _, key := range sortedFieldKeys(f) {
 		child := f.Fields[key]
@@ -1067,10 +1101,10 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 		return err
 	}
 	// 多图契约（见 types.go 的 PicturesJSON）：数组顺序即展示顺序、pictures[0] 即封面，
-	// 服务端**不重排**。这里只守三条会让"多张"退化成脏数据的线：
+	// 服务端**不重排**。校验数量、URL 唯一性、适用区间与用途词表：
 	// 数量封顶（每张都进 document 与每次保存的 revisions 快照，无上限等于让
 	// 单实体写放大不设防）、同实体内 URL 去重（同一张图挂两次只会让画廊出现重复格子）、
-	// 以及 role 必须落在 picture_role 词表里（用途码不许自由填写，否则前端无法多语言解析）。
+	// role 必须落在 picture_role 词表里（用途码不许自由填写，否则前端无法多语言解析）。
 	if len(e.Pictures) > maxPictures {
 		return fmt.Errorf("too_many_pictures")
 	}
@@ -1081,6 +1115,12 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 		}
 		if !validPictureTime(p.TakenAt) {
 			return fmt.Errorf("invalid_picture_time")
+		}
+		if !validPictureTime(p.InUseFrom) || !validPictureTime(p.InUseUntil) {
+			return fmt.Errorf("invalid_picture_period")
+		}
+		if strings.TrimSpace(p.InUseFrom) != "" && strings.TrimSpace(p.InUseUntil) != "" && pictureTimeStart(p.InUseFrom).After(pictureTimeEnd(p.InUseUntil)) {
+			return fmt.Errorf("invalid_picture_period")
 		}
 		if err := validateSources("picture", []Source{p.Source}); err != nil {
 			return err

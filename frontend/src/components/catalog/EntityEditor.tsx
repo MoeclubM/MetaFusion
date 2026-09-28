@@ -1257,6 +1257,32 @@ export function EntityEditor({
                   />
                 </label>
               </div>
+              <div className="flex flex-col gap-1">
+                <strong>{t("catalog.pictureVersionLabel")}</strong>
+                <NamesEditor
+                  value={p.version_label || {}}
+                  onChange={(version_label) => patchPicture(i, { version_label })}
+                />
+              </div>
+              <div className="cv-grid">
+                <label>
+                  {t("catalog.pictureInUseFrom")}
+                  <input
+                    placeholder="2025-01"
+                    value={p.in_use_from || ""}
+                    onChange={(x) => patchPicture(i, { in_use_from: x.target.value })}
+                  />
+                </label>
+                <label>
+                  {t("catalog.pictureInUseUntil")}
+                  <input
+                    placeholder="2025-12"
+                    value={p.in_use_until || ""}
+                    onChange={(x) => patchPicture(i, { in_use_until: x.target.value })}
+                  />
+                </label>
+              </div>
+              <p className="cv-hint">{t("catalog.picturePeriodHint")}</p>
               <div className="cv-row">
                 <label>
                   {t("catalog.pictureAssetId")}

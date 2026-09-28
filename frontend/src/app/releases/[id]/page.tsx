@@ -22,7 +22,7 @@ import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
-import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
+import { RecordList, GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { EntityLink } from "@/components/catalog/Fields";
 import { formatDuration as formatDurationShared } from "@/lib/duration";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -36,7 +36,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Disc,
   ExternalLink,
   Film,
   Layers,
@@ -542,6 +541,8 @@ export default function ReleaseDetailPage() {
       (r) => showBonus || !isBonusMedium(r.medium)
     );
     const ordered = orderedTracksWithDepth(tracks);
+    const hasDuration = tracks.some((tr) => Number(tr.attributes?.duration) > 0 ||
+      (tr.contents || []).some((c) => Number(expressions[c.expression_id]?.attributes?.duration) > 0));
     const body = (
       <>
         <div
@@ -551,7 +552,7 @@ export default function ReleaseDetailPage() {
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-6.5 h-6.5 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
-              <Disc className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
+              <Layers className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
             </span>
             <span className="font-display text-sm font-bold tracking-tight text-text-strong truncate">
               {depth === 0 && medium.position ? `${medium.position} · ` : ""}
@@ -583,7 +584,7 @@ export default function ReleaseDetailPage() {
                       overflow-x-auto 与 min-w-[640px]，窄屏不会因此横向溢出页面。 */}
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
                   <th className="py-2 px-3.5 font-medium whitespace-nowrap w-[9rem]">{t("release.detail.tableCredit")}</th>
-                  <th className="py-2 px-3.5 text-right font-medium whitespace-nowrap w-[5.5rem]">{t("release.detail.tableDuration")}</th>
+                  {hasDuration && <th className="py-2 px-3.5 text-right font-medium whitespace-nowrap w-[5.5rem]">{t("release.detail.tableDuration")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
@@ -634,17 +635,20 @@ export default function ReleaseDetailPage() {
                       </td>
                       <td className="py-2 px-3.5 text-text-faint text-xs">
                         {contents.length > 0 ? (
-                          <span className="inline-flex flex-wrap gap-1">
+                          <span className="inline-flex flex-col gap-1">
                             {contents.map((c, i) => {
                               const e = expressions[c.expression_id];
                               return (
-                                <Link
-                                  key={`${tr.id}-${c.expression_id}-${i}`}
-                                  href={`/catalog/${c.expression_id}`}
-                                  className="text-text-body hover:text-primary hover:underline transition-colors duration-fast ease-soft"
-                                >
-                                  {e ? entityTitle(e, locale) : c.expression_id.slice(0, 8)}
-                                </Link>
+                                <span key={`${tr.id}-${c.expression_id}-${i}`} className="flex flex-col gap-0.5">
+                                  <Link
+                                    href={`/catalog/${c.expression_id}`}
+                                    className="text-text-body hover:text-primary hover:underline transition-colors duration-fast ease-soft"
+                                  >
+                                    {e ? entityTitle(e, locale) : c.expression_id.slice(0, 8)}
+                                  </Link>
+                                  <LocatorInline defs={dynamicDefs} value={c.locator} locale={locale} className="font-mono text-[10px]" />
+                                  <GroupAttributeInline defs={dynamicDefs} code="inclusion_attributes" value={c.attributes} locale={locale} className="font-mono text-[10px]" />
+                                </span>
                               );
                             })}
                           </span>
@@ -668,18 +672,18 @@ export default function ReleaseDetailPage() {
                           <span className="text-text-muted">—</span>
                         )}
                       </td>
-                      <td className="py-2 px-3.5 text-right font-mono text-text-faint tabular-nums whitespace-nowrap">
+                      {hasDuration && <td className="py-2 px-3.5 text-right font-mono text-text-faint tabular-nums whitespace-nowrap">
                         {formatDuration(dur > 0 ? dur : Number(expr?.attributes?.duration) || 0)}
-                      </td>
+                      </td>}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : kids.length === 0 ? (
           <div className="px-3.5 py-4 font-mono text-[11px] text-text-faint">{t("release.detail.noTracks")}</div>
-        )}
+        ) : null}
         {kids.length > 0 && (
           <div className="border-t border-line-subtle">
             {kids.map((k) => mediumBlock(k, depth + 1))}
@@ -791,7 +795,7 @@ export default function ReleaseDetailPage() {
               {cover.url && (
                 <div className="w-24 shrink-0">
                   <div className="w-full aspect-[3/4] rounded-md overflow-hidden border border-line">
-                    <AdaptiveCardCover src={cover.url} alt={releaseTitle} fallbackIcon={<Disc className="w-6 h-6 text-text-muted" />} aspectClassName="w-full h-full" />
+                    <AdaptiveCardCover src={cover.url} alt={releaseTitle} fallbackIcon={<Layers className="w-6 h-6 text-text-muted" />} aspectClassName="w-full h-full" />
                   </div>
                   <CoverOriginNote
                     origin={cover.origin}
@@ -954,7 +958,7 @@ export default function ReleaseDetailPage() {
                       return (
                         <Card key={medium.id} padding="card">
                           <div className="flex items-center gap-2 text-xs font-semibold text-text-strong">
-                            <Disc className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
+                            <Layers className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                             <span className="truncate">{entityTitle(medium, locale)}</span>
                             {fmtLabel && fmt !== "unknown" && <span className="font-mono text-[10px] font-normal text-text-faint">{fmtLabel}</span>}
                             <span className="font-mono text-[10px] font-normal text-text-faint">{t("release.detail.trackCount", { count: tracks.length })}</span>

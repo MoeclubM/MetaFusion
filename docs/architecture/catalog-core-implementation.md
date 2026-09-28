@@ -12,6 +12,8 @@
 
 前端 `/catalog` 使用独立 CatalogProvider，根布局不挂载全局播放器。资源、社区与个人记录组件动态导入，先检查能力再请求自己的 API。外部图片以带来源的核心引用保存，文件模块关闭不影响封面。
 
-`pictures[]` 是有序数组：**数组顺序即展示顺序、首张即封面**，服务端不重排（`taken_at` 只是该图自身的时间元信息，曾在前端被当作排序键，那会静默覆盖作者定的顺序，已收敛）。"哪张是封面"在前端只有 `src/lib/cover.ts` 一处判定（`coverPicture` / `coverUrl`），列表、搜索、OG、对比与署名等消费点都走它，不再各自 `[0]`。每张图可选 `role`（`picture_role` 词表的用途码，标签按 locale 从 definitions 解析，不硬编码文案）与 `asset_id`（自托管封面的存储资产 UUID，配 `binding_role=cover_image`，地址见 [存储运行约定](storage-operations.md)）；写侧的重复 URL、张数封顶与词表合法性由 `validation.go` 判定，需求口径见 `docs/requirements.md` 的 MEDIA-05。
+`pictures[]` 是有序数组：**数组顺序即展示顺序、首张即当前展示封面**，服务端不重排。`taken_at` 是图自身的拍摄／发布时间；可选 `version_label`、`in_use_from`、`in_use_until` 分别记录版本／活动期名称与已知适用区间，不替代首图选择，也不禁止多个版本同时适用。旧主视觉应保留在同一实体的图集中；版别专属封面放在对应 Release，不把 Work 图复制成 Release 的权威图片。"哪张是封面"在前端只有 `src/lib/cover.ts` 一处判定（`coverPicture` / `coverUrl`）。每张图还可选 `role`（`picture_role` 词表）与 `asset_id`（存储资产 UUID，配 `binding_role=cover_image`）；重复 URL、数量、用途与区间由 `validation.go` 校验，见 `docs/requirements.md` 的 MEDIA-05。
+
+导入器对已有实体仍只在**完全无图**时补图，不会自动覆盖或提升主图；编辑者可以追加新图、保留旧图并把当前图移至首位。若上游同一 URL 的内容会原地变化，热链无法保存旧像素，需先将旧版作为独立自托管资产留存，再更新主图。日期与版本名不能代替对实际图像字节的保存。
 
 部署使用标准 `deploy/docker-compose.yml`。API 统一使用 `/api` 单一命名空间。

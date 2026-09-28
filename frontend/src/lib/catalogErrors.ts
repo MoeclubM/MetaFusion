@@ -22,6 +22,7 @@ const CODE_KEYS: Record<string, string> = {
   too_many_pictures: "catalog.error.tooManyPictures",
   invalid_picture: "catalog.error.invalidPicture",
   invalid_picture_time: "catalog.error.invalidPictureTime",
+  invalid_picture_period: "catalog.error.invalidPicturePeriod",
   invalid_picture_asset: "catalog.error.invalidPictureAsset",
   undeclared_release_subject: "catalog.error.undeclaredSubject",
   invalid_structural_field: "catalog.error.invalidStructuralField",

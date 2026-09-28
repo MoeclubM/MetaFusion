@@ -24,6 +24,9 @@ export interface LightboxPicture {
   roleLabel?: string;
   /** 这张图自身的时间元信息（拍摄/发布/改版）。只展示，**不参与排序**。 */
   takenAt?: string;
+  versionLabel?: string;
+  inUseFrom?: string;
+  inUseUntil?: string;
   /** 首张即封面（顺序契约见 lib/cover.ts 的 coverPicture）。 */
   isCover?: boolean;
   /** 来源声明：灯箱负责把它显示出来，热链来源不再是"点图才看得到"。 */
@@ -116,8 +119,15 @@ export function PictureLightbox({
           <p className="text-sm text-text-strong leading-relaxed">{current.caption}</p>
         )}
 
+        {current.versionLabel && <p className="text-xs text-text-body">{current.versionLabel}</p>}
+        {(current.inUseFrom || current.inUseUntil) && (
+          <p className="font-mono text-[11px] text-text-muted">
+            {t("catalog.picturePeriod", { from: current.inUseFrom || "?", until: current.inUseUntil || "?" })}
+          </p>
+        )}
+
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-text-muted">
-          {current.takenAt && <span>{current.takenAt}</span>}
+          {current.takenAt && <span>{t("catalog.pictureTakenAtValue", { date: current.takenAt })}</span>}
           {String(current.source?.citation || "").trim() && (
             <span className="min-w-0 break-words">
               {t("catalog.pictureSourceLine", {

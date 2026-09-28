@@ -157,15 +157,17 @@ const directoryVisible = directoryData.status !== "ready" || hasWorkDirectoryCon
   work?.id || "",
   (code) => defs?.relations?.[code]?.aggregate === true,
 );
-// 作品自身类型引用的模板：目录形态（tree/list）等展示声明从这里取，代码不写死。
-const workTemplate = useMemo(() => {
-  const codes = work?.types || [];
-  for (const code of codes) {
-    const tpl = defs?.templates?.[defs?.types?.[code]?.template || ""];
-    if (tpl) return tpl as any;
-  }
-  return undefined;
+// 多方案的可合并栏目取并集；目录形态只能取一个，按实体明确声明的 types 顺序优先。
+// 信息字段在 WorkFacts 中已按各模板分区去重合并，这里不能再静默丢掉其余模板的关系栏目。
+const workTemplates = useMemo(() => {
+  const codes = Array.from(new Set((work?.types || []).map((code) => defs?.types?.[code]?.template).filter(Boolean) as string[]));
+  return codes.map((code) => defs?.templates?.[code]).filter(Boolean);
 }, [defs, work]);
+const workDirectoryMode = workTemplates.map((tpl) => tpl?.directory).find(Boolean);
+const workRelationGroups = useMemo(
+  () => Array.from(new Set(workTemplates.flatMap((tpl) => tpl?.relation_groups || []))),
+  [workTemplates],
+);
 // 发行版列表的列与筛选字段由**实际发行类型**引用的模板解析（多类型取并集），
 // 后台新增或替换发行类型即刻生效；列表未加载时回退到声明 kind=release 的启用类型。
 // 不再写死业务类型码 "release"：类型码可被后台改名，模板必须跟着实际类型走。
@@ -519,7 +521,7 @@ const staffCredits = useMemo<StaffCredit[]>(
               visible: directoryVisible,
               content: (
                 <section className={styles.section}>
-                  <WorkContentDirectory workId={work.id!} data={directoryData} directory={workTemplate?.directory} />
+                  <WorkContentDirectory workId={work.id!} data={directoryData} directory={workDirectoryMode} />
                </section>
              ),
            },
@@ -592,7 +594,7 @@ const staffCredits = useMemo<StaffCredit[]>(
                 </SectionTitle>
                 <GroupedRelations
                   items={connected}
-                  groupOrder={(workTemplate as any)?.relation_groups}
+                  groupOrder={workRelationGroups}
                 />
               </Card>
             )}

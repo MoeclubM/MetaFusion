@@ -437,6 +437,9 @@ export function EntityDetailView({ id }: { id: string }) {
         caption: resolveLocalizedName(p.caption, locale, entity?.title || ""),
         roleLabel: pictureRoleLabel(p.role),
         takenAt: String(p.taken_at || "").trim(),
+        versionLabel: resolveLocalizedName(p.version_label, locale, ""),
+        inUseFrom: String(p.in_use_from || "").trim(),
+        inUseUntil: String(p.in_use_until || "").trim(),
         isCover: i === COVER_PICTURE_INDEX,
         source: p.source,
       })),
@@ -1325,7 +1328,11 @@ export function EntityDetailView({ id }: { id: string }) {
                           </Card>
                         </button>
                         <figcaption className="font-mono text-[10px] text-text-faint">
-                          {pic.takenAt || t("catalog.imageTimeUnknown")}
+                          {pic.versionLabel || (pic.inUseFrom || pic.inUseUntil
+                            ? t("catalog.picturePeriod", { from: pic.inUseFrom || "?", until: pic.inUseUntil || "?" })
+                            : pic.takenAt
+                              ? t("catalog.pictureTakenAtValue", { date: pic.takenAt })
+                              : t("catalog.imageTimeUnknown"))}
                         </figcaption>
                       </figure>
                     ))}
