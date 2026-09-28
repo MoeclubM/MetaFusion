@@ -316,13 +316,13 @@ func TestPostgresHomePreferencesRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(saved, got) {
 		t.Fatalf("往返不一致：saved=%+v got=%+v", saved, got)
 	}
-	// 老形状（只有 order/hidden）仍能保存，读回 sections 是空数组。
-	if _, err := f.s.SaveHomePreferences(ctx, userID, HomePreferences{Order: []string{}, Hidden: []string{}}); err != nil {
-		t.Fatalf("老载荷必须仍能保存：%v", err)
+	// 当前契约要求三组数组；缺少 sections 的旧载荷必须拒绝且不覆盖已保存偏好。
+	if _, err := f.s.SaveHomePreferences(ctx, userID, HomePreferences{Order: []string{}, Hidden: []string{}}); err == nil {
+		t.Fatal("缺少 sections 的载荷应被拒绝")
 	}
 	got, err = f.s.GetHomePreferences(ctx, userID)
-	if err != nil || got.Sections == nil || len(got.Sections) != 0 {
-		t.Fatalf("老载荷读回 sections 应为空数组：%+v err=%v", got, err)
+	if err != nil || !reflect.DeepEqual(saved, got) {
+		t.Fatalf("无效载荷不应覆盖已保存偏好：got=%+v err=%v", got, err)
 	}
 }
 

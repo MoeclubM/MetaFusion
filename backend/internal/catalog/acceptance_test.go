@@ -65,7 +65,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	d := v.Document
 	d.Vocabularies["custom_format"] = Vocabulary{Names: names("新增介质", "New formats"), Terms: map[string]Term{"cassette": {Names: names("磁带", "Cassette"), Enabled: true}}}
 	d.Fields["custom_format"] = Field{Names: names("新增格式", "Custom format"), Type: "enum", Vocabulary: "custom_format", ApplicableKinds: []string{"work"}, Enabled: true, Searchable: true, Comparable: true}
-	d.Relations["edited_by"] = RelationDefinition{Names: names("编辑", "Edited by"), ReverseNames: names("编辑了", "Editor of"), SourceKinds: []string{"work"}, TargetKinds: []string{"agent"}, Fields: []string{"context", "character", "language"}, Enabled: true}
+	d.Relations["edited_by"] = RelationDefinition{Names: names("编辑", "Edited by"), ReverseNames: names("编辑了", "Editor of"), SourceKinds: []string{"work"}, TargetKinds: []string{"agent"}, Fields: []string{"context", "character", "language"}, ParticipantSlot: "person", CountsAsCredit: true, Enabled: true}
 	f.publish(d, v.ETag)
 	w := f.save(Entity{Kind: "work", Title: "个人影像集", Attributes: map[string]any{"custom_format": "cassette", "language": "ja"}})
 	if items, err := f.s.List(ctx, ListOptions{Field: "custom_format", Value: "cassette"}, nil); err != nil || len(items) != 1 {

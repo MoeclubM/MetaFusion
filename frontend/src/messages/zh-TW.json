@@ -695,6 +695,8 @@
   "catalog.catalog": "目錄",
   "catalog.intro": "記錄作品、表達與發行，讓創作之間的連結清晰可見。",
   "catalog.create": "新建條目",
+  "catalog.availableFields": "可用欄位",
+  "catalog.applicableKinds": "適用實體層級",
   "catalog.countsAsCredit": "計為署名",
   "catalog.participantSlot": "署名槽位",
   "catalog.participantSlotUnset": "未設定",

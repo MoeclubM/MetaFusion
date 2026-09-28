@@ -695,6 +695,8 @@
   "catalog.catalog": "目录",
   "catalog.intro": "记录作品、表达与发行，让创作之间的联系清晰可见。",
   "catalog.create": "新建条目",
+  "catalog.availableFields": "可用字段",
+  "catalog.applicableKinds": "适用实体层级",
   "catalog.countsAsCredit": "计为署名",
   "catalog.participantSlot": "署名槽位",
   "catalog.participantSlotUnset": "未设置",

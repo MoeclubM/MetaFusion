@@ -695,6 +695,8 @@
   "catalog.catalog": "カタログ",
   "catalog.intro": "作品・表現・リリースとそのつながりを探索。",
   "catalog.create": "新規作成",
+  "catalog.availableFields": "利用可能な項目",
+  "catalog.applicableKinds": "適用するエンティティ階層",
   "catalog.countsAsCredit": "クレジットとして集計",
   "catalog.participantSlot": "参加スロット",
   "catalog.participantSlotUnset": "未設定",
