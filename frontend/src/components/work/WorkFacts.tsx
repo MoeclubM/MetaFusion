@@ -8,7 +8,7 @@ import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 const NO_EXCLUDED_FIELDS: string[] = [];
 
 // WorkFacts：作品/实体的信息面板，按 kind 与已存字段匹配模板分区渲染。
-// 两个详情页（/works/[id] 与 /catalog/[id]）共用同一实现，避免字段集合与
+// 作品专用布局与通用布局共用同一实现，避免字段集合与
 // 展示次序各写一份而漂移。分区、字段、次序全部来自服务端 definitions，
 // 代码不写死任何字段码；hidden 字段（如资料表原始条目）不进面板但仍可检索。
 export function WorkFacts({

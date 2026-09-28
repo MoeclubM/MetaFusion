@@ -68,6 +68,11 @@ const nextConfig = {
       { source: "/franchises/new", destination: "/new?kind=collection", permanent: true },
       { source: "/works/new", destination: "/new?kind=work", permanent: true },
       { source: "/releases/new", destination: "/new?kind=release", permanent: true },
+      // 旧公开详情 URL 只做单向迁址；实体内容只在 /catalog/:id 维护一份。
+      { source: "/works/:id/releases", destination: "/catalog/:id/releases", permanent: true },
+      { source: "/works/:id", destination: "/catalog/:id", permanent: true },
+      { source: "/releases/:id", destination: "/catalog/:id", permanent: true },
+      { source: "/mediums/:id", destination: "/catalog/:id", permanent: true },
     ];
   },
 };

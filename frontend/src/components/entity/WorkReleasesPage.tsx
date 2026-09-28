@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { fetchApi } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
@@ -113,12 +112,11 @@ export default function WorkReleasesPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
       <PageShell
         width="page"
         header={
         <div className="flex items-center gap-2 font-mono text-[11px] text-text-faint">
-          <Link href={`/works/${workId}`} className="hover:text-emphasis inline-flex items-center gap-1">
+          <Link href={`/catalog/${workId}`} className="hover:text-emphasis inline-flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
             {work?.title || t("work.releases.backToWork")}
           </Link>
@@ -207,7 +205,7 @@ export default function WorkReleasesPage() {
                       return (
                       <tr key={rel.id} className="hover:bg-emphasis/[0.03] transition-colors duration-fast ease-soft">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
-                        <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-emphasis hover:text-info-soft inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-text-faint" strokeWidth={1.5} /></Link></td>
+                        <td className="py-3 px-4"><Link href={`/catalog/${rel.id}`} className="font-semibold text-emphasis hover:text-info-soft inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-text-faint" strokeWidth={1.5} /></Link></td>
                         <td className="py-3 px-4 text-text-muted">{vocabLabel(definitions, "edition_type", edition, locale) || "—"}</td>
                         <td className="py-3 px-4 text-text-muted">{country || "—"}</td>
                         <td className="py-3 px-4 text-text-muted">{vocabLabel(definitions, "packaging", packaging, locale) || "—"}</td>
@@ -229,7 +227,7 @@ export default function WorkReleasesPage() {
                   return (
                   <div key={rel.id} className="px-4 py-3.5 flex items-start gap-2.5">
                     <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
-                    <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
+                    <Link href={`/catalog/${rel.id}`} className="min-w-0 flex-1 space-y-1">
                       <div className="font-semibold text-emphasis text-sm line-clamp-2">{entityTitle(rel, locale)}</div>
                       <div className="font-mono text-[11px] text-text-muted truncate">{[vocabLabel(definitions, "edition_type", edition, locale), country, vocabLabel(definitions, "packaging", packaging, locale)].filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}</div>
                       <div className="font-mono text-[11px] text-text-faint truncate">{[fmt, catalogNo, editionDate].filter(Boolean).join(" · ") || "—"}</div>

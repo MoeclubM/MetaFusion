@@ -439,7 +439,7 @@ export function OmniImportModal({
         setImportSuccess(res);
         setTimeout(() => {
           if (res.work_id) {
-            router.push(`/works/${res.work_id}`);
+            router.push(`/catalog/${res.work_id}`);
             onClose();
           }
         }, 1200);

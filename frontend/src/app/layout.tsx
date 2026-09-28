@@ -74,7 +74,7 @@ export default function RootLayout({
           <I18nProvider>
             {/* CatalogProvider（模块状态 + 实例初始化状态）在根 layout 挂**一次**：
                 它原先只在 /catalog、/account、/admin、/new 四处分别挂载，于是同一类详情页
-                （/catalog/[id] 挂、/works/[id] 与 /releases/[id] 不挂）拿到的是两种上下文——
+                （不同实体详情布局若没有共用 Provider）拿到的是两种上下文——
                 没挂的那些路由静默落到 context 默认值 []，"capabilities 异常"只在部分路由显形。
                 统一挂载后所有路由的 modules 都来自同一次探测（取值已做数组归一，见 CatalogProvider）。
                 代价：每个页面多两个很小的请求（/capabilities、/setup）；目录服务连不上时，

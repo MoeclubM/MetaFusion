@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoadingFallback } from "@/components/common/LoadingFallback";
-import { redirect } from "next/navigation";
 import { entityMetadata } from "@/lib/seo";
 import { EntityDetailView } from "@/components/catalog/EntityDetailView";
 import { Entity } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
-import { formalDetailUrl, keepsGenericView } from "@/lib/entityRoutes";
+import WorkDetailPage from "@/components/entity/WorkDetailPage";
+import ReleaseDetailPage from "@/components/entity/ReleaseDetailPage";
+import MediumDetailPage from "@/components/entity/MediumDetailPage";
 
 /** searchParams 是解析后的对象：重建查询串时保留重复键与原始顺序，收敛后查询串不丢。 */
 function queryStringOf(query: Record<string, string | string[] | undefined>): string {
@@ -52,14 +53,11 @@ export default async function Page({
   const { id } = await params;
   const query = queryStringOf(await searchParams);
 
-  // 路由收敛：/catalog/[id] 是兜底路由，work/release/medium 一律回到正式路由，
-  // 免得同一实体在两条路由上各有一套观感。先取 kind 再跳，客户端不会先闪一次通用视图；
-  // redirect 是 replace 语义，浏览器后退不会陷在重定向里。
-  // 带 ?edit=1 时例外：编辑器只挂在通用视图上（见 lib/entityRoutes）。
-  if (!keepsGenericView(query)) {
-    const target = formalDetailUrl(await resolveKind(id), id, query);
-    if (target) redirect(target);
-  }
+  // URL 不承载实体层级；仅内容组件按服务端 kind 选择。编辑器沿用通用详情。
+  const kind = new URLSearchParams(query).get("edit") === "1" ? null : await resolveKind(id);
+  if (kind === "work") return <WorkDetailPage key={id} />;
+  if (kind === "release") return <ReleaseDetailPage key={id} />;
+  if (kind === "medium") return <MediumDetailPage key={id} />;
 
   return (
     // EntityDetailView 内使用 useSearchParams（?edit=1 直达编辑），需要 Suspense 边界。

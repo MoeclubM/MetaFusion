@@ -3,10 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
-import { useKindRedirect } from "@/lib/useKindRedirect";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { WorkFacts } from "@/components/work/WorkFacts";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -75,8 +73,7 @@ export default function MediumDetailPage() {
   // 把 429/5xx/断网都说成「未找到该载体。」，且页面既无重试也无出口。
   const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
   const [reloadKey, setReloadKey] = useState(0);
-  // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：非 medium 的 id
-  // 接到 /mediums/ 上不能照载体模板渲染，否则同一 id 在不同路由下类型标签互相矛盾。
+  // 服务端解析与详情响应若不一致，禁止按载体模板渲染。
   const [kindMismatch, setKindMismatch] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,7 +90,7 @@ export default function MediumDetailPage() {
         const m = await fetchApi<Entity>(`/catalog/entities/${mediumId}`);
         if (cancelled) return;
         if (m.kind !== "medium") {
-          // 后面全是"按载体模板取数据"的请求，种类不符时一个都不发，直接收敛。
+          // 后面全是按载体模板取数据的请求，种类不符时一个都不发。
           setKindMismatch(m.kind || "unknown");
           return;
         }
@@ -166,18 +163,14 @@ export default function MediumDetailPage() {
   ]);
   const coverUrl = cover.url || undefined;
 
-  // 正在收敛到规范路由：停在加载态，绝不按载体模板渲染别的种类。
-  const redirecting = useKindRedirect("medium", kindMismatch, mediumId);
-
-  if (loading || redirecting) {
+  if (loading) {
     return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-text-faint">{t("medium.detail.loading")}</div>;
   }
 
   if (!medium || loadError) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <Navbar />
-        {!medium && (loadError === "not_found" || loadError === "invalid") ? (
+        {!kindMismatch && !medium && (loadError === "not_found" || loadError === "invalid") ? (
           <DetailNotFound title={t("medium.detail.notFound")} />
         ) : (
           <DetailUnavailable
@@ -192,7 +185,6 @@ export default function MediumDetailPage() {
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
       <div className="relative z-10 flex-1">
-        <Navbar />
         <PageShell
           width="page"
           header={
@@ -200,7 +192,7 @@ export default function MediumDetailPage() {
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint flex-wrap">
             {work && work.id && (
               <>
-                <Link href={`/works/${work.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
+                <Link href={`/catalog/${work.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
                   <ArrowLeft className="w-3 h-3" />
                   {entityTitle(work, locale) || work.title}
                 </Link>
@@ -209,7 +201,7 @@ export default function MediumDetailPage() {
             )}
             {release && release.id && (
               <>
-                <Link href={`/releases/${release.id}`} className="hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[18rem]">
+                <Link href={`/catalog/${release.id}`} className="hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[18rem]">
                   {entityTitle(release, locale) || release.title}
                 </Link>
                 <span>/</span>

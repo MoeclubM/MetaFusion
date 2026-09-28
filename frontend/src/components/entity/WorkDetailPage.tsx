@@ -1,20 +1,18 @@
 "use client";
 
-import styles from "./page.module.css";
+import styles from "./WorkDetailPage.module.css";
 import { PageShell } from "@/components/ui/PageShell";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { fetchApi, fetchEntityPosts, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
 import { useDefinitions, getFieldName, getRelationName, getTermName, getTagName, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
-import { useKindRedirect } from "@/lib/useKindRedirect";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, ArrowRight, ArrowUpRight, Network, List, ArrowRightLeft, X, Calendar, Tag } from "lucide-react";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -85,8 +83,7 @@ export default function WorkDirectoryPage() {
  const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
  const [loadingReleases, setLoadingReleases] = useState(true);
  const [releasesFailed, setReleasesFailed] = useState(false);
- // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：/works/:id 拿到
- // release/medium/track 等任何 id 都照作品模板渲染，会把同一个实体显示成矛盾的类型。
+ // 服务端解析与详情响应若不一致，禁止按作品模板渲染，等待重新取数。
  const [kindMismatch, setKindMismatch] = useState<string | null>(null);
 
  // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
@@ -96,10 +93,11 @@ export default function WorkDirectoryPage() {
  const loadWork = async () => {
  setLoadingWork(true);
  setLoadError("");
+ setWork(null);
  try {
  const data = await fetchApi<Entity>(`/catalog/entities/${workId}`);
  if (data.kind !== "work") {
- // 关系/发行版都是"按作品模板取数据"，种类不符时一条都不发，直接收敛。
+ // 关系/发行版都是按作品模板取数据，种类不符时一条都不发。
  setKindMismatch(data.kind || "unknown");
  return;
  }
@@ -331,7 +329,7 @@ const staffCredits = useMemo<StaffCredit[]>(
  }, [workId]);
 
  useEffect(() => {
- // 种类不符时这一页马上要被规范路由替换，别再按作品拉一遍发行版列表。
+ // 种类不符时别再按作品拉一遍发行版列表。
  if (!workId || kindMismatch) return;
  loadReleases();
  // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -358,17 +356,13 @@ const staffCredits = useMemo<StaffCredit[]>(
  if (page > totalPages) setPage(totalPages);
  }, [page, totalPages]);
 
- // 正在收敛到规范路由：停在加载态，绝不按作品模板渲染别的种类。
- const redirecting = useKindRedirect("work", kindMismatch, workId);
-
- if (loadingWork || redirecting) {
+ if (loadingWork) {
  return <div className="min-h-screen bg-background grid place-items-center text-sm text-text-faint">{t("work.detail.loading")}</div>;
  }
 
  if (!work) {
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
- <Navbar />
  {loadError === "not_found" || loadError === "invalid" ? (
  <DetailNotFound title={t("common.notFoundWork")} />
  ) : (
@@ -401,7 +395,6 @@ const staffCredits = useMemo<StaffCredit[]>(
 
  return (
  <div className="min-h-screen bg-background text-foreground">
- <Navbar />
  <PageShell
    width="page"
    contentClassName={styles.page}
@@ -674,7 +667,7 @@ const staffCredits = useMemo<StaffCredit[]>(
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" />
  </td>
  <td className="py-2.5 px-3.5">
- <Link href={`/releases/${rel.id}`} className="font-semibold text-text-strong hover:text-primary inline-flex items-center gap-1.5">
+ <Link href={`/catalog/${rel.id}`} className="font-semibold text-text-strong hover:text-primary inline-flex items-center gap-1.5">
  {entityTitle(rel, locale)} <ArrowUpRight className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.6} />
  </Link>
  </td>
@@ -697,7 +690,7 @@ const staffCredits = useMemo<StaffCredit[]>(
  {pagedReleases.map((rel) => (
  <div key={rel.id} className="px-3.5 py-3 flex items-start gap-2.5">
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
- <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
+ <Link href={`/catalog/${rel.id}`} className="min-w-0 flex-1 space-y-1">
  <div className="font-semibold text-text-strong text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
                       <div className="text-xs text-text-faint truncate">
  {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code], locale)).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}

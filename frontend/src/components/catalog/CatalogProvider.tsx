@@ -8,7 +8,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 // useDefinitions()（带版本缓存、订阅与发布后失效）；会话用户来自 lib/authContext 的
 // useAuth()。这两样此前在这里各存了一份 React state，于是同一份数据有了第二份缓存：
 // 后台发布新定义后，只有拿到 Provider 那一份的组件会变，没挂 Provider 的路由
-// （/compare、/releases/[id]）则连字段名都取不到，只能显示裸字段码。
+// （例如对比页或发行版布局）则连字段名都取不到，只能显示裸字段码。
 const Context = createContext<{
   modules: Capability[];
   setup: boolean;

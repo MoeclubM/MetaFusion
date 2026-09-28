@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { api, Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -14,7 +13,6 @@ import {
   resolveLocalizedName,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
-import { useKindRedirect } from "@/lib/useKindRedirect";
 import { COMPARE_MAX_SLOTS, compareHref, useCompareBasket } from "@/lib/compareBasket";
 import { PageShell } from "@/components/ui/PageShell";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
@@ -155,8 +153,7 @@ export default function ReleaseDetailPage() {
   const [error, setError] = useState<LoadFailureKind | "">("");
   // 重试入口：重跑同一次取数（不改变路由与筛选）。
   const [reloadKey, setReloadKey] = useState(0);
-  // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：以前只抛 invalid_kind，
-  // 页面上既没有正确模板也没有可读错误页。
+  // 服务端解析与详情响应若不一致，禁止按发行版模板渲染。
   const [kindMismatch, setKindMismatch] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [showBonus, setShowBonus] = useState(false);
@@ -196,8 +193,7 @@ export default function ReleaseDetailPage() {
       try {
         const rel = await api<Entity>(`/catalog/entities/${releaseId}/resolve`);
         if (rel.kind !== "release") {
-          // 种类不符不再把裸码 invalid_kind 当正文吐出来（那既不是错误页也不是正确模板），
-          // 收敛到该 kind 的规范路由；后面全是"按发行版模板取数据"的请求，一条都不发。
+          // 种类不符时不再继续请求按发行版模板组织的数据。
           if (!cancelled) setKindMismatch(rel.kind || "unknown");
           return;
         }
@@ -406,13 +402,9 @@ export default function ReleaseDetailPage() {
     return Array.from(groups.entries());
   }, [mediumTree]);
 
-  // 正在收敛到规范路由：停在加载态，绝不按发行版模板渲染别的种类。
-  const redirecting = useKindRedirect("release", kindMismatch, releaseId);
-
-  if (loading || redirecting) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <Navbar />
         <div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-text-faint">{t("release.detail.loading")}</div>
       </div>
     );
@@ -421,8 +413,7 @@ export default function ReleaseDetailPage() {
   if (!release) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <Navbar />
-        {error === "not_found" || error === "invalid" || !error ? (
+        {!kindMismatch && (error === "not_found" || error === "invalid" || !error) ? (
           // 裸错误码（not_found / invalid_kind / invalid_id）不是给用户看的文案，
           // 统一走页面自己的"未找到"，并给出与站内 404 页相同的出口。
           <DetailNotFound title={t("common.notFoundRelease")} />
@@ -602,7 +593,7 @@ export default function ReleaseDetailPage() {
                           )}
                           {showWorkBadge && trWork && (
                             <Link
-                              href={`/works/${trWork.id}`}
+                              href={`/catalog/${trWork.id}`}
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-info-soft border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors duration-fast ease-soft font-mono"
                             >
                               <Film className="w-2.5 h-2.5" />
@@ -689,7 +680,6 @@ export default function ReleaseDetailPage() {
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
-      <Navbar />
       <PageShell
         width="page"
         className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
@@ -698,7 +688,7 @@ export default function ReleaseDetailPage() {
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
           {primaryWork && (
             <>
-              <Link href={`/works/${primaryWork.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
+              <Link href={`/catalog/${primaryWork.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
                 {entityTitle(primaryWork, locale)}
               </Link>
@@ -707,7 +697,7 @@ export default function ReleaseDetailPage() {
           )}
           <span className="text-text-strong truncate">{releaseTitle}</span>
         </div>
-          {/* 页面级 h1 归页头：与 /works/[id] 同一条左基线，不再落进卡片的左内边距；
+          {/* 页面级 h1 归页头：与作品布局同一条左基线，不再落进卡片的左内边距；
               卡片边框因此不再包住标题，标题区直接在页面基线上。 */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
@@ -764,7 +754,7 @@ export default function ReleaseDetailPage() {
                         key={`${s.work_id}-${s.role}`}
                         className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-line text-[11px]"
                       >
-                        <Link href={`/works/${s.work_id}`} className="text-text-body hover:text-primary">
+                        <Link href={`/catalog/${s.work_id}`} className="text-text-body hover:text-primary">
                           {entityTitle(w, locale)}
                         </Link>
                         {/* 发行对象附加属性（definitions 声明，未声明则不显示）。 */}
@@ -837,7 +827,7 @@ export default function ReleaseDetailPage() {
                 return (
                   <Link
                     key={sib.id}
-                    href={`/releases/${sib.id}`}
+                    href={`/catalog/${sib.id}`}
                     aria-current={active ? "page" : undefined}
                     className={`shrink-0 max-w-[220px] rounded-md border px-3 py-2 text-left transition-colors duration-fast ease-soft ${
                       active
@@ -1032,7 +1022,7 @@ export default function ReleaseDetailPage() {
                               </td>
                             ) : null}
                             <td className="py-2 pr-3">
-                              <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">
+                              <Link href={`/catalog/${o.release_id}`} className="text-primary hover:underline">
                                 {entityTitle(occurrenceEntities[o.release_id], locale)}
                               </Link>
                             </td>
@@ -1054,7 +1044,7 @@ export default function ReleaseDetailPage() {
                               {t("release.detail.sameUnitSiblings", { count: sibs.length })}
                               {sibs.slice(0, 3).map((o, i) => (
                                 <span key={`${exprId}-sib-${i}`} className="ml-2 inline-block">
-                                  <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">{entityTitle(occurrenceEntities[o.release_id], locale)}</Link>
+                                  <Link href={`/catalog/${o.release_id}`} className="text-primary hover:underline">{entityTitle(occurrenceEntities[o.release_id], locale)}</Link>
                                 </span>
                               ))}
                             </td>

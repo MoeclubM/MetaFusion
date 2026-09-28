@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
 import { COVER_PICTURE_INDEX, coverUrl, PICTURE_ROLE_VOCABULARY, resolveCover } from "@/lib/cover";
@@ -20,7 +20,6 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { localizeCommunityError } from "@/lib/communityErrors";
-import { formalDetailUrl, keepsGenericView } from "@/lib/entityRoutes";
 import { copyText } from "@/lib/clipboard";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
@@ -40,7 +39,7 @@ import { TabPanel } from "@/components/ui/TabPanel";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
-import { buildStaffCredits } from "@/components/entity/staffCredits";
+import { buildStaffCredits, isCreditRelation, unrenderedCreditRelations } from "@/components/entity/staffCredits";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -105,12 +104,6 @@ const InteractiveRelationGraph = dynamic(
  * 否则同一页会出现两个"其他关系"分组）。 */
 const FALLBACK_RELATION_GROUP = UNGROUPED_RELATION_GROUP;
 
-/** 关系分组只允许来自服务端 definitions：group=credits 的进"演职人员"区，
- * 其余按各自 group 分组展示，分组标题用 group_names 本地化。后台改分组后
- * 前端即刻跟随，不在本文件另维护一份名单。 */
-const relationGroupOf = (defs: any, type: string): string =>
-  defs?.relations?.[type]?.group || "";
-
 /** 关系端点的展示题名：本地化题名 → 原语言题名 → id，绝不返回空串（不出现空标题）。 */
 const endTitleOf = (
   e: Entity | undefined,
@@ -169,7 +162,6 @@ export function EntityDetailView({ id }: { id: string }) {
   // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
   // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
@@ -199,8 +191,6 @@ export function EntityDetailView({ id }: { id: string }) {
   const [copiedLink, setCopiedLink] = useState(false);
   // 复制失败的分支：null 表示没有失败。复制不是"点了没反应"的动作，失败必须可见。
   const [copyFailed, setCopyFailed] = useState<"id" | "link" | null>(null);
-  // 收敛到正式路由期间不渲染通用视图，避免先闪一次两栏布局。
-  const [redirecting, setRedirecting] = useState(false);
   const [relationViewMode, setRelationViewMode] = useState<"cards" | "graph">("cards");
   // 画廊灯箱打开在第几张（null=关闭）。索引即 pictures 的数组下标：顺序就是作者定的
   // 展示顺序，灯箱翻图也只按这个顺序走，不再二次排序。
@@ -214,19 +204,6 @@ export function EntityDetailView({ id }: { id: string }) {
     try {
       const e = await api<Entity>(`/catalog/entities/${id}/resolve`);
       setEntity(e);
-
-      // 服务端没能判定 kind 时（未登录看不到草稿、上游不可用）在这里按同一规则再收敛一次，
-      // 同一实体不该停在两套观感上；带 ?edit=1 时保留通用视图（编辑器只挂在这里）。
-      // 余下请求直接跳过：这一页马上要被正式路由替换掉。
-      const queryString = searchParams.toString();
-      if (!keepsGenericView(queryString)) {
-        const target = formalDetailUrl(e.kind, e.id, queryString);
-        if (target) {
-          setRedirecting(true);
-          router.replace(target);
-          return;
-        }
-      }
 
       // resolve 可能返回合并后的规范 id；回落路由参数只为类型收口（能渲染到这里的实体必有 id）。
       const communityId = e.id || id;
@@ -500,7 +477,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
 
   // 头部徽章：主日期 + 模板 badge_fields 声明的字段（默认含平台/话数/载体格式）。
-  // 取值逻辑与 /works/[id] 共用 entityBadges，字段码全部来自服务端模板声明。
+  // 取值逻辑与作品布局共用 entityBadges，字段码全部来自服务端模板声明。
   const headerBadges = useMemo(
     () =>
       entityBadges(entity, defs, locale).map((b) => ({
@@ -609,7 +586,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // 主体一侧不再依赖"页面上已知的实体"，对端也不再只认页面上猜出的那一端。
   const categorizedRelations = useMemo(
     () =>
-      relations.map((r) => {
+      relations.map((r, index) => {
         const subjectId = relationSubjectId;
         const isOutgoing = subjectId === r.source_id;
         const isIncoming = subjectId === r.target_id;
@@ -623,11 +600,13 @@ export function EntityDetailView({ id }: { id: string }) {
         const subject = relatedEntities[subjectId];
         return {
           ...r,
+          id: r.id || `${r.type}:${r.source_id}:${r.target_id}:${index}`,
           subjectId,
           subject,
           otherId,
           target: relatedEntities[otherId],
           isOutgoing,
+          isIncoming,
           /** 两端摘要：均取自响应 entities 表，缺表时才回退已知实体。 */
           from: relatedEntities[fromId] || (fromId === entity?.id ? entity ?? undefined : undefined),
           to: relatedEntities[toId] || (toId === entity?.id ? entity ?? undefined : undefined),
@@ -636,14 +615,6 @@ export function EntityDetailView({ id }: { id: string }) {
         };
       }),
     [relations, relatedEntities, entity, relationSubjectId]
-  );
-
-  const staffRelations = useMemo(
-    () =>
-      categorizedRelations.filter(
-        (r) => relationGroupOf(defs, r.type) === "credits"
-      ),
-    [categorizedRelations, defs]
   );
 
   // 演职区域用通用构造：标签计数与内容同源（只含署名主体，与展示行一致）。
@@ -668,10 +639,17 @@ export function EntityDetailView({ id }: { id: string }) {
     [entity, relations, relatedEntities, defs, locale, tr]
   );
 
+  // 署名语义由 definitions 决定；卡片只能呈现「主体 ↔ Agent」的直接关系。
+  // 角色自身指向作品、作为属性被引用的配音关系等不能因此从页面消失。
+  const staffRelations = useMemo(() => {
+    const cardIds = new Set(staffCredits.map((credit) => credit.id));
+    return unrenderedCreditRelations(categorizedRelations, defs, cardIds);
+  }, [categorizedRelations, staffCredits, defs]);
+
   const mediaRelations = useMemo(
     () =>
       categorizedRelations.filter(
-        (r) => relationGroupOf(defs, r.type) !== "credits"
+        (r) => !isCreditRelation(defs, r.type)
       ),
     [categorizedRelations, defs]
   );
@@ -745,7 +723,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length, visible: staffCredits.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length + staffRelations.length, visible: staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
@@ -765,7 +743,7 @@ export function EntityDetailView({ id }: { id: string }) {
     if (el) el.scrollIntoView({ block: "start" });
   }, [loading, communityEnabled, children.length, occurrences.length, mediaRelations.length]);
 
-  if (loading || redirecting) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
@@ -1117,7 +1095,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
               </dl>
 
-              {/* 其余属性按实体自身模板分区渲染，与 /works/[id] 共用同一实现。
+              {/* 其余属性按实体自身模板分区渲染，与作品布局共用同一实现。
                   字段、分区、次序、类型均来自服务端声明，新增媒体类型无需改本文件。 */}
               <WorkFacts entity={entity} defs={defs} locale={locale} />
 
@@ -1348,8 +1326,57 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
             {/* ============================================================ */}
-            {active === "staff" && staffCredits.length > 0 && (
-              <StaffCharacterSection credits={staffCredits} />
+            {active === "staff" && (staffCredits.length > 0 || staffRelations.length > 0) && (
+              <div id="staff" className="space-y-4">
+                {staffCredits.length > 0 && <StaffCharacterSection credits={staffCredits} />}
+                {staffRelations.length > 0 && (
+                  <Card padding="section" className="space-y-4 shadow-soft">
+                    <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                      {t("entity.page.navStaff")}
+                      <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                        {staffRelations.length}
+                      </span>
+                    </SectionTitle>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {staffRelations.map((r, index) => (
+                        <Card key={r.id || `${r.type}:${r.source_id}:${r.target_id}:${index}`} tone="subtle" padding="card" className="space-y-2">
+                          <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
+                            {getRelationName(defs, r.type, r.isOutgoing || !r.isIncoming, locale)}
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0 text-xs">
+                            <Link href={`/catalog/${r.fromId}`} className="truncate text-text-body hover:text-primary">
+                              {endTitleOf(r.from, r.fromId, locale, titleOrder)}
+                            </Link>
+                            <ArrowRight className="w-3 h-3 text-text-muted shrink-0" strokeWidth={1.6} />
+                            <Link href={`/catalog/${r.toId}`} className="truncate font-semibold text-text-strong hover:text-primary">
+                              {endTitleOf(r.to, r.toId, locale, titleOrder)}
+                            </Link>
+                          </div>
+                          {Object.entries(r.attributes || {}).map(([field, value]) => {
+                            if (value === null || value === undefined || value === "") return null;
+                            const referenced = typeof value === "string" ? relatedEntities[value] : undefined;
+                            const vocabulary = defs?.fields?.[field]?.vocabulary;
+                            const display = typeof value === "string" && vocabulary
+                              ? getTermName(defs, vocabulary, value, locale)
+                              : String(value);
+                            if (!referenced && typeof value === "object") return null;
+                            return (
+                              <div key={field} className="flex gap-2 text-[11px] text-text-muted">
+                                <span className="shrink-0">{getFieldName(defs, field, locale)}</span>
+                                {referenced ? (
+                                  <Link href={`/catalog/${value}`} className="truncate text-text-body hover:text-primary">
+                                    {title(referenced, locale, titleOrder)}
+                                  </Link>
+                                ) : <span className="truncate text-text-body">{display}</span>}
+                              </div>
+                            );
+                          })}
+                        </Card>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
             )}
 
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}

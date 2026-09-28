@@ -1,10 +1,8 @@
 // 通用署名条目构造：任一实体详情页把 /catalog/entities/:id/relations 的
 // {items, entities} 喂进来，得到 StaffCharacterSection 消费的结构化条目。
 //
-// 方向约定（与原来作品页内联版一致）：
-// - 实体 → agent（人/机构）：署名关系（配音、制作…），角色挂在 attributes.character；
-// - agent(角色) → 实体：登场关系，agent 自身即角色，番位读 attributes.character_rank。
-// 番位名以服务端 character_rank 词表为准，字典键只作兜底。
+// 仅依据 definitions 的 counts_as_credit + participant_slot 判定语义，方向由当前主体
+// 在 source/target 哪一端决定；分组 group 只负责视觉归组。番位名读服务端词表。
 
 import { getRelationName, getTermName, type DynamicDefinitions } from "@/lib/definitions";
 import { coverUrl } from "@/lib/cover";
@@ -45,6 +43,19 @@ export function attrText(v: any): string {
   return "";
 }
 
+export function isCreditRelation(defs: DynamicDefinitions | null | undefined, type: string): boolean {
+  return defs?.relations?.[type]?.counts_as_credit === true;
+}
+
+/** 卡片呈现不了的署名边仍需列在署名页签，尤其是 Agent 端与属性引用边。 */
+export function unrenderedCreditRelations<R extends { id?: string; type: string }>(
+  relations: R[],
+  defs: DynamicDefinitions | null | undefined,
+  cardIds: ReadonlySet<string>,
+): R[] {
+  return relations.filter((r) => isCreditRelation(defs, r.type) && !cardIds.has(r.id || ""));
+}
+
 export function buildStaffCredits(args: {
   entityId: string;
   relations: RelationLike[];
@@ -56,37 +67,21 @@ export function buildStaffCredits(args: {
   const { entityId, relations, relEntities, defs, locale, tr } = args;
   const out: StaffCredit[] = [];
   for (const r of relations) {
-    if (r.source_id === entityId) {
-      const target = relEntities[r.target_id];
-      if (!target || target.kind !== "agent") continue;
-      const credit: StaffCredit = {
-        id: r.id,
-        relationType: r.type,
-        relationLabel: getRelationName(defs, r.type, true, locale),
-        creditRole: attrText(r.attributes?.credit_role) || undefined,
-        // 头像即对端的封面（首张图）：取值一律走 lib/cover，不在这里重新索引 pictures[0]。
-        agent: { id: target.id!, name: target.title || "", avatarUrl: coverUrl(target) || undefined },
-      };
-      if (attrText(r.attributes?.character)) {
-        const chId = attrText(r.attributes?.character);
-        const ch = chId ? relEntities[chId] : undefined;
-        if (ch) {
-          credit.character = { id: ch.id, name: ch.title, avatarUrl: coverUrl(ch) || undefined };
-        }
-        // 配音上下文：language 是自由文本字段（非受控词表），context 是实体引用，
-        // 两者共同区分同一角色在不同语言/篇目下的多版配音。
-        credit.language = attrText(r.attributes?.language) || undefined;
-        const ctxId = attrText(r.attributes?.context);
-        credit.contextLabel = (ctxId ? relEntities[ctxId]?.title : "") || undefined;
-      }
-      out.push(credit);
-    } else if (r.target_id === entityId) {
-      // 登场角色：agent(角色) → 实体，方向与署名关系相反。
-      // 显式要求对端是本实体：游离关系（两端都不是本实体）不得虚构成登场。
-      //（关系端点口径与原来作品页内联版一致，API 只回本实体的边。）
-      // 番位码只读 attributes.character_rank，不混用内容用途 role。
-      const src = relEntities[r.source_id];
-      if (!src || src.kind !== "agent") continue;
+    const def = defs?.relations?.[r.type];
+    if (!isCreditRelation(defs, r.type) || (def?.participant_slot !== "person" && def?.participant_slot !== "character")) continue;
+    const outgoing = r.source_id === entityId;
+    const incoming = r.target_id === entityId;
+    if (!outgoing && !incoming) continue;
+    const participant = relEntities[outgoing ? r.target_id : r.source_id];
+    if (!participant || participant.kind !== "agent") continue;
+    const credit: StaffCredit = {
+      id: r.id,
+      relationType: r.type,
+      relationLabel: getRelationName(defs, r.type, outgoing, locale),
+      creditRole: attrText(r.attributes?.credit_role) || undefined,
+      agent: { id: participant.id!, name: participant.title || "", avatarUrl: coverUrl(participant) || undefined },
+    };
+    if (def.participant_slot === "character") {
       const rankCode = attrText(r.attributes?.character_rank);
       const rankTerm = rankCode ? getTermName(defs, "character_rank", rankCode, locale) : "";
       const rankLabel = !rankCode
@@ -94,21 +89,22 @@ export function buildStaffCredits(args: {
         : rankTerm && rankTerm !== rankCode
           ? rankTerm
           : tr(`entity.characterRank.${rankCode}`, rankCode);
-      out.push({
-        id: r.id,
-        relationType: r.type,
-        relationLabel: getRelationName(defs, r.type, true, locale),
-        creditRole: attrText(r.attributes?.credit_role) || undefined,
-        agent: { id: src.id!, name: src.title || "", avatarUrl: coverUrl(src) || undefined },
-        character: {
-          id: src.id!,
-          name: src.title || "",
-          avatarUrl: coverUrl(src) || undefined,
-          rankLabel: rankLabel && rankLabel !== rankCode ? rankLabel : undefined,
-          rankCode: rankCode || undefined,
-        },
-      });
+      credit.character = {
+        id: participant.id!,
+        name: participant.title || "",
+        avatarUrl: coverUrl(participant) || undefined,
+        rankLabel: rankLabel && rankLabel !== rankCode ? rankLabel : undefined,
+        rankCode: rankCode || undefined,
+      };
+    } else {
+      const chId = attrText(r.attributes?.character);
+      const ch = chId ? relEntities[chId] : undefined;
+      if (ch) credit.character = { id: ch.id, name: ch.title, avatarUrl: coverUrl(ch) || undefined };
+      credit.language = attrText(r.attributes?.language) || undefined;
+      const ctxId = attrText(r.attributes?.context);
+      credit.contextLabel = (ctxId ? relEntities[ctxId]?.title : "") || undefined;
     }
+    out.push(credit);
   }
   return out;
 }
