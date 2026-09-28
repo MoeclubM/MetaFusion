@@ -446,7 +446,7 @@ export function DefinitionsEditor() {
       </details>
       <nav className="cv-tabs flex flex-wrap gap-2 rounded-xl border border-line-subtle bg-surfaceSubtle p-2" aria-label={t("catalog.configure")}>
         {(
-          ["fields", "vocabularies", "relations", "templates", "schemes"] as const
+          ["fields", "vocabularies", "relations", "structure", "templates", "schemes"] as const
         ).map((k) => (
           <button
             key={k}
@@ -676,6 +676,55 @@ export function DefinitionsEditor() {
           )}
         />
         </>
+      )}
+      {tab === "structure" && (
+        <div className="space-y-4">
+          <p className="cv-hint">{t("catalog.structuralRulesHint")}</p>
+          {Object.entries(d.structure || {}).map(([kind, rule]) => {
+            const update = (next: typeof rule) => change({
+              ...d,
+              structure: { ...d.structure, [kind]: next },
+            });
+            return (
+              <fieldset key={kind} className="rounded-md border border-line p-4 space-y-4">
+                <legend className="font-semibold">{kindNames[kind] || kind}</legend>
+                <label className="cv-check">
+                  <input type="checkbox" checked={rule.resources === true}
+                    onChange={(e) => update({ ...rule, resources: e.target.checked })} />
+                  {t("entity.detail.resourcesTitle")}
+                </label>
+                {(rule.fields || []).map((field, index) => (
+                  <div key={field.code} className="rounded border border-line-subtle p-3 space-y-2">
+                    <strong className="text-sm">{field.code}</strong>
+                    <div className="text-xs text-text-faint">
+                      {(field.target_kinds?.length ? field.target_kinds : [kind])
+                        .map((target) => kindNames[target] || target).join(", ")}
+                    </div>
+                    <NamesEditor value={field.names || {}} onChange={(names) => update({
+                      ...rule, fields: (rule.fields || []).map((item, i) => i === index ? { ...item, names } : item),
+                    })} />
+                    <label>{t("catalog.reverseNames")}</label>
+                    <NamesEditor value={field.reverse_names || {}} onChange={(reverse_names) => update({
+                      ...rule, fields: (rule.fields || []).map((item, i) => i === index ? { ...item, reverse_names } : item),
+                    })} />
+                  </div>
+                ))}
+                {rule.subjects && <div className="rounded border border-line-subtle p-3 space-y-2">
+                  <strong>{t("catalog.subjects")}</strong>
+                  <NamesEditor value={rule.subject_names || {}} onChange={(subject_names) => update({ ...rule, subject_names })} />
+                  <label>{t("catalog.reverseNames")}</label>
+                  <NamesEditor value={rule.subject_reverse_names || {}} onChange={(subject_reverse_names) => update({ ...rule, subject_reverse_names })} />
+                </div>}
+                {rule.contents && <div className="rounded border border-line-subtle p-3 space-y-2">
+                  <strong>{t("catalog.contents")}</strong>
+                  <NamesEditor value={rule.content_names || {}} onChange={(content_names) => update({ ...rule, content_names })} />
+                  <label>{t("catalog.reverseNames")}</label>
+                  <NamesEditor value={rule.content_reverse_names || {}} onChange={(content_reverse_names) => update({ ...rule, content_reverse_names })} />
+                </div>}
+              </fieldset>
+            );
+          })}
+        </div>
       )}
       {tab === "templates" && (
         <Dictionary

@@ -271,14 +271,20 @@ type StructureRule struct {
 	// Resources 表示该层级可以挂资源文件（存储服务里的资产）。
 	Resources bool `json:"resources,omitempty"`
 	// Subjects 表示该层级有"发行对象"（收录主体）列表：发行版用它声明收录了哪些作品。
-	Subjects bool `json:"subjects,omitempty"`
+	Subjects            bool  `json:"subjects,omitempty"`
+	SubjectNames        Names `json:"subject_names,omitempty"`
+	SubjectReverseNames Names `json:"subject_reverse_names,omitempty"`
 	// Contents 表示该层级有"收录内容"列表：收录位置用它引用内容表达。
-	Contents bool `json:"contents,omitempty"`
+	Contents            bool  `json:"contents,omitempty"`
+	ContentNames        Names `json:"content_names,omitempty"`
+	ContentReverseNames Names `json:"content_reverse_names,omitempty"`
 }
 
 // StructureField 是一个结构字段：字段码 + 允许作为目标的层级。
 type StructureField struct {
-	Code string `json:"code"`
+	Code         string `json:"code"`
+	Names        Names  `json:"names"`
+	ReverseNames Names  `json:"reverse_names"`
 	// TargetKinds 为空表示与当前层级同层（同域父节点）。
 	TargetKinds []string `json:"target_kinds,omitempty"`
 	// ScopedBy 指定候选按哪个结构字段过滤（如 expression 的内容单元按 work_id 过滤）。

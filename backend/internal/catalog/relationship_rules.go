@@ -21,25 +21,55 @@ type RelationshipRule struct {
 }
 
 func fixedRelationshipRules() []RelationshipRule {
-	row := func(code, class, source, target string, names, reverse Names, maxIncoming int, ordered bool, scope string) RelationshipRule {
+	row := func(code, class, source, target string, maxIncoming int, ordered bool, scope string) RelationshipRule {
 		return RelationshipRule{
-			Code: "structure:" + code, Class: class, Names: names, ReverseNames: reverse,
+			Code: "structure:" + code, Class: class,
 			SourceKinds: []string{source}, TargetKinds: []string{target},
 			MaxIncoming: maxIncoming, Ordered: ordered, Scope: scope, ReadOnly: true, Enabled: true,
 		}
 	}
 	return []RelationshipRule{
-		row("work_content_unit", "ownership", "work", "content_unit", names4("包含内容单元", "包含內容單元", "内容単位を含む", "Contains content unit"), names4("属于作品", "屬於作品", "作品に属する", "Belongs to work"), 1, true, "work"),
-		row("work_expression", "ownership", "work", "expression", names4("具有内容表达", "具有內容表達", "表現を持つ", "Has expression"), names4("表达作品", "表達作品", "作品を表現する", "Expression of work"), 1, true, "work"),
-		row("release_medium", "ownership", "release", "medium", names4("包含载体", "包含載體", "媒体を含む", "Contains medium"), names4("属于发行版", "屬於發行版", "リリースに属する", "Belongs to release"), 1, true, "release"),
-		row("medium_track", "ownership", "medium", "track", names4("包含收录位置", "包含收錄位置", "収録位置を含む", "Contains track"), names4("属于载体", "屬於載體", "媒体に属する", "Belongs to medium"), 1, true, "medium"),
-		row("content_unit_parent", "placement", "content_unit", "content_unit", names4("包含下级内容单元", "包含下級內容單元", "下位内容単位を含む", "Contains child content unit"), names4("位于上级内容单元", "位於上級內容單元", "上位内容単位に属する", "Within parent content unit"), 1, true, "work"),
-		row("content_unit_expression", "placement", "content_unit", "expression", names4("承载内容表达", "承載內容表達", "表現を持つ", "Hosts expression"), names4("属于内容单元", "屬於內容單元", "内容単位に属する", "Within content unit"), 1, true, "work"),
-		row("medium_parent", "placement", "medium", "medium", names4("包含下级载体", "包含下級載體", "下位媒体を含む", "Contains child medium"), names4("位于上级载体", "位於上級載體", "上位媒体に属する", "Within parent medium"), 1, true, "release"),
-		row("track_parent", "placement", "track", "track", names4("包含下级收录位置", "包含下級收錄位置", "下位収録位置を含む", "Contains child track"), names4("位于上级收录位置", "位於上級收錄位置", "上位収録位置に属する", "Within parent track"), 1, true, "medium"),
-		row("release_subject", "inclusion", "release", "work", names4("发行作品", "發行作品", "作品をリリースする", "Releases work"), names4("由发行版收录", "由發行版收錄", "リリースに収録される", "Subject of release"), 0, true, ""),
-		row("track_content", "inclusion", "track", "expression", names4("收录内容表达", "收錄內容表達", "表現を収録する", "Includes expression"), names4("被收录于轨位", "被收錄於軌位", "トラックに収録される", "Included in track"), 0, true, ""),
+		row("work_content_unit", "ownership", "work", "content_unit", 1, true, "work"),
+		row("work_expression", "ownership", "work", "expression", 1, true, "work"),
+		row("release_medium", "ownership", "release", "medium", 1, true, "release"),
+		row("medium_track", "ownership", "medium", "track", 1, true, "medium"),
+		row("content_unit_parent", "placement", "content_unit", "content_unit", 1, true, "work"),
+		row("content_unit_expression", "placement", "content_unit", "expression", 1, true, "work"),
+		row("medium_parent", "placement", "medium", "medium", 1, true, "release"),
+		row("track_parent", "placement", "track", "track", 1, true, "medium"),
+		row("release_subject", "inclusion", "release", "work", 0, true, ""),
+		row("track_content", "inclusion", "track", "expression", 0, true, ""),
 	}
+}
+
+// Structural facts still live in their foreign keys/inclusion tables. Only
+// their wording is editable in the published definition document.
+func structuralRuleNames(d Definitions, code string) (Names, Names) {
+	if code == "structure:release_subject" {
+		r := d.Structure["release"]
+		return r.SubjectNames, r.SubjectReverseNames
+	}
+	if code == "structure:track_content" {
+		r := d.Structure["track"]
+		return r.ContentNames, r.ContentReverseNames
+	}
+	refs := map[string][2]string{
+		"structure:work_content_unit":       {"content_unit", "work_id"},
+		"structure:work_expression":         {"expression", "work_id"},
+		"structure:release_medium":          {"medium", "release_id"},
+		"structure:medium_track":            {"track", "medium_id"},
+		"structure:content_unit_parent":     {"content_unit", "parent_id"},
+		"structure:content_unit_expression": {"expression", "content_unit_id"},
+		"structure:medium_parent":           {"medium", "parent_id"},
+		"structure:track_parent":            {"track", "parent_id"},
+	}
+	ref := refs[code]
+	for _, field := range d.Structure[ref[0]].Fields {
+		if field.Code == ref[1] {
+			return field.Names, field.ReverseNames
+		}
+	}
+	return nil, nil
 }
 
 // RelationshipRules is the single public registry for structural and semantic
@@ -47,6 +77,9 @@ func fixedRelationshipRules() []RelationshipRule {
 // code; reverse names are presentation labels rather than second edge types.
 func RelationshipRules(d Definitions) []RelationshipRule {
 	out := fixedRelationshipRules()
+	for i := range out {
+		out[i].Names, out[i].ReverseNames = structuralRuleNames(d, out[i].Code)
+	}
 	codes := make([]string, 0, len(d.Relations))
 	for code := range d.Relations {
 		codes = append(codes, code)

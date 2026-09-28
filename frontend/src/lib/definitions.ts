@@ -335,6 +335,8 @@ export function getKindName(
 // 不再自己维护"哪个层级挂哪个上级"的清单。
 export interface StructureField {
   code: string;
+  names: Record<string, string>;
+  reverse_names: Record<string, string>;
   target_kinds?: string[];
   scoped_by?: string;
   required?: boolean;
@@ -344,8 +346,12 @@ export interface StructureRule {
   resources?: boolean;
   /** 该层级有"发行对象"（收录主体）列表。 */
   subjects?: boolean;
+  subject_names?: Record<string, string>;
+  subject_reverse_names?: Record<string, string>;
   /** 该层级有"收录内容"列表。 */
   contents?: boolean;
+  content_names?: Record<string, string>;
+  content_reverse_names?: Record<string, string>;
 }
 
 /**

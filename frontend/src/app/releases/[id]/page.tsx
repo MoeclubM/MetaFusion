@@ -21,6 +21,7 @@ import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
+import { AggregateRelationList } from "@/components/catalog/AggregateRelationList";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { RecordList, GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { EntityLink } from "@/components/catalog/Fields";
@@ -1171,6 +1172,8 @@ export default function ReleaseDetailPage() {
             <EntityStaffSection entityId={releaseId} onCount={handleReleaseStaffCount} />
           </section>
         )}
+
+        <AggregateRelationList entityId={releaseId} />
 
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
           <Plus className="w-3 h-3" strokeWidth={1.6} />

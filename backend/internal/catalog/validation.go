@@ -419,6 +419,32 @@ func (d Definitions) Validate() error {
 			}
 		}
 	}
+	for kind, rule := range d.Structure {
+		if rule.Subjects {
+			if err := validateNames(rule.SubjectNames); err != nil {
+				return fmt.Errorf("%s.subject_names: %w", kind, err)
+			}
+			if err := validateNames(rule.SubjectReverseNames); err != nil {
+				return fmt.Errorf("%s.subject_reverse_names: %w", kind, err)
+			}
+		}
+		if rule.Contents {
+			if err := validateNames(rule.ContentNames); err != nil {
+				return fmt.Errorf("%s.content_names: %w", kind, err)
+			}
+			if err := validateNames(rule.ContentReverseNames); err != nil {
+				return fmt.Errorf("%s.content_reverse_names: %w", kind, err)
+			}
+		}
+		for _, f := range rule.Fields {
+			if err := validateNames(f.Names); err != nil {
+				return fmt.Errorf("%s.%s.names: %w", kind, f.Code, err)
+			}
+			if err := validateNames(f.ReverseNames); err != nil {
+				return fmt.Errorf("%s.%s.reverse_names: %w", kind, f.Code, err)
+			}
+		}
+	}
 	for code, t := range d.Templates {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")

@@ -6,7 +6,7 @@ import { ListTree } from "lucide-react";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { getKindName, getTermName, useDefinitions } from "@/lib/definitions";
+import { getKindName, getRelationName, getTermName, useDefinitions } from "@/lib/definitions";
 import { fetchApi } from "@/lib/api";
 // 日期值的呈现与信息面板共用同一实现（本地化/图例口径一致，不另写格式化）。
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
@@ -19,11 +19,10 @@ type WorkContentDirectoryProps = {
   directory?: string;
 };
 
-// 目录条目视图：三种形态**各自独立**成区块，不再互斥回退。
+// 目录条目视图：结构子项与定义为聚合的关系各自成区块，不互斥。
 //   ① 篇目树（content_unit）——小说章节、动画分集；
 //   ② 表达（expression）——无卷章树的作品（如 OST 的各个录音）；
-//   ③ includes 关联的**组成作品**——专辑由独立歌曲 Work 构成时的正向关系；
-//   ④ includes 关联的**所属集合/作品**——歌曲在专辑之下的反向关系。
+//   ③ 聚合关系的正向组成项；④ 聚合关系的反向所属项。
 // 情形 ①②③④ 可以同时存在：专辑既有自身表达，又由独立歌曲构成时，
 // 旧实现只显示其中一个，把其余内容全部隐藏。entry_role 是篇目类型，组成作品用 kind 标签区分。
 type DirectoryEntry = {
@@ -37,6 +36,7 @@ type DirectoryEntry = {
   title: string;
   /** 篇目放送日（definitions 声明的 air_date）：原样呈现 ISO 日期，与页头日期徽章口径一致。 */
   airDate: string;
+  relationCode?: string;
 };
 
 function toEntry(e: Entity, locale: string): DirectoryEntry {
@@ -58,7 +58,7 @@ function toEntry(e: Entity, locale: string): DirectoryEntry {
   };
 }
 
-// componentEntries 从 includes 关系里取关联作品，并按**方向**区分语义：
+// componentEntries 从定义声明的聚合关系里取关联实体，并按方向区分语义：
 //   self 是包含方（source_id） → 对端是"组成内容"；
 //   self 是被包含方（target_id） → 对端是"所属集合/作品"。
 export type RelationRow = {
@@ -120,9 +120,10 @@ export function hasWorkDirectoryContent(
   if (data.items.length > 0) return true;
   return data.relations.some((r) => {
     if (!isAggregate(r.type)) return false;
+    if (r.source_id !== selfId && r.target_id !== selfId) return false;
     const peerId = r.source_id === selfId ? r.target_id : r.source_id;
     const peer = data.relatedEntities[peerId];
-    return peer?.kind === "work" || peer?.kind === "collection";
+    return Boolean(peer?.id);
   });
 }
 
@@ -139,13 +140,16 @@ export function componentEntries(
   const seen = new Set<string>();
   for (const r of relations) {
     if (!isAggregate(r.type)) continue;
+    // /relations also returns edges that merely reference this entity in an
+    // attribute; those are not its membership edges.
+    if (r.source_id !== selfId && r.target_id !== selfId) continue;
     const outgoing = r.source_id === selfId;
     const peerId = outgoing ? r.target_id : r.source_id;
-    // 同一对作品可以同时存在两个方向的聚合关系；两种目录语义分别去重。
-    const key = `${outgoing ? "out" : "in"}:${peerId}`;
+    // 同一对实体可以有不同聚合语义；仅去除同一关系码、方向、对端的重复行。
+    const key = `${r.type}:${outgoing ? "out" : "in"}:${peerId}`;
     if (!peerId || peerId === selfId || seen.has(key)) continue;
     const peer = entities[peerId];
-    if (!peer || (peer.kind !== "work" && peer.kind !== "collection")) continue;
+    if (!peer?.id) continue;
     seen.add(key);
     const entry: DirectoryEntry = {
       id: peerId,
@@ -153,9 +157,10 @@ export function componentEntries(
       position: r.position || 0,
       number: "",
       entryRole: "",
-      kind: peer.kind || "work",
+      kind: peer.kind,
       title: entityTitle(peer, locale) || peer.title || peerId,
       airDate: "",
+      relationCode: r.type,
     };
     (outgoing ? includes : includedIn).push(entry);
   }
@@ -251,12 +256,23 @@ export function WorkContentDirectory({ workId, data, directory = "tree" }: WorkC
     });
   };
 
-  // 三个区块各自独立呈现：篇目/表达、组成内容（includes 正向）、
-  // 所属作品/集合（includes 反向）。同一页可同时出现多个，不再互斥回退。
+  // 关系码决定分组名称：后台改正反向名后目录立即跟随；不同语义不混为一组。
   const blocks: { key: string; title: string; entries: DirectoryEntry[] }[] = [];
   if (items.length > 0) blocks.push({ key: "items", title: t("work.contents.title"), entries: items });
-  if (components.length > 0) blocks.push({ key: "components", title: t("work.contents.components"), entries: components });
-  if (includedIn.length > 0) blocks.push({ key: "includedIn", title: t("work.contents.includedIn"), entries: includedIn });
+  for (const [direction, entries] of [["out", components], ["in", includedIn]] as const) {
+    const groups = new Map<string, DirectoryEntry[]>();
+    for (const entry of entries) {
+      const code = entry.relationCode || "";
+      groups.set(code, [...(groups.get(code) || []), entry]);
+    }
+    for (const [code, group] of Array.from(groups)) {
+      blocks.push({
+        key: `${direction}:${code}`,
+        title: getRelationName(defs, code, direction === "out", locale),
+        entries: group,
+      });
+    }
+  }
 
   const renderSimple = (entries: DirectoryEntry[]) =>
     entries.map((entry) => (

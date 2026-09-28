@@ -95,18 +95,30 @@ func Defaults() Definitions {
 		Structure: map[string]StructureRule{
 			// 发行版没有上级，但有"发行对象"；收录位置额外有"收录内容"。两者都属于「所属与收录结构」，
 			// 在这里声明后，前端不必再写死"只有 release 才有发行对象/只有 track 才有收录内容"。
-			"release":      {Subjects: true},
-			"content_unit": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "parent_id", ScopedBy: "work_id"}}},
-			"expression":   {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id"}}, Resources: true},
-			"medium":       {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
-			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true, Contents: true},
+			"release": {Subjects: true,
+				SubjectNames:        names4("发行作品", "發行作品", "作品をリリースする", "Releases work"),
+				SubjectReverseNames: names4("由发行版收录", "由發行版收錄", "リリースに収録される", "Subject of release")},
+			"content_unit": {Fields: []StructureField{
+				{Code: "work_id", TargetKinds: []string{"work"}, Required: true, Names: names4("包含内容单元", "包含內容單元", "内容単位を含む", "Contains content unit"), ReverseNames: names4("属于作品", "屬於作品", "作品に属する", "Belongs to work")},
+				{Code: "parent_id", ScopedBy: "work_id", Names: names4("包含下级内容单元", "包含下級內容單元", "下位内容単位を含む", "Contains child content unit"), ReverseNames: names4("位于上级内容单元", "位於上級內容單元", "上位内容単位に属する", "Within parent content unit")}}},
+			"expression": {Fields: []StructureField{
+				{Code: "work_id", TargetKinds: []string{"work"}, Required: true, Names: names4("具有内容表达", "具有內容表達", "表現を持つ", "Has expression"), ReverseNames: names4("表达作品", "表達作品", "作品を表現する", "Expression of work")},
+				{Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id", Names: names4("承载内容表达", "承載內容表達", "表現を持つ", "Hosts expression"), ReverseNames: names4("属于内容单元", "屬於內容單元", "内容単位に属する", "Within content unit")}}, Resources: true},
+			"medium": {Fields: []StructureField{
+				{Code: "release_id", TargetKinds: []string{"release"}, Required: true, Names: names4("包含载体", "包含載體", "媒体を含む", "Contains medium"), ReverseNames: names4("属于发行版", "屬於發行版", "リリースに属する", "Belongs to release")},
+				{Code: "parent_id", ScopedBy: "release_id", Names: names4("包含下级载体", "包含下級載體", "下位媒体を含む", "Contains child medium"), ReverseNames: names4("位于上级载体", "位於上級載體", "上位媒体に属する", "Within parent medium")}}, Resources: true},
+			"track": {Fields: []StructureField{
+				{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true, Names: names4("包含收录位置", "包含收錄位置", "収録位置を含む", "Contains track"), ReverseNames: names4("属于载体", "屬於載體", "媒体に属する", "Belongs to medium")},
+				{Code: "parent_id", ScopedBy: "medium_id", Names: names4("包含下级收录位置", "包含下級收錄位置", "下位収録位置を含む", "Contains child track"), ReverseNames: names4("位于上级收录位置", "位於上級收錄位置", "上位収録位置に属する", "Within parent track")}}, Resources: true, Contents: true,
+				ContentNames:        names4("收录内容表达", "收錄內容表達", "表現を収録する", "Includes expression"),
+				ContentReverseNames: names4("被收录于位置", "被收錄於位置", "収録位置に含まれる", "Included in track")},
 		},
 		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, typ string, n Names) {
 		d.Fields[code] = Field{Names: n, Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
 	for _, x := range []fieldSeed{
-		{"catalog_number", "text", names4("品番", "唱片編號", "品番", "Catalog number")},
+		{"catalog_number", "text", names4("出版编号", "出版編號", "出版番号", "Publication number")},
 		{"barcode", "text", names4("条码 / ISBN", "條碼 / ISBN", "バーコード / ISBN", "Barcode / ISBN")},
 		{"isbn", "text", names4("ISBN", "國際標準書號", "国際標準図書番号", "ISBN")},
 		{"edition_date", "date", names4("发行日期", "發行日期", "発売日", "Release date")},

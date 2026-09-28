@@ -47,13 +47,19 @@ export type Definitions = {
     {
       fields?: {
         code: string;
+        names: Names;
+        reverse_names: Names;
         target_kinds?: string[];
         scoped_by?: string;
         required?: boolean;
       }[];
       resources?: boolean;
       subjects?: boolean;
+      subject_names?: Names;
+      subject_reverse_names?: Names;
       contents?: boolean;
+      content_names?: Names;
+      content_reverse_names?: Names;
     }
   >;
   fields: Record<string, Field>;

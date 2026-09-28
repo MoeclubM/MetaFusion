@@ -44,6 +44,7 @@ import { buildStaffCredits } from "@/components/entity/staffCredits";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
+import { AggregateRelationList } from "@/components/catalog/AggregateRelationList";
 import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -1663,6 +1664,8 @@ export function EntityDetailView({ id }: { id: string }) {
               <EntityResourceFiles entityId={entity.id || id} />
             )}
             </TabPanel>
+
+            <AggregateRelationList entityId={entity.id || id} />
 
             {/* ============================================================ */}
             {/* Community discussions & collections (below the tabs, not a tab)      */}

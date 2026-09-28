@@ -22,6 +22,7 @@ import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
+import { AggregateRelationList } from "@/components/catalog/AggregateRelationList";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, GitCompare, HardDrive, Layers, Users } from "lucide-react";
 
@@ -358,6 +359,7 @@ export default function MediumDetailPage() {
               </div>
             )}
           </Card>
+          <AggregateRelationList entityId={mediumId} />
         </PageShell>
       </div>
     </div>
