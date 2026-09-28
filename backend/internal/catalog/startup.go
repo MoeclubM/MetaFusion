@@ -32,23 +32,10 @@ var requiredCatalogTables = []string{
 	"catalog.idempotency_keys",
 }
 
-// CheckCompatibleVersion 是 HTTP 进程启动的唯一前置检查：只读校验必需表、必需列与
+// CheckCompatibleVersion 是 HTTP 进程启动的唯一前置检查：只读校验必需表、已发布契约与
 // 已发布定义存在，不写库、不加载实体/关系全集（EnsureSeedDefinitions 的启动扫描在此之后
 // 不再执行）。失败即 Fatal：库没准备好时拒绝服务，而不是降级成“能起但行为不对”。
 func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
-	var migrated bool
-	if err := s.DB.QueryRowContext(ctx, `SELECT to_regclass('schema_migrations') IS NOT NULL`).Scan(&migrated); err != nil {
-		return err
-	}
-	if !migrated {
-		return fmt.Errorf("incompatible_schema: migration 000016 required (run mf-migrate up)")
-	}
-	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=16 AND dirty=false)`).Scan(&migrated); err != nil {
-		return err
-	}
-	if !migrated {
-		return fmt.Errorf("incompatible_schema: migration 000016 required (run mf-migrate up)")
-	}
 	for _, t := range requiredCatalogTables {
 		var ok bool
 		if err := s.DB.QueryRowContext(ctx, `SELECT to_regclass($1) IS NOT NULL`, t).Scan(&ok); err != nil {
@@ -59,11 +46,20 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 		}
 	}
 	var etag string
-	if err := s.DB.QueryRowContext(ctx, `SELECT etag FROM catalog.definition_config WHERE singleton=true`).Scan(&etag); err != nil {
+	var currentContract bool
+	// The migration ledger belongs to the DB owner; the runtime role has no
+	// SELECT on public.schema_migrations. Check the published contract it uses.
+	if err := s.DB.QueryRowContext(ctx, `SELECT etag,
+		NOT (document ? 'types')
+		AND COALESCE(jsonb_typeof(document #> '{structure,release,subject_names}') = 'object', false)
+		FROM catalog.definition_config WHERE singleton=true`).Scan(&etag, &currentContract); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("definitions_missing: no definition configuration (run mf-migrate up, then mf-migrate seed on a fresh install)")
 		}
 		return err
+	}
+	if !currentContract {
+		return fmt.Errorf("incompatible_schema: generic metadata definitions required (run mf-migrate up, then mf-migrate seed)")
 	}
 	// 反查索引缺失只影响反向别名查询性能（功能不受影响）：告警，不阻断启动。
 	var hasIdx bool

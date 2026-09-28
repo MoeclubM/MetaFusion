@@ -28,6 +28,22 @@ func TestPostgresCheckCompatibleVersion(t *testing.T) {
 	if err := f.s.CheckCompatibleVersion(ctx); err != nil {
 		t.Fatalf("安装后的库应通过兼容检查：%v", err)
 	}
+	var subjectNames []byte
+	if err := f.s.DB.QueryRowContext(ctx, `SELECT document #> '{structure,release,subject_names}' FROM catalog.definition_config WHERE singleton=true`).Scan(&subjectNames); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.DB.ExecContext(ctx, `UPDATE catalog.definition_config SET document = document #- '{structure,release,subject_names}' WHERE singleton=true`); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.CheckCompatibleVersion(ctx); err == nil || !strings.Contains(err.Error(), "incompatible_schema") {
+		t.Fatalf("缺少新版定义契约应报不兼容，实际 %v", err)
+	}
+	if _, err := f.s.DB.ExecContext(ctx, `UPDATE catalog.definition_config SET document = jsonb_set(document, '{structure,release,subject_names}', $1::jsonb, true) WHERE singleton=true`, subjectNames); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.CheckCompatibleVersion(ctx); err != nil {
+		t.Fatalf("恢复新版定义契约后应通过：%v", err)
+	}
 	// 请求日志表只由显式迁移创建，普通请求不得在表缺失时补建。
 	if _, err := f.s.DB.ExecContext(ctx, `DROP TABLE catalog.api_request_logs`); err != nil {
 		t.Fatal(err)
