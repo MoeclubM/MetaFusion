@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useId, useState, useMemo } from "react";
 import Link from "next/link";
 import { User, Mic } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -87,22 +87,18 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const defaultRole = t("work.detail.staffDefaultRole");
   const characterFallback = t("work.detail.relGroupCharacters");
   const [activeTab, setActiveTab] = useState<string>("all");
-
-  if (!credits || credits.length === 0) return null;
+  const relationFilterId = useId();
 
   // 参与者槽位由关系定义声明（person/character/peer）。为什么不用"fields 里有没有 character"：
   // 29 个关系码共用同一份 fields（含 character），那个判定对每条关系都成立，
   // 于是 isCast 恒真、人员网格永不渲染、图标恒为麦克风。槽位是逐条关系声明的语义。
   const participantSlot = (code: string): ParticipantSlot | undefined => relationParticipantSlot(defs, code);
-  const relationDeclaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
-  // 角色类关系与署名主体都由逐条声明决定，不按字段或分组猜测。
-  const isCharacterRelation = (code: string) => participantSlot(code) === "character";
+  // 署名主体由逐条关系声明决定，不按字段或展示分组猜测。
   const isCreditRelation = (code: string) => participantSlot(code) === "person";
-  const isCast = (c: StaffCredit) => !!c.character || isCharacterRelation(c.relationType);
-  // 人物网格收录全部署名主体（人/机构）：不再按分组码切出"核心主创"——creative 组装的是
-  // 作品派生关系，拿它当"主创"永远命不中，那条页签恒空。
+  // 角色卡已经显示带 character 引用的主体；「全部」里的人员网格只显示其余署名，
+  // 同一条关系不再同时以角色卡和人员行出现。逐类筛选仍保留原始关系行。
   const humanCredits = useMemo(
-    () => credits.filter((c) => isCreditRelation(c.relationType)),
+    () => credits.filter((c) => isCreditRelation(c.relationType) && !c.character),
     [credits, defs],
   );
 
@@ -111,8 +107,6 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   // 同一角色在不同语言/篇目下由不同演员配音是常态，只留第一位会丢数据。
   const characterCards = useMemo(() => {
     const cardMap = new Map<string, CharacterCardItem>();
-    const badgeOf = (c: StaffCredit) =>
-      c.character?.rankLabel || c.creditRole || c.relationLabel || characterFallback;
     for (const c of credits) {
       if (!c.character) continue;
       // 有角色实体 ID 用 ID 成卡；导入/手工数据缺 ID 时退回名称，避免全部并进一张空卡。
@@ -126,7 +120,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
             id: c.character.id,
             name: c.character.name,
             avatar_url: c.character.avatarUrl,
-            roleBadge: badgeOf(c),
+            roleBadge: characterFallback,
             rankCode: c.character.rankCode,
           },
           voices: [],
@@ -151,78 +145,84 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
       } else {
         if (!card.character.id && c.character.id) card.character.id = c.character.id;
         if (!card.character.avatar_url && c.character.avatarUrl) card.character.avatar_url = c.character.avatarUrl;
-        // 登场关系带番位（主角/配角），比配音关系声明的职位更能代表角色定位。
-        if (c.character.rankLabel) card.character.roleBadge = c.character.rankLabel;
+        // 角色自身的登场关系决定角色徽章；配音关系不得把「配音者」写到角色上。
+        card.character.roleBadge = c.character.rankLabel || c.creditRole || c.relationLabel || characterFallback;
         if (c.character.rankCode) card.character.rankCode = c.character.rankCode;
       }
     }
     return Array.from(cardMap.values());
   }, [credits, characterFallback]);
 
-  // 页签：固定「全部」置顶，其次角色卡（有数据才出现），其余按实际存在的关系类型
-  // 自动生成（无数据的关系不出现，不写死任何关系码）。
-  const staffTabs = useMemo(() => {
-    const list: { key: string; label: string; count: number }[] = [
-      { key: "all", label: t("work.detail.tabAll"), count: credits.length },
-    ];
-    if (characterCards.length > 0) {
-      list.push({ key: "characters", label: t("work.detail.tabCharacters"), count: characterCards.length });
-    }
+  // 角色与配音只是「全部」里的合成展示，不另建 A+B 页签；关系筛选只列实际关系码。
+  const relationFilters = useMemo(() => {
     const seen = new Map<string, { label: string; count: number }>();
     for (const c of credits) {
       const hit = seen.get(c.relationType);
       if (hit) hit.count += 1;
       else seen.set(c.relationType, { label: c.relationLabel || c.relationType, count: 1 });
     }
+    const list: { key: string; label: string; count: number }[] = [];
     // Map 不用 for..of：tsconfig target 低，迭代器展开编译不过（与 ApiKeysPanel 同一坑）。
     seen.forEach((info, type) => {
       list.push({ key: `rel:${type}`, label: info.label, count: info.count });
     });
     return list;
-  }, [credits, characterCards, t]);
+  }, [credits]);
 
-  const effectiveTab = staffTabs.some((tab) => tab.key === activeTab) ? activeTab : "all";
+  const effectiveTab = relationFilters.some((tab) => tab.key === activeTab) ? activeTab : "all";
   const activeRelation = effectiveTab.startsWith("rel:") ? effectiveTab.slice(4) : "";
   const relationCredits = activeRelation ? credits.filter((c) => c.relationType === activeRelation) : [];
 
   // 格式化具体职务标签：来源职位文本优先，缺失回退关系本地化名。
   const formatRole = (c: StaffCredit) => c.creditRole || c.relationLabel || defaultRole;
 
-  // 图标按关系语义取：只有"某个主体为角色配音/演出"才是麦克风——判断依据是
-  // 关系声明了 person 槽位且带 character 属性（voiced_by 这类）；
-  // 角色实体自身（character_in 的源端）与机构署名各有自己的图标。
-  // 旧实现把 isCast 当麦克风条件，而 isCast 恒真，于是出版社也显示麦克风。
+  // 仅当本条署名实际引用角色，且定义为 person 槽位时使用配音图标。
+  // 不能只看 fields 是否允许 character：默认多条关系共享该字段声明。
   const isVoiceCredit = (c: StaffCredit) =>
-    participantSlot(c.relationType) === "person" && relationDeclaresCharacter(c.relationType);
+    participantSlot(c.relationType) === "person" && !!c.character;
   const agentIcon = (c: StaffCredit) => {
     if (isVoiceCredit(c)) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" strokeWidth={1.5} />;
     return <User className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={1.5} />;
   };
 
-  const showCards = (effectiveTab === "characters" || effectiveTab === "all") && characterCards.length > 0;
+  const showCards = effectiveTab === "all" && characterCards.length > 0;
+
+  // 数据通常异步到达。所有 hooks 必须先执行，不能在它们之前对空列表 early return。
+  if (credits.length === 0) return null;
 
   return (
     <div className="p-3.5 sm:p-4 rounded-md border border-line bg-surfaceSubtle space-y-3 mt-2 animate-fadeIn">
       <div className="flex items-center justify-between border-b border-line-subtle pb-2">
         <div className="flex items-center gap-1.5 text-xs font-mono flex-wrap">
-          {staffTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1 rounded-sm transition-all ${
-                effectiveTab === tab.key
-                  ? "bg-primary text-white font-medium shadow-xs"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              {tab.label} ({tab.count})
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={`px-3 py-1 rounded-sm transition-all ${
+              effectiveTab === "all"
+                ? "bg-primary text-white font-medium shadow-xs"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            }`}
+          >
+            {t("work.detail.tabAll")} ({credits.length})
+          </button>
+          {relationFilters.length > 0 && (
+            <>
+              <label className="sr-only" htmlFor={relationFilterId}>{t("work.detail.filterRelation")}</label>
+              <select
+                id={relationFilterId}
+                value={activeRelation}
+                onChange={(event) => setActiveTab(event.target.value ? `rel:${event.target.value}` : "all")}
+                className={`min-h-8 rounded-sm border border-line px-2 text-xs font-mono ${activeRelation ? "border-primary text-primary bg-primary/10" : "bg-surface text-text-body"}`}
+              >
+                <option value="">{t("work.detail.filterRelation")}</option>
+                {relationFilters.map((filter) => (
+                  <option key={filter.key} value={filter.key.slice(4)}>{filter.label} ({filter.count})</option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
-        <span className="font-mono text-[11px] text-text-muted">TOTAL {credits.length} CREDITS</span>
       </div>
-
       {/* 角色与声优双轨卡片 (Characters & Cast) */}
       {showCards && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
