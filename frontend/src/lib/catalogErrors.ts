@@ -54,18 +54,29 @@ const CODE_KEYS: Record<string, string> = {
   internal_error: "catalog.error.unknown",
 };
 
-/** 取错误码对应的文案键；未知码返回 null（调用方回退原文）。 */
-export function catalogErrorKey(message: string): string | null {
+/**
+ * 按冒号分段取**第一个已知码**的文案键；没有已知码时返回 null（调用方回退原文）。
+ *
+ * 后端消息有两层：错误码自身可带补充（unknown_field: duration），字段级与场景级校验
+ * 还会把条目码包在外层（duration: four_locale_names_required: zh-TW,ja-JP）。所以不能只看
+ * 第一段——否则被包裹的码拿不到文案，用户看到的是裸码。从左到右扫描，第一段已知时
+ * 结果与只看第一段完全一致。各域的错误码表共用这一份扫描口径。
+ */
+export function firstKnownCodeKey(
+  message: string | null | undefined,
+  lookup: (code: string) => string | null | undefined
+): string | null {
   if (!message) return null;
-  // 后端消息有两层：错误码自身可带补充（unknown_field: duration），
-  // 字段级与场景级校验还会把条目码包在外层（duration: four_locale_names_required: zh-TW,ja-JP）。
-  // 所以按冒号分段取**第一个已知码**，而不是只看第一段——否则被包裹的码拿不到文案，
-  // 用户看到的是裸码。从左到右扫描，第一段已知时结果与只看第一段完全一致。
   for (const segment of message.trim().split(":")) {
-    const key = CODE_KEYS[segment.trim()];
+    const key = lookup(segment.trim());
     if (key) return key;
   }
   return null;
+}
+
+/** 取错误码对应的文案键；未知码返回 null（调用方回退原文）。 */
+export function catalogErrorKey(message: string): string | null {
+  return firstKnownCodeKey(message, (code) => CODE_KEYS[code] ?? null);
 }
 
 /**

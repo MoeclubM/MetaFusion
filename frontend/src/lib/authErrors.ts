@@ -29,42 +29,27 @@ export function httpStatusOf(err: unknown): number | undefined {
 }
 
 /**
- * 读取 Retry-After（秒）。只有秒数形式能被解释：HTTP-date 形式在这里没有可靠的时区来源，
- * 与其算错不如不显示（回 undefined，调用方退回不承诺具体秒数的文案）。
- */
-export function httpRetryAfterSecondsOf(err: unknown): number | undefined {
-  const raw = (err as { retryAfter?: unknown } | null | undefined)?.retryAfter;
-  const seconds = typeof raw === "string" ? Number.parseInt(raw.trim(), 10) : NaN;
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
-}
-
-/**
  * 把账号服务错误码翻译成当前语言的人话；未知码回退到通用请求失败提示。
  * status 只用来兜住"路由不存在/上游不可用"这类没有业务码的情况
  * （例如账号服务尚未部署这些端点时返回的 404 纯文本）。
  *
  * 限流要分辨两层（见 metafusion-auth/internal/handler/login_guard.go 的注释）：
  *   · 请求速率层只回 rate_limited，没有"账号被锁多久"的语义；
- *   · 失败凭据层回 login_blocked，并带 Retry-After（秒）。
- * 所以 429 先看错误码，再看 retryAfterSeconds：有秒数就告诉用户还要等多久，
- * 没给（例如网关 nginx limit_req 直接回的 429）就退回通用限流文案。
+ *   · 失败凭据层回 login_blocked，服务端带 Retry-After，但这条链路上的 ApiError
+ *     并不携带它，因此文案不承诺具体分钟数（也不显示未替换的 {minutes} 占位符）。
  */
 export function authErrorText(
   code: string | null | undefined,
   t: (key: string, vars?: Record<string, string | number>) => string,
   status?: number,
-  fallbackKey = "auth.requestFailed",
-  retryAfterSeconds?: number
+  fallbackKey = "auth.requestFailed"
 ): string {
   if (status === 404 || (status !== undefined && status >= 500)) {
     return t("auth.error.service_unavailable");
   }
   const raw = (code || "").trim();
   if (status === 429 || raw === "login_blocked") {
-    const key = raw === "login_blocked" ? "auth.error.login_blocked" : "auth.error.rate_limit_exceeded";
-    // Retry-After 是窗口剩余秒数：向上取整到分钟，给用户一个可读的等待预期。
-    const minutes = retryAfterSeconds ? Math.max(1, Math.ceil(retryAfterSeconds / 60)) : 0;
-    return t(key, minutes ? { minutes } : undefined);
+    return t(raw === "login_blocked" ? "auth.error.login_blocked" : "auth.error.rate_limit_exceeded");
   }
   if (!raw) return t(fallbackKey);
   for (const candidate of [raw, AUTH_ERROR_ALIASES[raw]]) {

@@ -1,16 +1,11 @@
 // 页面由网关按路径转发到各服务；账号登录与初始化页由账号服务唯一维护。
-const FORUM_PAGES_ENABLED: boolean = false;
+//
+// 社区与存储都在同域网关路径下，因此这里没有"外部站点开关"：只有资源站是个真正
+// 独立的外部站点（它自己就有 /subject/<id> 页面），才需要配置外链。
 
-export const FORUM_SERVICE_URL =
-  process.env.NEXT_PUBLIC_FORUM_URL || "/community";
-
-// 资源站是独立外部服务，它自己就有页面（/subject/<id>），与上面两个服务不同：
-// 未显式配置地址时视为尚未开放，不展示任何跳转入口，避免出现指向不存在域名的死链
-// （曾硬编码 resources.findverse.cc，DNS 无此记录）。
-const CONFIGURED_STORAGE_URL =
-  process.env.NEXT_PUBLIC_RESOURCE_STATION_URL ||
-  process.env.NEXT_PUBLIC_STORAGE_URL ||
-  "";
+// 资源站是独立外部服务：未显式配置地址时视为尚未开放，不展示任何跳转入口，
+// 避免出现指向不存在域名的死链（曾硬编码 resources.findverse.cc，DNS 无此记录）。
+const CONFIGURED_STORAGE_URL = process.env.NEXT_PUBLIC_RESOURCE_STATION_URL || "";
 
 export const STORAGE_SERVICE_URL = /^https?:\/\//i.test(CONFIGURED_STORAGE_URL)
   ? CONFIGURED_STORAGE_URL.replace(/\/+$/, "")
@@ -40,22 +35,17 @@ export function getAuthUsersAdminUrl(): string {
   return "/admin/account/";
 }
 
-// 条目 → 论坛的地址。条目页的「在论坛打开」原来有两种拼法（这里只有 entity_id，
-// works/[id] 那边手拼 board_code=comment），统一收在这里：板块可选，社区页从
+// 条目 → 论坛的地址。条目页的「在论坛打开」统一收在这里：板块可选，社区页从
 // board_code 读初始板块（app/community/page.tsx），不传就是全部板块。
+// 社区没有独立域名：站点同域由网关按 /community 前缀分流。
 export function getForumEntityUrl(entityId: string, boardCode?: string): string {
   const query = new URLSearchParams({ entity_id: entityId });
   if (boardCode) query.set("board_code", boardCode);
-  if (FORUM_PAGES_ENABLED && FORUM_SERVICE_URL.startsWith("http")) {
-    return `${FORUM_SERVICE_URL}?${query.toString()}`;
-  }
   return `/community?${query.toString()}`;
 }
 
+// 合集（collection）就是目录实体：地址与其它实体同一条 /catalog/<id>。
 export function getForumCollectionUrl(collectionId: string): string {
-  if (FORUM_PAGES_ENABLED && FORUM_SERVICE_URL.startsWith("http")) {
-    return `${FORUM_SERVICE_URL}/collections/${encodeURIComponent(collectionId)}`;
-  }
   return `/catalog/${encodeURIComponent(collectionId)}`;
 }
 

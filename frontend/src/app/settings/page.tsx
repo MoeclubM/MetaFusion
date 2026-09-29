@@ -7,7 +7,9 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { UI_LOCALE_CODES, type UiLocale } from "@/lib/languages";
-import { useTheme, accentLabel } from "@/lib/themeContext";
+import {
+  useTheme,
+} from "@/lib/themeContext";
 import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -19,10 +21,6 @@ import { useSearchParams } from "next/navigation";
 import {
   Shield,
   Globe,
-  Palette,
-  Sun,
-  Moon,
-  Laptop,
   Lock,
   Check,
   AlertCircle,

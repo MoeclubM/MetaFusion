@@ -102,8 +102,8 @@ export interface RelationType {
 
 
 
-export function catalogEntityHref(type: string, id: string): string {
-  return canonicalDetailPath(type, id) || `/catalog/${id}`;
+export function catalogEntityHref(id: string): string {
+  return canonicalDetailPath(id) || `/catalog/${id}`;
 }
 
 export interface GraphNode {

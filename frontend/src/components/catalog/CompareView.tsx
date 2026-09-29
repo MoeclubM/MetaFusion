@@ -4,7 +4,8 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, mapLimit, title } from "./api";
-import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
+import { EntityLink, ErrorMessage } from "./Fields";
+import { FieldValue } from "./TemplateAttributeSections";
 import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
 import {
@@ -32,9 +33,6 @@ import {
   Columns,
   Layers,
 } from "lucide-react";
-
-// 槽位常量与篮子读写统一到 lib/compareBasket.ts（含跨标签页同步）；重新导出保持既有引用可用。
-export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
 export function Compare({ ids, revisions, mode }: { ids: string; revisions?: string; mode?: string }) {
   const { t, tr, locale } = useI18n();
@@ -192,7 +190,6 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
       const field = (defs as any)?.fields?.[k];
       if (!field) return true;
       if (typeof field.comparable === "boolean") return field.comparable;
-      if (typeof field.Comparable === "boolean") return field.Comparable;
       return true;
     });
   }, [items, dynamicDefs]);
@@ -406,7 +403,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
             const id = selectedIds[index];
             if (id) {
               const info = getEntitySummary(id);
-              const href = canonicalDetailPath(info.raw?.kind, id) ?? `/catalog/${id}`;
+              const href = canonicalDetailPath(id) ?? `/catalog/${id}`;
               return (
                 <div
                   key={id}
@@ -930,7 +927,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                     const coverUrl = summary.coverUrl;
                     const catNo = summary.kind === "release" ? summary.catalogNo : "";
                     const fmt = summary.kind === "release" || summary.kind === "medium" ? summary.format : "";
-                    const href = canonicalDetailPath(summary.kind, x.entity.id) ?? `/catalog/${x.entity.id}`;
+                    const href = canonicalDetailPath(x.entity.id) ?? `/catalog/${x.entity.id}`;
                     return (
                       <th
                         key={x.entity.id}
@@ -992,7 +989,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                     {t("catalog.compareEntityTitle")}
                   </th>
                   {items.map((x) => {
-                    const href = canonicalDetailPath(x.entity?.kind, x.entity?.id) ?? `/catalog/${x.entity?.id}`;
+                    const href = canonicalDetailPath(x.entity?.id) ?? `/catalog/${x.entity?.id}`;
                     return (
                       <td key={x.entity.id} className="p-4 text-xs text-foreground border-r border-border last:border-r-0 align-top">
                         <Link href={href} className="hover:text-primary hover:underline">
@@ -1034,6 +1031,9 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                         >
                           {(dynamicDefs?.fields as any)?.[k] ? (
                             <FieldValue
+                              code={k}
+                              defs={dynamicDefs}
+                              locale={locale}
                               field={(dynamicDefs?.fields as any)[k]}
                               value={x.entity.attributes?.[k]}
                             />

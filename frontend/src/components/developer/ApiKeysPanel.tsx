@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  AlertCircle,
-  Check,
   KeyRound,
   Loader2,
   RefreshCw,

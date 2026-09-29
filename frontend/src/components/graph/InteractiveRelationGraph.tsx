@@ -1737,7 +1737,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           {/* 底部操作区：进入详情档案 */}
           <div className="pt-2.5 border-t border-border/60 flex items-center justify-end gap-2">
             <Link
-              href={catalogEntityHref(selectedNode.type, selectedNode.id)}
+              href={catalogEntityHref(selectedNode.id)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors duration-fast ease-soft shadow-xs"
             >
               <span>{t("graph.inspectEntity")}</span>

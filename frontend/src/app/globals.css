@@ -65,12 +65,6 @@
   --state-info-soft-rgb: 125 211 252;
   --state-alt-rgb: 167 139 250;
   --state-alt-soft-rgb: 196 181 253;
-  /* 兼容旧引用：新代码用 tailwind 令牌类（text-warn、bg-warn/10…），这两行只为不破坏旧变量名。 */
-  --state-warn-color: rgb(var(--state-warn-rgb));
-  --state-success-color: rgb(var(--state-success-rgb));
-  --state-danger-color: rgb(var(--state-danger-rgb));
-  --state-info-color: rgb(var(--state-info-rgb));
-  --state-alt-color: rgb(var(--state-alt-rgb));
   --font-display: var(--font-instrument-serif, "Instrument Serif"), "Noto Serif SC", Georgia, serif;
   --font-sans: var(--font-inter, "Inter"), "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "Fira Code", ui-monospace, monospace;
@@ -128,11 +122,6 @@
   --state-danger-soft-rgb: 190 18 60;
   --state-info-soft-rgb: 3 105 161;
   --state-alt-soft-rgb: 109 40 217;
-  --state-warn-color: rgb(var(--state-warn-rgb));
-  --state-success-color: rgb(var(--state-success-rgb));
-  --state-danger-color: rgb(var(--state-danger-rgb));
-  --state-info-color: rgb(var(--state-info-rgb));
-  --state-alt-color: rgb(var(--state-alt-rgb));
 }
 
 html {

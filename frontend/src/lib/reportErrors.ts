@@ -4,6 +4,7 @@
 // 用户不该看到 duplicate_report / rate_limited 这类机器码（接口契约里它们是给程序看的）。
 // 未覆盖的码与网络异常分别归到 report.err.unknown / report.err.network，也不回显裸码。
 import { ApiError } from "./api/client";
+import { firstKnownCodeKey } from "./catalogErrors";
 
 // 码表来源：互动服务报告/申诉处理器的失败码（见接口契约）。
 const CODE_KEYS: Record<string, string> = {
@@ -32,13 +33,8 @@ const CODE_KEYS: Record<string, string> = {
 
 /** 取错误码对应的文案键；未知码返回 null。 */
 export function reportErrorKey(code: string | null | undefined): string | null {
-  if (!code) return null;
-  // 与 lib/communityErrors.ts 同一扫描口径：按冒号分段取第一个已知码，兼容被外层包住的码。
-  for (const segment of code.trim().split(":")) {
-    const key = CODE_KEYS[segment.trim()];
-    if (key) return key;
-  }
-  return null;
+  // 扫描口径与目录表/互动表共用（firstKnownCodeKey）。
+  return firstKnownCodeKey(code, (c) => CODE_KEYS[c] ?? null);
 }
 
 /** 任意失败 → 四语人话：HTTP 错误按机器码，取不到响应体（断网/DNS）按 network。 */

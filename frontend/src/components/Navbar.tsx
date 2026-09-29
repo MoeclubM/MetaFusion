@@ -27,7 +27,6 @@ import {
   GitCompare,
   DownloadCloud,
   MessageSquare,
-  Sparkles,
   Terminal,
   Mail,
 } from "lucide-react";

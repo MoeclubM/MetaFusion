@@ -239,7 +239,7 @@ export function normalizeBoard(raw: any): ForumBoard {
     icon: raw.icon || "BookOpen",
     sort_order: raw.sort_order ?? 0,
     is_enabled: raw.is_enabled ?? true,
-    show_in_feed: raw.show_in_feed ?? raw.showInFeed ?? true,
+    show_in_feed: raw.show_in_feed ?? true,
   };
 }
 

@@ -71,9 +71,7 @@ function payloadNumberText(payload: Record<string, unknown>, key: string): strin
 /**
  * 跳转映射（契约里 payload 可能缺键，缺了就退回列表页/通用条目页，不拼一个必然 404 的地址）：
  *   comment.replied  → /community/<topic_id>，缺 topic_id 时 /community
- *   entity.*         → catalogEntityHref(entity_kind, entity_id)；kind 缺失时不猜层级
- *                      （缺失 kind 无法确定专用详情路径），
- *                      退回通用兜底 /catalog/<id>
+ *   entity.*         → catalogEntityHref(entity_id)；详情地址只由 id 决定（kind 不参与 URL 命名）
  *   import.completed → /contribute（导入入口）
  */
 function notificationHref(n: Notification): string | null {
@@ -85,9 +83,7 @@ function notificationHref(n: Notification): string | null {
       // 实体短评没有主题可跳（短评是 community.topics 里锚定条目的行，不是论坛主题）：
       // 落到被评论的条目页，服务端会给 entity_kind；连 kind 都没有时才退回评论流首页。
       const entityId = payloadText(payload, "entity_id");
-      const kind = payloadText(payload, "entity_kind");
-      if (entityId && kind) return catalogEntityHref(kind, entityId);
-      if (entityId) return `/catalog/${encodeURIComponent(entityId)}`;
+      if (entityId) return catalogEntityHref(entityId);
       return "/community";
     }
     case "entity.included":
@@ -95,8 +91,7 @@ function notificationHref(n: Notification): string | null {
     case "entity.review_rejected": {
       const entityId = payloadText(payload, "entity_id") || (n.subject_type === "entity" ? n.subject_id : "");
       if (!entityId) return null;
-      const kind = payloadText(payload, "entity_kind");
-      return kind ? catalogEntityHref(kind, entityId) : `/catalog/${encodeURIComponent(entityId)}`;
+      return catalogEntityHref(entityId);
     }
     case "import.completed":
       return "/contribute";

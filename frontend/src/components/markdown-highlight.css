@@ -23,14 +23,14 @@
 .hljs-template-variable,
 .hljs-type,
 .hljs-variable.language_ {
-  color: var(--state-danger-color);
+  color: rgb(var(--state-danger-rgb));
 }
 
 .hljs-title,
 .hljs-title.class_,
 .hljs-title.class_.inherited__,
 .hljs-title.function_ {
-  color: var(--state-alt-color);
+  color: rgb(var(--state-alt-rgb));
 }
 
 .hljs-attr,
@@ -43,18 +43,18 @@
 .hljs-selector-attr,
 .hljs-selector-class,
 .hljs-selector-id {
-  color: var(--state-info-color);
+  color: rgb(var(--state-info-rgb));
 }
 
 .hljs-regexp,
 .hljs-string,
 .hljs-meta .hljs-string {
-  color: var(--state-success-color);
+  color: rgb(var(--state-success-rgb));
 }
 
 .hljs-built_in,
 .hljs-symbol {
-  color: var(--state-warn-color);
+  color: rgb(var(--state-warn-rgb));
 }
 
 /* 注释用 muted 而不是 faint：faint 在深色代码底上只有 3.7:1，注释也是正文级小字。 */
@@ -82,7 +82,7 @@
 }
 
 .hljs-bullet {
-  color: var(--state-warn-color);
+  color: rgb(var(--state-warn-rgb));
 }
 
 .hljs-emphasis {
@@ -94,11 +94,11 @@
 }
 
 .hljs-addition {
-  color: var(--state-success-color);
-  background-color: color-mix(in srgb, var(--state-success-color) 18%, transparent);
+  color: rgb(var(--state-success-rgb));
+  background-color: color-mix(in srgb, rgb(var(--state-success-rgb)) 18%, transparent);
 }
 
 .hljs-deletion {
-  color: var(--state-danger-color);
-  background-color: color-mix(in srgb, var(--state-danger-color) 18%, transparent);
+  color: rgb(var(--state-danger-rgb));
+  background-color: color-mix(in srgb, rgb(var(--state-danger-rgb)) 18%, transparent);
 }

@@ -345,64 +345,6 @@ export function FieldInput({
     />
   );
 }
-export function FieldValue({ field, value }: { field?: Field; value: any }) {
-  const { definitions } = useDefinitions();
-  const { locale, t } = useI18n();
-  if (value === null || value === undefined || value === "")
-    return <span>—</span>;
-  if (field?.type === "entity") return <EntityLink id={value} />;
-  if (field?.type === "multilingual")
-    return <span>{local(value, locale)}</span>;
-  if (field?.type === "enum")
-    return (
-      <span>
-        {local(
-          definitions?.vocabularies[field.vocabulary || ""]?.terms[
-            value
-          ]?.names,
-          locale,
-          "",
-          String(value),
-        )}
-      </span>
-    );
-  if (typeof value === "boolean")
-    return <span>{t(value ? "catalog.yes" : "catalog.no")}</span>;
-  if (Array.isArray(value))
-    return (
-      <ul>
-        {value.map((v, i) => (
-          <li key={i}>
-            <FieldValue field={field?.items} value={v} />
-          </li>
-        ))}
-      </ul>
-    );
-  if (typeof value === "object")
-    return (
-      <dl>
-        {Object.entries(value).map(([k, v]) => (
-          <div key={k}>
-            <dt>{local(field?.fields?.[k]?.names, locale, "", k)}</dt>
-            <dd>
-              <FieldValue field={field?.fields?.[k]} value={v} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    );
-  if (field?.type === "url" && /^https?:\/\//.test(value))
-    return (
-      <a href={value} target="_blank" rel="noreferrer">
-        {value}
-      </a>
-    );
-  return (
-    <span>
-      {String(value)} {local(field?.unit, locale)}
-    </span>
-  );
-}
 export function EntityLink({ id, fallback }: { id: string; fallback?: string }) {
   const [e, setE] = useState<Entity>();
   const [failed, setFailed] = useState(false);

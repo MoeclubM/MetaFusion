@@ -41,7 +41,7 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
     if ("entity_id" in raw) {
       const it = raw as ConnectedEntityItem;
       rows.push({
-        href: catalogEntityHref(it.entity_type, it.entity_id),
+        href: catalogEntityHref(it.entity_id),
         name: it.entity_name,
         originalName: it.original_name,
         coverUrl: it.cover_url,
@@ -62,7 +62,7 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
     } else {
       const it = raw as EntityRelationship;
       rows.push({
-        href: catalogEntityHref(it.target_type, it.target_id),
+        href: catalogEntityHref(it.target_id),
         name: it.target_id.slice(0, 8),
         entityType: it.target_type,
         kind: it.target_type,

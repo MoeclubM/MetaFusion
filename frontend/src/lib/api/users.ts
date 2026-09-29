@@ -111,19 +111,20 @@ export async function fetchUserContributions(
   };
 }
 
-// normalizeContributionItem 把一条贡献项收敛成页面只认的形状：
-// 动作名两种写法合一、来源列表统一成 {kind,citation,url}、差异在"字段级 diff"与"摘要文案"之间二选一。
+// normalizeContributionItem 把一条贡献项收敛成页面只认的形状：字段名与
+// 服务端 ContributionItem 的 json tag 逐字对齐（不接受任何旧别名字段），
+// 来源列表统一成 {kind,citation,url}、差异在"字段级 diff"与"摘要文案"之间二选一。
 function normalizeContributionItem(raw: unknown): ContributionItem {
   const row = (raw ?? {}) as Record<string, any>;
   const item: ContributionItem = {
     id: String(row.id ?? ""),
     tab: row.tab,
-    kind: row.kind ?? row.target_type,
-    title: row.title ?? row.target_title,
-    target_id: row.target_id ?? row.work_id,
+    kind: row.kind,
+    title: row.title,
+    target_id: row.target_id,
     version: typeof row.version === "number" ? row.version : undefined,
-    action: row.edit_type ?? row.action,
-    edit_note: row.edit_note ?? row.note,
+    action: row.edit_type,
+    edit_note: row.edit_note,
     sources: normalizeContributionSources(row),
     status: row.status,
     created_at: row.created_at,

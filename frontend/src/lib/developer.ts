@@ -67,7 +67,9 @@ export interface DeveloperAppDraft {
 /** client_id 形状：与 store.ValidClientID 同口径（小写字母开头，3–64 位）。 */
 export const DEVELOPER_CLIENT_ID_RE = /^[a-z][a-z0-9_-]{2,63}$/;
 
-export type TranslateFn = (key: string, vars?: Record<string, string | number>) => string;
+// 翻译函数形状只有一份定义（i18n/I18nProvider）。
+import type { TranslateFn } from "@/i18n/I18nProvider";
+export type { TranslateFn };
 
 /** 接入端点清单：顺序即界面展示顺序，键名与服务端 endpoints 对象一致。 */
 export const ENDPOINT_KEYS = ["authorization", "token", "userinfo", "jwks", "discovery"] as const;

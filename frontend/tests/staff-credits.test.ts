@@ -42,7 +42,7 @@ test("角色端的出场作品及属性引用声优关系进入署名列表", ()
   assert.equal(cards.length, 0);
   const visible = unrenderedCreditRelations(rows, definitions, new Set(cards.map((card) => card.id)));
   assert.deepEqual(visible.map((row) => row.id), ["appearance", "voice"]);
-  assert.equal(canonicalDetailPath("work", visible[0].target_id), `/catalog/${workId}`);
+  assert.equal(canonicalDetailPath(visible[0].target_id), `/catalog/${workId}`);
 });
 
 test("修改展示分组不改变署名语义", () => {
@@ -53,8 +53,7 @@ test("修改展示分组不改变署名语义", () => {
   assert.deepEqual(unrenderedCreditRelations(rows, changed, new Set()).map((row) => row.id), ["appearance", "voice"]);
 });
 
-test("八种实体的规范详情地址相同", () => {
-  for (const kind of ["agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"]) {
-    assert.equal(canonicalDetailPath(kind, "entity-1"), "/catalog/entity-1");
-  }
+test("规范详情地址只由 id 决定（kind 不参与 URL 命名）", () => {
+  assert.equal(canonicalDetailPath("entity-1"), "/catalog/entity-1");
+  assert.equal(canonicalDetailPath(null), null);
 });

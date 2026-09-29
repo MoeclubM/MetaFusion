@@ -3,9 +3,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { defaultLocale, localeCookieName, normalizeLocale, type Locale } from "./routing";
 import { getMessages, translate, translateOr } from "./getMessages";
 
+/** 字典翻译函数的形状：错误码映射表与各页面共用这一个签名。 */
+export type TranslateFn = (key: string, vars?: Record<string, string | number>) => string;
+
 type Ctx = {
   locale: Locale;
-  t: (key: string, vars?: Record<string, string | number>) => string;
+  t: TranslateFn;
   tr: (key: string, fallback: string, vars?: Record<string, string | number>) => string;
   setLocale: (next: Locale) => void;
 };

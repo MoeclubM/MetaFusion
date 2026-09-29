@@ -8,11 +8,9 @@ import { canEditRevision, prepareRevisionRestore } from "./revisionData";
 import { RevisionDiffInspector } from "./RevisionDiffInspector";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
-  GitCommit,
   GitBranch,
   GitCompare,
   History,
-  User as UserIcon,
   ExternalLink,
   FileText,
   Check,
@@ -20,11 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  ArrowRight,
   Eye,
-  Shield,
-  Layers,
-  Sparkles,
 } from "lucide-react";
 
 export interface RevisionItem {

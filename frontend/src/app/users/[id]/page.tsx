@@ -496,7 +496,7 @@ export default function UserDetailPage() {
           ) : tab === "favorites" ? (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: FavoriteItem) => {
-                const href = catalogEntityHref(it.target_type, it.target_id);
+                const href = catalogEntityHref(it.target_id);
                 const title = it.entity?.title || it.target_id;
                 const typeLabel = kindLabel(it.target_type);
                 return (
@@ -540,10 +540,10 @@ export default function UserDetailPage() {
                 const isRevision = it.action !== undefined;
                 const actionBadge = isRevision ? getRevisionActionLabel(it.action) : null;
 
-                // 实体链接：后端两项都带 kind 与 target_id（创建项的 id 就是实体 id）。
+                // 实体链接：地址只看 id（创建项的 id 就是实体 id），kind 只用于展示标签。
                 const kind = it.kind || "";
                 const targetId = it.target_id || it.id;
-                const entityHref = kind && targetId ? catalogEntityHref(kind, targetId) : "#";
+                const entityHref = targetId ? catalogEntityHref(targetId) : "#";
                 const entityDisplayName = it.title || "";
 
                 return (

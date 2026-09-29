@@ -154,7 +154,9 @@ export function isValidSourceUrl(raw: string): boolean {
   }
 }
 
-export type TranslateFn = (key: string, vars?: Record<string, string | number>) => string;
+// 翻译函数形状只有一份定义（i18n/I18nProvider）：这里只做类型再导出，避免各模块各写一遍。
+import type { TranslateFn } from "@/i18n/I18nProvider";
+export type { TranslateFn };
 
 /**
  * 交换端点的错误码 → 文案键。
