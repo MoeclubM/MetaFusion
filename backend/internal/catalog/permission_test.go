@@ -59,8 +59,8 @@ func TestCanDeniesEmptyPermissions(t *testing.T) {
 	}
 }
 
-// S01：显式空权限不得回落 admin（空数组、显式 null、非 nil 空集合三种形态）；
-// 缺键老令牌（nil、无标记、非 PAT、非第三方）保持历史兜底（见 TestCanLegacyRoleFallback）。
+// S01：空权限集合（空数组、显式 null、nil）一律不放行任何码——判定只看 permissions，
+// 不存在角色兜底（见 permission.go 的 Can/HasPermission）。
 func TestCanDeniesExplicitEmptyAdmin(t *testing.T) {
 	for _, u := range []User{
 		{Permissions: []string{}},

@@ -15,26 +15,21 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
   const { t } = useI18n();
   const [showRaw, setShowRaw] = useState(false);
 
+  // 键是实体文档的字段路径（服务端 contributionDiff 只下钻 attributes/translations 一层）。
+  // 表里只留模型里真实存在的字段：v1 扁平字段（summary / cover_aspect / aliases /
+  // edition_name …）已随模型演进消失，再为它们留标签只会显示错误的字段名。
   const getFieldLabel = (key: string): string => {
     const map: Record<string, string> = {
       title: t("editor.diff.fieldTitle"),
-      summary: t("editor.diff.fieldSummary"),
-      original_title: t("editor.diff.fieldOriginalTitle"),
-      cover_aspect: t("editor.diff.fieldCoverAspect"),
-      cover_image_url: t("editor.diff.fieldCoverAspect"),
-      country: t("editor.diff.fieldCountry"),
       status: t("editor.diff.fieldStatus"),
-      aliases: t("editor.diff.fieldAliases"),
       translations: t("editor.diff.fieldTranslations"),
-      tags: t("editor.diff.fieldTags"),
-      source_urls: t("editor.diff.fieldSourceUrls"),
-      relations: t("editor.diff.fieldRelations"),
-      edition_name: t("editor.diff.fieldEditionName"),
-      role: t("editor.diff.fieldRole"),
-      disambiguation: t("editor.diff.fieldDisambiguation"),
       external_ids: t("editor.diff.fieldExternalIds"),
-      release_date: t("editor.diff.fieldReleaseDate"),
     };
+    const dot = key.indexOf(".");
+    if (dot > 0) {
+      const parent = map[key.slice(0, dot)];
+      return parent ? `${parent} · ${key.slice(dot + 1)}` : key;
+    }
     return map[key] ? `${map[key]} (${key})` : key;
   };
 

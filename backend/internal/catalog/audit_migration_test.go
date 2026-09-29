@@ -21,7 +21,7 @@ import (
 )
 
 // 迁移文件与审计包里的 Schema 常量必须是同一段 DDL：改一处必须改另一处，
-// 否则"启动路径建的表"会和"迁移建的表"漂移（契约 §1 只允许一份 DDL 文本）。
+// 否则四个服务各自建的 audit.audit_log 会漂移（契约 §1 只允许一份 DDL 文本）。
 func TestAuditMigrationMatchesPackageSchema(t *testing.T) {
 	b, err := fs.ReadFile(migrations.FS, auditSchemaFile)
 	if err != nil {

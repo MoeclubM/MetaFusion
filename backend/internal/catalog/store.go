@@ -23,7 +23,7 @@ import (
 // S2 冻结（注释说明，不动规则）：000001 是已执行的安装基线，永不修改；后续结构变化只以
 // backend/migrations 中有序不可变的增量迁移表达。
 // 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
-// 数据不再需要历史迁移后合并成单一基线，两边读同一份，冗余与漂移一起消失。
+// 现在只保留这一个读取入口，供基线守卫测试（defaults_test.go）断言不含破坏性语句。
 const baselineFile = "000001_catalog_core.up.sql"
 
 func catalogBaseline() (string, error) {
@@ -34,32 +34,10 @@ func catalogBaseline() (string, error) {
 	return string(b), nil
 }
 
-// auditSchemaFile 是审计表结构（迁移 000002）。目录服务启动路径与 `mf-migrate up` 执行
-// **同一份文件**：新库只起服务也能建表，不然写路由的审计行会整条落空；版本记账仍归 mf-migrate
-// （schema_migrations 只有它维护）。语句全是 IF NOT EXISTS 且共用契约里的 advisory 锁 740205，
-// 两条路径、四个服务重复执行都安全。
+// auditSchemaFile 是审计表结构（迁移 000002）：审计表只由 `mf-migrate up` 建立，
+// 服务启动只做只读检查（见 startup.go），不再执行任何 DDL。这份常量供跨服务
+// 表结构一致性校验读取（audit_migration_test.go ↔ scripts/check_audit_schema.py）。
 const auditSchemaFile = "000002_audit_log.up.sql"
-
-func catalogAuditSchema() (string, error) {
-	b, err := fs.ReadFile(migrations.FS, auditSchemaFile)
-	if err != nil {
-		return "", fmt.Errorf("read audit schema %s: %w", auditSchemaFile, err)
-	}
-	return string(b), nil
-}
-
-// notificationsSchemaFile 是站内通知（迁移 000003），与 000002 同一套做法：
-// 新库只起服务也能建表（否则收件箱端点会 500），版本记账仍归 mf-migrate。
-// 只建表、不写行，重复执行安全。
-const notificationsSchemaFile = "000003_notifications.up.sql"
-
-func catalogNotificationsSchema() (string, error) {
-	b, err := fs.ReadFile(migrations.FS, notificationsSchemaFile)
-	if err != nil {
-		return "", fmt.Errorf("read notifications schema %s: %w", notificationsSchemaFile, err)
-	}
-	return string(b), nil
-}
 
 // 领域哨兵错误：respond（http.go）按错误链判定 HTTP 状态码，所以写路径与
 // retirement/生命周期里的拒绝必须用同一批哨兵，而不是各自 fmt.Errorf 出同名字符串——

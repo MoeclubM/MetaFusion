@@ -153,7 +153,7 @@ func main() {
 		}
 		log.Println("数据库迁移回滚成功！")
 
-	case "status", "version":
+	case "status":
 		if err := m.Status(ctx); err != nil {
 			log.Fatalf("查询迁移状态失败: %v", err)
 		}
