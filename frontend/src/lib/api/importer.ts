@@ -92,7 +92,6 @@ export interface ImporterMediumPreview {
   number?: string;
   name: string;
   format: string;
-  media_category: string;
   role?: "primary" | "supplement" | string;
   original_language?: string;
   translations?: Record<string, { name?: string }>;
@@ -169,7 +168,6 @@ export interface ImporterImportRequest {
   download_cover?: boolean;
   edit_note?: string;
   source_urls?: string[];
-  is_master_verified?: boolean;
   target_work_id?: string;
   link_mode?: "new_work" | "append_release_to_work" | "create_relation";
   relation_type?: string;

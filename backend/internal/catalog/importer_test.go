@@ -675,8 +675,7 @@ func TestImporterPreflightKeepsZeroWrites(t *testing.T) {
 	}
 }
 
-// 四个此前"只有声明、没有读取点"的字段现在都有明确行为（见 importerApplyFieldSwitches）：
-// is_master_verified / media_type_hint 明确拒绝，has_release 与 mediums 必须自洽，
+// importerApplyFieldSwitches 的两条现行行为：has_release 与 mediums 必须自洽，
 // download_cover 显式 false 不引用远端封面/头像（未传保持既有透传）。
 func TestImporterApplyFieldSwitches(t *testing.T) {
 	base := func() ImporterImportRequest {
@@ -709,18 +708,6 @@ func TestImporterApplyFieldSwitches(t *testing.T) {
 	}
 	if req.Work.CoverImageURL == "" {
 		t.Fatal("caller payload must not be mutated in place")
-	}
-	// is_master_verified 无落库语义
-	verified := base()
-	verified.IsMasterVerified = true
-	if _, err := importerApplyFieldSwitches(verified); err == nil || !strings.Contains(err.Error(), "not_supported: is_master_verified") {
-		t.Fatalf("is_master_verified must be rejected: %v", err)
-	}
-	// media_type_hint 不接受覆盖
-	hint := base()
-	hint.MediaTypeHint = "music"
-	if _, err := importerApplyFieldSwitches(hint); err == nil || !strings.Contains(err.Error(), "not_supported: media_type_hint") {
-		t.Fatalf("media_type_hint must be rejected: %v", err)
 	}
 	// has_release 与 mediums 必须自洽
 	claimed := base()

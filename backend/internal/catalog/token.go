@@ -54,13 +54,10 @@ type Claims struct {
 	// groups 是组码（展示与审计用），permissions 是展开后的权限码集合——授权只看它。
 	Groups      []string `json:"groups,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
-	// Scope/ClientID/TokenUse/TokenType 是令牌用途的标记（与签发侧对齐，见 S01）：
-	// 站内会话 JWT 恒带 token_use=session（无 scope/client_id）；第三方 OAuth 带
-	// token_use=oauth（+scope/client_id），id_token 带 token_use=id_token（aud 指向
-	// 客户端，audience 收口已拒）。audience 收口（Verify 的 bad audience）拒掉 aud
-	// 指向客户端的令牌，这里再标记"aud 仍是平台但带 OAuth 标记"的那一种。
-	Scope    string `json:"scope,omitempty"`
-	ClientID string `json:"client_id,omitempty"`
+	// TokenUse 是令牌用途标记（与签发侧对齐）：站内会话恒带 token_use=session，
+	// 第三方 OAuth 带 token_use=oauth，id_token 带 token_use=id_token（aud 指向客户端，
+	// audience 收口已拒）。audience 收口（Verify 的 bad audience）拒掉 aud 指向客户端的
+	// 令牌，这里再标记"aud 仍是平台但带 OAuth 标记"的那一种。
 	TokenUse string `json:"token_use,omitempty"`
 	Issuer   string `json:"iss"`
 	Audience string `json:"aud"`
@@ -426,8 +423,8 @@ func (t *TokenVerifier) PublicJWK() map[string]any {
 	}
 }
 
-// 令牌用途取值，与账号服务签发侧同源：判定只认这三个值与空串（历史令牌缺键，
-// 按会话语义兼容）；未知取值在 Verify 直接拒收（bad token_use）。
+// 令牌用途取值，与账号服务签发侧同源：判定只认这三个值，缺键（空串）与未知取值
+// 都在 Verify 直接拒收（bad token_use）——不存在"历史令牌缺键按会话放行"的兜底。
 const (
 	TokenUseSession = "session"
 	TokenUseOAuth   = "oauth"
@@ -452,11 +449,9 @@ func validTokenUse(use string) bool {
 }
 
 // ClaimsToUser 把已验签的载荷还原为 User（身份、角色与权限集合，不查库）。
-// 第三方判定与互动 internal/auth/auth.go 同契约：session/空用途=第一方放行，
-// 仅 oauth/id_token 判第三方；空用途下仍带 scope/client_id/token_type（签发侧过渡态，
-// 会话签发恒清零这三项）视为第三方。未知用途 Verify 已拒收，这里按第三方收紧
-// （直接构造 Claims 绕过 Verify 时仍 fail closed）；permissions 键存在性原样带给
-// Can 做分支。
+// 第三方判定与互动 internal/auth/auth.go 同契约：仅 oauth/id_token 判第三方，
+// session 永不视为第三方。未知用途 Verify 已拒收，这里按第三方收紧（直接构造
+// Claims 绕过 Verify 时仍 fail closed）；permissions 键存在性原样带给 Can 做分支。
 func ClaimsToUser(c *Claims) *User {
 	if c == nil {
 		return nil

@@ -621,8 +621,6 @@ func TestSessionTokenUseWalksAsFirstParty(t *testing.T) {
 	// 第三方 oauth（仅 openid/profile/email 授权形态）：验签通过但判第三方，治理码全拒。
 	oauth := walk(func(c Claims) Claims {
 		c.TokenUse = "oauth"
-		c.Scope = "openid profile email"
-		c.ClientID = "third-party-app"
 		c.Permissions = []string{permissionWildcard}
 		return c
 	})

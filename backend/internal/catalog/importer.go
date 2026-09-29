@@ -42,10 +42,9 @@ const importerUserAgent = "MetaFusion/1.0 (catalog importer)"
 // 因此请求结构必须包含前端可能发送的全部字段；松散对象统一用 any / map 承接。
 
 type ImporterPreviewRequest struct {
-	Source        string `json:"source"`
-	URLOrID       string `json:"url_or_id"`
-	EntityType    string `json:"entity_type"`
-	MediaTypeHint string `json:"media_type_hint"`
+	Source     string `json:"source"`
+	URLOrID    string `json:"url_or_id"`
+	EntityType string `json:"entity_type"`
 }
 
 type ImporterTranslationItem struct {
@@ -101,27 +100,21 @@ type ImporterArtistPreview struct {
 }
 
 type ImporterStaffAssociation struct {
-	ParsedName     string `json:"parsed_name"`
-	ParsedOriginal string `json:"parsed_original,omitempty"`
-	ParsedRole     string `json:"parsed_role"`
-	EntityType     string `json:"entity_type"`
-	Action         string `json:"action"`
-	TargetArtistID string `json:"target_artist_id,omitempty"`
-	// CustomRole 是前端"角色"下拉的遗留键：它的取值是界面文案（Author/Director/Voice Actor…），
-	// 既不是 definitions 关系码也不是词表项，服务端**没有**任何落点——落库的署名职位只会来自
-	// ParsedRole（见 importerAssociationRelationAttrs）。因此只有"与原值相同"（旧前端把
-	// parsed_role 原样回传）被当成空壳放行，用户真改动过（≠ parsed_role）由预检以
-	// unsupported_field_for_entity_type 明确拒绝，不静默忽略（见 importerUnsupportedPayloadFields）。
-	CustomRole    string                    `json:"custom_role,omitempty"`
-	CharacterName string                    `json:"character_name,omitempty"`
-	Country       string                    `json:"country,omitempty"`
-	Biography     string                    `json:"biography,omitempty"`
-	Language      string                    `json:"language,omitempty"`
-	AvatarURL     string                    `json:"avatar_url,omitempty"`
-	ExternalIDs   map[string]any            `json:"external_ids,omitempty"`
-	Translations  []ImporterTranslationItem `json:"translations,omitempty"`
-	RelationType  string                    `json:"relation_type,omitempty"`
-	RelationRole  string                    `json:"relation_role,omitempty"`
+	ParsedName     string                    `json:"parsed_name"`
+	ParsedOriginal string                    `json:"parsed_original,omitempty"`
+	ParsedRole     string                    `json:"parsed_role"`
+	EntityType     string                    `json:"entity_type"`
+	Action         string                    `json:"action"`
+	TargetArtistID string                    `json:"target_artist_id,omitempty"`
+	CharacterName  string                    `json:"character_name,omitempty"`
+	Country        string                    `json:"country,omitempty"`
+	Biography      string                    `json:"biography,omitempty"`
+	Language       string                    `json:"language,omitempty"`
+	AvatarURL      string                    `json:"avatar_url,omitempty"`
+	ExternalIDs    map[string]any            `json:"external_ids,omitempty"`
+	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
+	RelationType   string                    `json:"relation_type,omitempty"`
+	RelationRole   string                    `json:"relation_role,omitempty"`
 }
 
 type ImporterTrackPreview struct {
@@ -143,15 +136,10 @@ type ImporterTrackPreview struct {
 // （不是 attributes）：载体题名的原语言行与各语种译名行，随载体落库写入（importReleaseChain），
 // 幂等命中时补齐缺失行、不覆盖已有行。
 type ImporterMediumPreview struct {
-	Position int    `json:"position"`
-	Number   string `json:"number,omitempty"`
-	Name     string `json:"name"`
-	Format   string `json:"format"`
-	// MediaCategory 是前端契约里的遗留键：**模型里没有这个字段**（Entity 无此列，medium 类型
-	// 字段集只有 catalog_number/format/role），预览响应因此恒为空串。载荷声明非空值没有落点，
-	// 收下就是丢数据，由预检以 unsupported_field_for_entity_type 明确拒绝
-	// （见 importerUnsupportedPayloadFields）。
-	MediaCategory    string                 `json:"media_category"`
+	Position         int                    `json:"position"`
+	Number           string                 `json:"number,omitempty"`
+	Name             string                 `json:"name"`
+	Format           string                 `json:"format"`
 	Role             string                 `json:"role,omitempty"`
 	OriginalLanguage string                 `json:"original_language,omitempty"`
 	Translations     any                    `json:"translations,omitempty"`
@@ -244,15 +232,13 @@ type ImporterImportRequest struct {
 	Mediums          []ImporterMediumPreview         `json:"mediums,omitempty"`
 	// DownloadCover 只决定是否把远端封面/头像作为 Picture 引用写库（目录侧不抓取、不转存，
 	// 转存归存储子系统）：指针用于区分"没传"与"显式 false"——未传保持既有透传行为，
-	// 显式 false 表示调用方不要封面。IsMasterVerified / MediaTypeHint 无落库语义，
-	// true/非空一律拒绝，见 importerApplyFieldSwitches（不再"接受但忽略"）。
-	DownloadCover    *bool    `json:"download_cover,omitempty"`
-	EditNote         string   `json:"edit_note,omitempty"`
-	SourceURLs       []string `json:"source_urls,omitempty"`
-	IsMasterVerified bool     `json:"is_master_verified,omitempty"`
-	TargetWorkID     string   `json:"target_work_id,omitempty"`
-	LinkMode         string   `json:"link_mode,omitempty"`
-	RelationType     string   `json:"relation_type,omitempty"`
+	// 显式 false 表示调用方不要封面（见 importerApplyFieldSwitches）。
+	DownloadCover *bool    `json:"download_cover,omitempty"`
+	EditNote      string   `json:"edit_note,omitempty"`
+	SourceURLs    []string `json:"source_urls,omitempty"`
+	TargetWorkID  string   `json:"target_work_id,omitempty"`
+	LinkMode      string   `json:"link_mode,omitempty"`
+	RelationType  string   `json:"relation_type,omitempty"`
 }
 
 type ImporterImportedCounts struct {
@@ -1838,12 +1824,6 @@ func importerEvidence(req ImporterImportRequest, source string) (string, []Sourc
 //   - download_cover 显式 false：本服务不抓取、不转存图片（转存归存储子系统），字段只决定
 //     是否把远端封面/头像作为 Picture 引用写库；未传或 true 保持既有透传行为。
 func importerApplyFieldSwitches(req ImporterImportRequest) (ImporterImportRequest, error) {
-	if req.IsMasterVerified {
-		return req, fmt.Errorf("not_supported: is_master_verified")
-	}
-	if strings.TrimSpace(req.MediaTypeHint) != "" {
-		return req, fmt.Errorf("not_supported: media_type_hint")
-	}
 	if req.HasRelease && len(req.Mediums) == 0 {
 		return req, fmt.Errorf("invalid_payload: has_release=true requires mediums")
 	}
@@ -3106,26 +3086,11 @@ func importerReleaseRequiresMediums(req ImporterImportRequest, mode string) erro
 // unsupported_field_for_entity_type，field 带对象定位（mediums[0].media_category / release.notes），
 // 调用方对"载荷声明了但写不进去"只需处理一种分支。
 //
-// 空壳（空串 / null / [] / {}）与"没传"同义，不算声明：预览响应会把 mediums[*].media_category
-// 恒为空串带回，前端原样转交，把空值也当声明就会把正常的预览→导入往返自己拒掉。
+// 空壳（空串 / null / [] / {}）与"没传"同义，不算声明：调用方常把预览响应原样转交，
+// 把空值也当声明就会把正常的预览→导入往返自己拒掉。
 func importerUnsupportedPayloadFields(req ImporterImportRequest, entityType string) error {
 	reject := func(field string) error {
 		return fmt.Errorf("unsupported_field_for_entity_type: entity_type=%s field=%s", entityType, field)
-	}
-	// media_category：Entity 无此列，当前适用于 medium 的字段也不含它。
-	for i, m := range req.Mediums {
-		if strings.TrimSpace(m.MediaCategory) != "" {
-			return reject(fmt.Sprintf("mediums[%d].media_category", i))
-		}
-	}
-	// staff_associations[*].custom_role：落库的署名职位只来自 parsed_role，这个键读不了。
-	// 旧前端把它初始化成 parsed_role 并原样回传，那种"等同原值"的往返不改变落库结果，
-	// 按空壳放行；调用方真改了值（≠ parsed_role）说明它期待"改角色"生效，而模型里没有
-	// 对应的关系码/词表项可用（界面取值是英文文案，不是 definitions 码），只能明确拒绝。
-	for i, a := range req.StaffAssociations {
-		if cr := strings.TrimSpace(a.CustomRole); cr != "" && cr != strings.TrimSpace(a.ParsedRole) {
-			return reject(fmt.Sprintf("staff_associations[%d].custom_role", i))
-		}
 	}
 	rel := req.Release
 	if rel == nil {
