@@ -11,13 +11,8 @@ import { localizeCatalogError } from "@/lib/catalogErrors";
 import { UI_LOCALE_CODES } from "@/lib/languages";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
-
-export interface ShelfQuery {
-  tags?: string[];
-  fields?: Record<string, string[]>;
-  vocab_terms?: Record<string, string[]>;
-  relations?: string[];
-}
+// 货架查询形状只有一份定义（lib/homeSections.ts）：首页自定义与后台货架页共用同一种查询。
+import type { ShelfQuery } from "@/lib/homeSections";
 
 export interface ShelfItem {
   id: number;
