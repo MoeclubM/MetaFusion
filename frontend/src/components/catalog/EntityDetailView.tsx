@@ -740,7 +740,9 @@ export function EntityDetailView({ id }: { id: string }) {
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length + staffRelations.length, visible: staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    // 作品的内容目录覆盖篇目/表达/聚合组成项，比"子实体列表"更准（子实体查询会连发行版一起带回），
+    // 因此目录在场时以目录计数，且不再重复渲染子实体网格。
+    { id: "contents", label: t("entity.page.navContents"), badge: directoryVisible ? directoryData.items.length : children.length, visible: directoryVisible || children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
@@ -1404,7 +1406,7 @@ export function EntityDetailView({ id }: { id: string }) {
               </Card>
             )}
 
-            {active === "contents" && children.length > 0 && (
+            {active === "contents" && !directoryVisible && children.length > 0 && (
               <Card id="contents" padding="section" className="space-y-4 shadow-soft">
                 <SectionTitle icon={<List className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                   {t("entity.page.contentsTitle")}
