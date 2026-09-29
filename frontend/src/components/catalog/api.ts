@@ -1,4 +1,5 @@
 import { pickRecordTitle } from "@/lib/titles";
+import { resolveLocalizedName } from "@/lib/localizedNames";
 import { fetchApi } from "@/lib/api";
 import { ENTITY_KINDS } from "@/lib/kinds.generated";
 
@@ -178,11 +179,11 @@ export type { User } from "@/lib/api/client";
 // 它就是 /community/entities/:id/posts 的响应形状，类型只在 lib/api/community.ts 声明一处，
 // 这里 re-export 以保住既有调用点（同一份契约不要在前端留两份类型）。
 export type { EntityComment as CommunityPost } from "@/lib/api/community";
+// 能力清单是部署态声明，只有两态：id 是前端契约键，enabled 表示该子系统是否在场。
+// 没有 healthy/version/dependencies——目录不探测上游，健康由网关/运维面各自读 /health。
 export type Capability = {
   id: string;
   enabled: boolean;
-  healthy: boolean;
-  dependencies: Record<string, string>;
 };
 export async function api<T = any>(
   path: string,
@@ -235,31 +236,18 @@ export async function mapLimit<T, R>(
   await Promise.all(workers);
   return out;
 }
+// 多语言回退链只在 lib/localizedNames.ts 实现一份（请求语种 → 同语系 → 简中 → 繁中 →
+// 日文 → 英文 → 其余非空值）；这里只多一个"原文语种优先"的入参，供编辑/预览场景使用。
 export function local(
   names: Names | undefined,
   locale: string,
   original = "",
   fallback = "",
 ) {
-  if (!names) return fallback;
-  const get = (code: string): string => {
-    const v = names[code];
-    return typeof v === "string" && v.trim() ? v.trim() : "";
-  };
-  if (get(locale)) return get(locale);
-  const low = locale.trim().toLowerCase();
-  const short = low.split("-")[0];
-  for (const [k, v] of Object.entries(names)) {
-    if (typeof v !== "string" || !v.trim()) continue;
-    const kl = k.trim().toLowerCase();
-    if (kl === short || kl.split("-")[0] === short) return v.trim();
-  }
-  if (get("zh-CN") || get("zh")) return get("zh-CN") || get("zh");
-  if (get("zh-TW") || get("zh-Hant")) return get("zh-TW") || get("zh-Hant");
-  if (get("ja") || get("ja-JP")) return get("ja") || get("ja-JP");
-  if (get("en-US") || get("en")) return get("en-US") || get("en");
-  if (original && get(original)) return get(original);
-  return fallback;
+  const resolved = resolveLocalizedName(names, locale, "");
+  if (resolved) return resolved;
+  const raw = original ? names?.[original] : "";
+  return typeof raw === "string" && raw.trim() ? raw.trim() : fallback;
 }
 export function title(e: Entity, locale: string, order: string[] = []) {
   return pickRecordTitle(locale, e.translations, e.title, {

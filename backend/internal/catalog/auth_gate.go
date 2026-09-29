@@ -1,7 +1,7 @@
 package catalog
 
-// 身份与管理员闸门集中在这里：/api 组的身份中间件（只验签）、以及给**其它路由组**复用的
-// AdminGate（能力清单的墓碑端点不在 /api 组里，拿不到组内中间件，必须自带验签）。
+// 身份闸门集中在这里：/api 组的身份中间件（只验签，身份只来自账号服务签发的 RS256 令牌）
+// 与各路由组复用的权限闸门 required()。
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	auditlog "github.com/metafusion/metafusion-app/internal/audit"
 )
 
 // patRejection 是 PAT 请求**不能按匿名继续**时的结论：调用方必须直接结束请求，
@@ -88,35 +86,6 @@ func attachUser(s *Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if r := attachIdentity(c, s); r != nil {
 			rejectPAT(c, r)
-			return
-		}
-		c.Next()
-	}
-}
-
-// AdminGate 是**本进程内其它路由组**复用的管理员闸门：能力清单的墓碑端点
-// PUT /api/admin/modules/:id 注册在 /api 组之外，拿不到组内中间件，所以闸门自带验签。
-// 判定：未登录 401 authentication_required，非管理员 403 forbidden。
-// "管理员"沿用目录侧唯一的 admin-only 权限码 catalog.lifecycle.manage（账号服务的 admin 组带 *
-// 通配，editor 只带 catalog.entity.edit），不新造码——新码要与账号服务的权限清单逐字对齐，而
-// 模块开关已经退役、没有承载物（见 docs/architecture/capabilities-and-module-toggles.md）。
-func (h HTTP) AdminGate() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if r := attachIdentity(c, h.Store); r != nil {
-			rejectPAT(c, r)
-			return
-		}
-		u := user(c)
-		if u == nil {
-			// 审计错误码与响应体同值（契约 §1）：墓碑端点的中间件排在闸门之后，
-			// 未登录/无权限时同样留一行 failure。
-			auditlog.Fail(c, "authentication_required")
-			c.AbortWithStatusJSON(401, gin.H{"error": "authentication_required"})
-			return
-		}
-		if !u.Can(PermissionLifecycleManage) {
-			auditlog.Fail(c, "forbidden")
-			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return
 		}
 		c.Next()

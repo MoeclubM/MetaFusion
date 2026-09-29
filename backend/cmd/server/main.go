@@ -81,7 +81,7 @@ func main() {
 	defer s.Audit.Close()
 
 	// 目录侧只验签，不签发：按 AUTH_JWT_PUBLIC_KEY（静态公钥）→ AUTH_JWKS_URL（账号服务的 JWKS）
-	// → AUTH_JWT_PRIVATE_KEY（兼容兜底，启动告警）取公钥；私钥始终留在账号服务。
+	// 取公钥；私钥始终留在账号服务，目录的环境变量里出现私钥会被拒绝启动。
 	// 三者都未配置时验签器不可用，需要身份的写接口会按未登录处理——这是有意的 fail closed，
 	// 只影响写与个性化，公开读不受影响。
 	verifier, terr := catalog.NewTokenVerifierFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
@@ -168,26 +168,9 @@ func main() {
 	catalogHTTP.Register(r)
 
 	// 能力清单是**部署态声明**：子系统拆出去之后，能力由部署配置声明（见 capabilities 包），
-	// 目录不探测上游、不发任何出站请求；运行时开关退役（PUT /api/admin/modules/:id 返回 409）。
-	// 墓碑端点注册在 /api 组之外，因此把目录的管理员闸门显式传进去：未登录 401、非管理员 403，
-	// 管理员才拿到 409 与 hint（闸门与 409 契约见 capabilities 包的注释）。
-	// 墓碑端点（PUT /api/admin/modules/:id）的审计接线：该路由由 capabilities 包注册在 /api
-	// 组之外，拿不到组内的审计中间件；而引擎级中间件（r.Use）是在 c.Next() 之前构造草稿的，
-	// 那一刻 attachIdentity 还没跑，actor 会恒为空——那是假留痕（管理员试开开关会记成匿名）。
-	// 所以把审计中间件排在闸门**之后**调用：闸门跑完（含身份与权限判定）再构造草稿，
-	// actor 与响应状态都已知；未登录/无权限的尝试也照样留一行 failure。
-	// 链长固定为 [本函数, 墓碑处理器]：闸门成功时它自己的 c.Next() 已经把链走完、abort 时 gin
-	// 把 index 置到链外，两种情况 auditMW 里的 c.Next() 都不会重复执行处理器。
-	toggleGate := catalogHTTP.AdminGate()
-	toggleAudit := audit.Middleware(audit.Options{
-		Recorder: s.Audit,
-		Actions:  capabilities.AuditActions(),
-		Actor:    catalog.DirectoryActor,
-	})
-	capabilities.New(os.Getenv).Register(r, func(c *gin.Context) {
-		toggleGate(c)
-		toggleAudit(c)
-	})
+	// 目录不探测上游、不发任何出站请求，清单只有 {id, enabled}。它是唯一的公开只读端点，
+	// 注册在 /api 组之外（匿名可读，不需要身份也不需要审计）。
+	capabilities.New(os.Getenv).Register(r)
 
 	// /healthz 是进程存活；/health 与其它服务同形（status+service），供网关/运维面聚合探针统一读取。
 	// /health 另外带 definitions（见 catalog.DefinitionStatus）：etag 标记当前生效文档，

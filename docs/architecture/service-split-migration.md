@@ -3,7 +3,7 @@
 本文记录 MetaFusion 从"单进程模块化单体"迁移到"按职责划分的独立服务"的路由与数据归属契约。
 P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与已执行迁移。变更契约时同步修改本文与实现。
 
-相关文档：[规范驱动开发需求与架构基准](./spec-driven-requirements.md)、[插件架构 VISION（未实现）](./plugin-decoupling-blueprint.md)。
+相关文档：[规范驱动开发需求与架构基准](./spec-driven-requirements.md)。
 
 ## 1. 目标运行单元
 
@@ -17,9 +17,10 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 | 文档 | 全站文档（唯一源） | 无 | 由网关 `/docs` 反代 | metafusion-docs |
 | 技能 | 编目技能（curator / lrm-catalog-standards） | 无 | 无（非运行时） | metafusion-skills |
 
-前端（Next.js，本仓库 `frontend/`）不属于任何业务服务，通过网关调用各前缀；`frontend/src/lib/services.ts`
-里的 `NEXT_PUBLIC_AUTH_URL` / `NEXT_PUBLIC_FORUM_URL` / `NEXT_PUBLIC_STORAGE_URL` / `NEXT_PUBLIC_DOCS_URL`
-是既有的外部化开关，服务切换时优先用它们，而不是改调用点。
+前端（Next.js，本仓库 `frontend/`）不属于任何业务服务，通过网关同域调用各前缀；只有两个真正的外部站点
+需要配置地址：`frontend/src/lib/services.ts` 的 `NEXT_PUBLIC_RESOURCE_STATION_URL`（资源站，未配置时
+资源入口隐藏）与 `NEXT_PUBLIC_DOCS_URL`（文档站，默认同域 `/docs`）。社区、账号与存储没有外部地址开关，
+它们就是同域网关路径。
 
 ## 2. 路由归属（现状）
 
@@ -48,7 +49,7 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 | storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage（契约见 `metafusion-docs` 的 `docs/api-storage.md`） |
 | auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
-| catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态**声明式**能力清单（不再主动探活上游，见 capabilities 文档）+ 开关退役返回 409；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
+| catalog | `/api/capabilities` | 部署态**声明式**能力清单（不再主动探活上游、不发任何出站请求，见 [能力清单](./capabilities.md)）；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
 | auth | `/admin/account/*` | metafusion-auth 自带的管理台（`admin/` 目录，独立 Next 应用）：页面与静态资源在这里，数据请求走上面已分流的 `/api/*`；网关用 `location /admin/account/` 指 `auth-admin:3000`，无尾斜杠的 `/admin/account` 由 `location =` 301 补齐（否则落主前端得到 404） |
 | auth | `/login`、`/setup`、`/auth-user-assets/_next/static/*` | metafusion-auth 自带的账号自助应用（`user/` 目录，独立 Next 应用，无 basePath）：登录/注册/初始化三页，Cookie 会话口径；网关将页面精确转发到 `auth-user:3000`，并把专属静态资源前缀重写到该服务的 `/_next/static/`，避免与主前端同域静态资源冲突。 |
 | community | `/admin/community/*` | metafusion-community 自带的管理台（`admin/` 目录，独立 Next 应用）：同上，网关用 `location /admin/community/` 指 `community-admin:3000`；页面路径与主站页面 `/community` 不重叠 |

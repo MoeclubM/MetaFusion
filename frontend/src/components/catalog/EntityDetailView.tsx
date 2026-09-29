@@ -14,7 +14,12 @@ import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
-import { api, Entity, Relation, title, local } from "@/components/catalog/api";
+import {
+  api,
+  Entity,
+  Relation,
+  title,
+} from "@/components/catalog/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
@@ -56,25 +61,17 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  Barcode,
-  Building2,
   Calendar,
   Check,
-  Clock,
   Copy,
   Disc,
-  ExternalLink,
-  Film,
   FolderPlus,
   GitCompare,
   HardDrive,
-  Hash,
   History,
   Layers,
   List,
-  MessageCircle,
   MessageSquare,
-  Music,
   Network,
   Pencil,
   Send,
@@ -85,10 +82,7 @@ import {
   Tag as TagIcon,
   Globe,
   Sliders,
-  ChevronRight,
   BookOpen,
-  Bookmark,
-  Eye,
   ListTree,
 } from "lucide-react";
 
@@ -717,8 +711,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // modules 来自 /api/capabilities：契约漂移（缺字段/不是数组）时这里不能抛错——
   // 本组件在渲染路径上，抛一次整页白屏；取不到就按"未启用"处理（分节自然消失）。
   const communityEnabled =
-    Array.isArray(modules) &&
-    modules.some((m) => m.id === "community" && m.enabled && m.healthy);
+    Array.isArray(modules) && modules.some((m) => m.id === "community" && m.enabled);
 
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [
@@ -769,7 +762,7 @@ export function EntityDetailView({ id }: { id: string }) {
             {!error || isNotFoundError(error) ? t("entity.detail.notFound") : localizeCatalogError(error, t)}
           </div>
           <Link
-            href="/catalog"
+            href="/explore"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all duration-base ease-soft"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -886,7 +879,7 @@ export function EntityDetailView({ id }: { id: string }) {
               <span>{t("nav.home")}</span>
             </Link>
             <span className="text-text-muted dark:text-white/20">/</span>
-            <Link href="/catalog" className="hover:text-primary transition-colors duration-fast ease-soft">
+            <Link href="/explore" className="hover:text-primary transition-colors duration-fast ease-soft">
               {t("nav.catalog")}
             </Link>
             {motherWork && (
@@ -1308,7 +1301,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     {storeBonuses.map((bonus: any, idx: number) => (
                       <div key={idx} className="flex flex-wrap items-baseline gap-2 text-text-strong">
                         <span className="font-semibold text-amber-700 dark:text-warn-soft font-mono">
-                          {bonus.label?.["ja-JP"] || bonus.label?.["zh-CN"] || bonus.label?.["en-US"] || JSON.stringify(bonus.label || "")}
+                          {resolveLocalizedName(bonus.label, locale, "") || JSON.stringify(bonus.label || "")}
                         </span>
                         {bonus.condition && (
                           <span className="text-[11px] text-text-muted">

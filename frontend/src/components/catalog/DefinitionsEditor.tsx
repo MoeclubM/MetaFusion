@@ -439,7 +439,7 @@ export function DefinitionsEditor() {
         <div className="mt-3 flex flex-wrap gap-2">
           {moduleList.map((m) => (
             <span className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-text-muted" key={m.id}>
-              {t(`catalog.module.${m.id}`)} {!m.healthy && t("catalog.unavailable")}
+              {t(`catalog.module.${m.id}`)} {!m.enabled && t("catalog.unavailable")}
             </span>
           ))}
         </div>

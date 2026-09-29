@@ -10,8 +10,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/metafusion/metafusion-app/internal/capabilities"
 )
 
 // actionCodePattern 是契约 §2 的命名：<域>.<过去式动作>，全小写 + 下划线。
@@ -24,14 +22,10 @@ var writeMethods = map[string]bool{
 	http.MethodDelete: true,
 }
 
-// auditRegistry 合并本包与 capabilities 包的注册表：墓碑端点（PUT /api/admin/modules/:id）
-// 由 capabilities 包注册在 /api 组之外，动作码也归它。
+// auditRegistry 是本包的写路由 → 动作码表。引擎级写路由（不在 /api 组里）必须在这里补登记，
+// 否则下面的覆盖守卫看不见它。
 func auditRegistry() (actions, exempt map[string]string) {
-	actions = AuditActions()
-	for key, code := range capabilities.AuditActions() {
-		actions[key] = code
-	}
-	return actions, AuditExempt()
+	return AuditActions(), AuditExempt()
 }
 
 func TestEveryWriteRouteIsRegisteredOrReasonedExempt(t *testing.T) {
@@ -40,7 +34,6 @@ func TestEveryWriteRouteIsRegisteredOrReasonedExempt(t *testing.T) {
 	// 以后若在引擎上直接注册写路由（而不是挂在 /api 组里），必须在这里补上，否则守卫看不见它。
 	engine := gin.New()
 	HTTP{Store: &Store{}}.Register(engine)
-	capabilities.New(func(string) string { return "" }).Register(engine, func(c *gin.Context) { c.Next() })
 
 	actions, exempt := auditRegistry()
 	seen := map[string]bool{}
@@ -96,27 +89,26 @@ func TestEveryWriteRouteIsRegisteredOrReasonedExempt(t *testing.T) {
 // 改任何一个已有码都会让本用例失败——那是要契约层面批准的变更，不是顺手重命名。
 func TestAuditActionCodesAreStable(t *testing.T) {
 	want := map[string]string{
-		"POST /api/catalog/entities":                       "entity.created",
-		"PUT /api/catalog/entities/:id":                    "entity.updated",
-		"POST /api/catalog/entities/:id/lifecycle":         "entity.lifecycle_changed",
-		"POST /api/catalog/entities/:id/unpublish":         "entity.unpublished",
-		"PUT /api/catalog/me/home-preferences":             "preference.home_updated",
-		"POST /api/catalog/relations":                      "relation.created",
-		"PUT /api/catalog/relations/:id":                   "relation.updated",
-		"DELETE /api/catalog/relations/:id":                "relation.deleted",
-		"POST /api/importer/import":                        "import.completed",
-		"PUT /api/admin/catalog-definitions":               "definition.updated",
-		"POST /api/admin/external-databases":               "external_database.created",
-		"PUT /api/admin/external-databases/:code":          "external_database.updated",
-		"DELETE /api/admin/external-databases/:code":       "external_database.deleted",
-		"POST /api/admin/shelves":                          "shelf.created",
-		"PUT /api/admin/shelves/:id":                       "shelf.updated",
-		"DELETE /api/admin/shelves/:id":                    "shelf.deleted",
-		"POST /api/exchange/proposals":                     "proposal.submitted",
-		"POST /api/notifications/:id/read":                 "notification.read",
-		"POST /api/notifications/read-all":                 "notification.all_read",
-		"POST /api/notifications/internal":                 "notification.delivered",
-		"PUT /api/admin/modules/:id":                       "module.toggle_attempted",
+		"POST /api/catalog/entities":                 "entity.created",
+		"PUT /api/catalog/entities/:id":              "entity.updated",
+		"POST /api/catalog/entities/:id/lifecycle":   "entity.lifecycle_changed",
+		"POST /api/catalog/entities/:id/unpublish":   "entity.unpublished",
+		"PUT /api/catalog/me/home-preferences":       "preference.home_updated",
+		"POST /api/catalog/relations":                "relation.created",
+		"PUT /api/catalog/relations/:id":             "relation.updated",
+		"DELETE /api/catalog/relations/:id":          "relation.deleted",
+		"POST /api/importer/import":                  "import.completed",
+		"PUT /api/admin/catalog-definitions":         "definition.updated",
+		"POST /api/admin/external-databases":         "external_database.created",
+		"PUT /api/admin/external-databases/:code":    "external_database.updated",
+		"DELETE /api/admin/external-databases/:code": "external_database.deleted",
+		"POST /api/admin/shelves":                    "shelf.created",
+		"PUT /api/admin/shelves/:id":                 "shelf.updated",
+		"DELETE /api/admin/shelves/:id":              "shelf.deleted",
+		"POST /api/exchange/proposals":               "proposal.submitted",
+		"POST /api/notifications/:id/read":           "notification.read",
+		"POST /api/notifications/read-all":           "notification.all_read",
+		"POST /api/notifications/internal":           "notification.delivered",
 	}
 	got, _ := auditRegistry()
 	if len(got) != len(want) {

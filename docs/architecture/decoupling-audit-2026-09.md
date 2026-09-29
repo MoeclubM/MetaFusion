@@ -1,7 +1,7 @@
 # 多项目解耦审计与优化建议（2026-09）
 
 > 范围声明：本文保留 **2026-09-16 审计与实施批次的历史快照**。文中的“现状”“待办”“未验证”若无明确更新日期，均指当时，不代表当前运行态。当前路由、数据归属和迁移职责见 [子系统拆分与迁移基准](./service-split-migration.md)；媒体架构与用户前端的本轮复核见 [媒体目录与用户前端评估](./media-catalog-frontend-review-2026-09.md)。
-> 关联文档：[子系统拆分与迁移基准](./service-split-migration.md)（路由与数据归属的唯一契约）、[多项目解耦规范](./multi-project-decoupling-spec.md)、[能力清单与模块开关](./capabilities-and-module-toggles.md)、[架构优化建议](./optimization-recommendations.md)、[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)。
+> 关联文档：[子系统拆分与迁移基准](./service-split-migration.md)（路由与数据归属的唯一契约）、[能力清单](./capabilities.md)、[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)。
 > 数据约束：本文不含实例数据——不写真实条目名；示例一律用占位符（`<repo>`、`<prefix>`、`<code>`）或代码里的真实标识符。
 > 审计方式：5 个并行只读子代理（主仓库 backend、`metafusion-auth`、`metafusion-community` + `metafusion-storage`、`frontend`、`deploy`/网关/契约面），结论由主代理二次核对；核对面见 §0.2。
 > 状态：审计已完成。§8–§12 记录当时决议与进度，不能直接当作当前实施清单。
@@ -192,7 +192,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 | 待办项 | 涉及文件 | 可验证判据 |
 | --- | --- | --- |
-| capabilities 声明式化 | `backend/internal/capabilities/*`、`deploy/docker-compose.yml`、`docs/architecture/capabilities-and-module-toggles.md` | 停掉 community 容器后 `/api/capabilities` 的 `community.healthy` 与容器状态一致，且目录进程无出站请求 |
+| capabilities 声明式化 | `backend/internal/capabilities/*`、`deploy/docker-compose.yml`、`docs/architecture/capabilities.md` | 停掉 community 容器后 `/api/capabilities` 的 `community.healthy` 与容器状态一致，且目录进程无出站请求 |
 | 健康口径统一 | `backend/cmd/server/main.go`、`deploy/nginx.conf` | `/health` 与 `/ready` 在四个上游都返回 2xx；聚合探针能指出具体哪个上游不健康 |
 | 事件契约澄清 | `backend/internal/catalog/lifecycle.go`、`merge.go`、`backend/migrations/000001_catalog_core.up.sql` | 文档、注释与实际调用方一致；若选择投递，新增一个跨服务消费的集成测试 |
 | 降级语义写入契约 | `./service-split-migration.md`、两个子系统的 handler 层 | 契约里逐端点写明 catalog/auth 不可用时的状态码与前端表现；抽查 2 个端点与文档一致 |

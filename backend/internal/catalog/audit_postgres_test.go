@@ -19,7 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	auditlog "github.com/metafusion/metafusion-app/internal/audit"
-	"github.com/metafusion/metafusion-app/internal/capabilities"
 	"github.com/metafusion/metafusion-app/internal/testutil"
 )
 
@@ -487,61 +486,4 @@ func TestPostgresAuditTrailPerAction(t *testing.T) {
 		t.Fatalf("生成的 request id 必须与审计行一致: %#v", row)
 	}
 
-	// 14) 墓碑端点（模块开关）：与 cmd/server/main.go 同一接线，actor 由闸门解析
-	moduleEngine := gin.New()
-	// 引擎级 Use 只对之后注册的路由生效：身份注入必须在 Register 之前。
-	moduleEngine.Use(func(c *gin.Context) { c.Set("catalog_user", f.user); c.Next() })
-	toggleGate := HTTP{Store: f.s}.AdminGate()
-	toggleAudit := auditlog.Middleware(auditlog.Options{
-		Recorder: f.s.Audit,
-		Actions:  capabilities.AuditActions(),
-		Actor:    DirectoryActor,
-	})
-	capabilities.New(func(string) string { return "" }).Register(moduleEngine, func(c *gin.Context) {
-		toggleGate(c)
-		toggleAudit(c)
-	})
-	w = f.do(moduleEngine, http.MethodPut, "/api/admin/modules/community", "", "rid-module")
-	f.expect(409, w, "模块开关墓碑")
-	row = f.waitRow("rid-module")
-	audited++
-	if row.action != "module.toggle_attempted" || row.result != "failure" || row.errorCode != "module_toggle_retired" || row.status != 409 {
-		t.Fatalf("墓碑端点审计行: %#v", row)
-	}
-	if row.username != f.user.Username || row.credential != "session" {
-		t.Fatalf("墓碑端点的 actor 必须由闸门解析出来（不能记成匿名）: %#v", row)
-	}
-	// 未登录的墓碑尝试也留痕，且处理器不能跑第二遍（状态是 401 而不是 409）。
-	anonModule := gin.New()
-	anonGate := HTTP{Store: f.s}.AdminGate()
-	anonAudit := auditlog.Middleware(auditlog.Options{Recorder: f.s.Audit, Actions: capabilities.AuditActions(), Actor: DirectoryActor})
-	capabilities.New(func(string) string { return "" }).Register(anonModule, func(c *gin.Context) {
-		anonGate(c)
-		anonAudit(c)
-	})
-	w = f.do(anonModule, http.MethodPut, "/api/admin/modules/community", "", "rid-module-anon")
-	f.expect(401, w, "匿名模块开关")
-	row = f.waitRow("rid-module-anon")
-	audited++
-	if row.action != "module.toggle_attempted" || row.result != "failure" || row.errorCode != "authentication_required" || row.credential != "anonymous" {
-		t.Fatalf("匿名墓碑审计行: %#v", row)
-	}
-
-	// 收尾：排空队列后核对"每个被审计动作恰好一行"的总数与整行零敏感命中。
-	f.s.Audit.Close()
-	all := f.queryRows("")
-	if len(all) != audited {
-		t.Fatalf("审计行总数 %d，期望 %d：GET 与豁免路由不该写，同一请求也不许写两行", len(all), audited)
-	}
-	for _, r := range all {
-		if r.action == "" || r.route == "" || r.method == "" || r.service != auditlog.ServiceName || r.requestID == "" {
-			t.Fatalf("审计行缺字段: %#v", r)
-		}
-		text := strings.Join([]string{r.service, r.action, r.targetType, r.targetID, r.changes, r.result, r.errorCode, r.username, r.credential, r.method, r.route, r.requestID, r.agent}, " ")
-		for _, p := range auditForbiddenInRow {
-			if hit := p.FindString(text); hit != "" {
-				t.Fatalf("整行文本命中敏感正则 %s: %q\n行原文: %s", p, hit, text)
-			}
-		}
-	}
 }

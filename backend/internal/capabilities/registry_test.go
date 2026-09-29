@@ -25,7 +25,7 @@ func TestUndeployedSubsystemsAreDisabled(t *testing.T) {
 	r := New(func(string) string { return "" })
 	items := r.Manifests()
 	for _, id := range []string{"community", "storage"} {
-		if c := find(t, items, id); c.Enabled || c.Healthy {
+		if c := find(t, items, id); c.Enabled {
 			t.Fatalf("未声明 %s 时应为未启用: %+v", id, c)
 		}
 	}
@@ -39,7 +39,7 @@ func TestUndeployedSubsystemsAreDisabled(t *testing.T) {
 		}
 	}
 	// exchange 仍由目录自身提供：恒定可用，避免导入导出入口被误隐藏。
-	if c := find(t, items, "exchange"); !c.Enabled || !c.Healthy {
+	if c := find(t, items, "exchange"); !c.Enabled {
 		t.Fatalf("exchange 应恒为可用: %+v", c)
 	}
 }
@@ -63,8 +63,8 @@ func TestNoOutboundProbe(t *testing.T) {
 		t.Fatalf("目录不应探测上游，实际请求 %d 次", n)
 	}
 	for _, id := range []string{"community", "storage"} {
-		if c := find(t, r.Manifests(), id); !c.Enabled || !c.Healthy {
-			t.Fatalf("已声明的能力应为启用且健康（同值）: %+v", c)
+		if c := find(t, r.Manifests(), id); !c.Enabled {
+			t.Fatalf("已声明的能力应为启用: %+v", c)
 		}
 	}
 }
@@ -77,10 +77,10 @@ func TestDeclarationIsIndependentOfUpstreamState(t *testing.T) {
 	before := find(t, r.Manifests(), "storage")
 	delete(env, "STORAGE_URL") // 同实例重新构造：只有声明变化才会改变结果
 	after := find(t, New(func(k string) string { return env[k] }).Manifests(), "storage")
-	if !before.Enabled || !before.Healthy {
+	if !before.Enabled {
 		t.Fatalf("声明在场时应为启用: %+v", before)
 	}
-	if after.Enabled || after.Healthy {
+	if after.Enabled {
 		t.Fatalf("声明撤掉后应为未启用: %+v", after)
 	}
 }

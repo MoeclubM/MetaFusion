@@ -50,7 +50,6 @@ func AuditActions() map[string]string {
 // AuditExempt 是"用了写方法但没有写入语义"的路由 → 豁免理由（契约 §6.3）。
 // 运行期不读它（未登记动作码的路由本就不写行），它由覆盖守卫测试读取：
 // "这条写路由为什么不记"必须有据可查，而不是被人忘掉。模块开关墓碑
-// （PUT /api/admin/modules/:id）的动作码在 capabilities 包，见那里的 AuditActions。
 func AuditExempt() map[string]string {
 	return map[string]string{
 		"POST /api/catalog/expressions/details":      "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",

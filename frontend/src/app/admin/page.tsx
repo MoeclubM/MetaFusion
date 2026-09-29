@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 // 目录域管理台：只覆盖元数据目录自己的工作面（概览 / 条目 / 定义 / 外部来源 / 货架 / 审核 /
 // 合并 / 子系统能力 / 实例交换）。账号、社区、存储三个域的管理台已是独立应用
@@ -49,12 +49,10 @@ import {
   Cpu,
   ArrowLeft,
   RefreshCw,
-  Power,
   Layers,
   Search,
   Plus,
   ArrowUpRight,
-  Trash2,
   Globe,
   HardDrive,
   MessageSquare,
@@ -464,8 +462,8 @@ function AdminInner() {
   };
 
   // 这里刻意没有"启停"动作：运行时模块开关已随子系统拆分退役，
-  // 能力是否可用由部署决定（服务在不在、配置没配置），后端 PUT /api/admin/modules/:id
-  // 恒定返回 409 module_toggle_retired。面板只呈现事实，不提供会必然失败的按钮。
+  // 能力是否可用由部署决定（服务在不在、配置没配置），面板只呈现事实（enabled），
+  // 不提供会必然失败的按钮——要开能力就去部署对应服务。
 
   const handleMergeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1265,7 +1263,6 @@ function AdminInner() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-text-strong text-sm font-mono">{mod.id}</span>
-                        <span className="text-[10px] text-text-faint font-mono">v{mod.version}</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-text-faint"}`} />
@@ -1273,21 +1270,16 @@ function AdminInner() {
                           {mod.enabled ? t("admin.console.active") : t("admin.console.disabled")}
                         </span>
                       </div>
-                      {Object.keys(mod.dependencies || {}).length > 0 && (
-                        <div className="text-[10px] text-text-faint font-mono pt-1">
-                          Deps: {JSON.stringify(mod.dependencies)}
-                        </div>
-                      )}
                     </div>
 
                     <span
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                        mod.healthy
+                        mod.enabled
                           ? "bg-emerald-500/15 text-success"
                           : "bg-rose-500/15 text-danger"
                       }`}
                     >
-                      {mod.healthy ? t("admin.console.healthy") : t("admin.console.unreachable")}
+                      {mod.enabled ? t("admin.console.deployed") : t("admin.console.notDeployed")}
                     </span>
                   </div>
                 ))}
