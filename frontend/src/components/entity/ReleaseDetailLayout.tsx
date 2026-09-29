@@ -127,7 +127,7 @@ function Collapsible({
   );
 }
 
-export default function ReleaseDetailPage() {
+export default function ReleaseDetailLayout() {
   const params = useParams();
   const releaseId = params.id as string;
   const { t, locale } = useI18n();

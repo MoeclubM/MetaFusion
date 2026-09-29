@@ -5,9 +5,7 @@ import { entityMetadata } from "@/lib/seo";
 import { EntityDetailView } from "@/components/catalog/EntityDetailView";
 import { Entity } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
-import WorkDetailPage from "@/components/entity/WorkDetailPage";
-import ReleaseDetailPage from "@/components/entity/ReleaseDetailPage";
-import MediumDetailPage from "@/components/entity/MediumDetailPage";
+import ReleaseDetailLayout from "@/components/entity/ReleaseDetailLayout";
 
 /** searchParams 是解析后的对象：重建查询串时保留重复键与原始顺序，收敛后查询串不丢。 */
 function queryStringOf(query: Record<string, string | string[] | undefined>): string {
@@ -23,6 +21,10 @@ function queryStringOf(query: Record<string, string | string[] | undefined>): st
 /**
  * 服务端只解析 kind 用来判定路由。任何失败（未登录看不到草稿、上游不可用、超时）
  * 都返回 null，页面照常渲染通用视图，由 EntityDetailView 在客户端按同一规则再判一次。
+ *
+ * 解析结果只影响 release：它仍有专属的发行内容布局（逐碟曲目表、附赠碟、同录音、
+ * 附件、发行事件、兄弟版本、对比篮）。work / medium 的专有能力（动作工具栏、修订历史、
+ * 合并、举报、作品内容目录、按模板列与 facet 的发行目录）已并入通用视图。
  */
 async function resolveKind(id: string): Promise<string | null> {
   try {
@@ -55,9 +57,7 @@ export default async function Page({
 
   // URL 不承载实体层级；仅内容组件按服务端 kind 选择。编辑器沿用通用详情。
   const kind = new URLSearchParams(query).get("edit") === "1" ? null : await resolveKind(id);
-  if (kind === "work") return <WorkDetailPage key={id} />;
-  if (kind === "release") return <ReleaseDetailPage key={id} />;
-  if (kind === "medium") return <MediumDetailPage key={id} />;
+  if (kind === "release") return <ReleaseDetailLayout key={id} />;
 
   return (
     // EntityDetailView 内使用 useSearchParams（?edit=1 直达编辑），需要 Suspense 边界。

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
 import { COVER_PICTURE_INDEX, coverUrl, PICTURE_ROLE_VOCABULARY, resolveCover } from "@/lib/cover";
@@ -49,6 +49,12 @@ import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { AggregateRelationList } from "@/components/catalog/AggregateRelationList";
+import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
+import ReportButton from "@/components/report/ReportButton";
+import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
+import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
+import { WorkContentDirectory, hasWorkDirectoryContent, useWorkDirectoryData } from "@/components/work/WorkContentDirectory";
+import { WorkReleasesSection } from "@/components/entity/WorkReleasesSection";
 import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -156,6 +162,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
   // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
@@ -181,6 +188,11 @@ export function EntityDetailView({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(searchParams.get("edit") === "1");
+  // 编辑/合并/历史：作品页此前独有的三个动作，现在对八种实体一致提供（kind 只决定文案）。
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  // 作品内容目录：hook 必须无条件调用（早期 return 之前），非作品实体传空 id 时不发请求。
+  const directoryData = useWorkDirectoryData(entity?.kind === "work" ? entity.id || id : "");
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   // 复制失败的分支：null 表示没有失败。复制不是"点了没反应"的动作，失败必须可见。
@@ -659,6 +671,17 @@ export function EntityDetailView({ id }: { id: string }) {
     return ordered;
   }, [defs, entity]);
 
+  // 作品内容目录：目录形态取首个匹配模板的 directory 声明；可见性判据与作品页一致——
+  // 加载中/失败时不断言"没有内容"，避免把"取不到"讲成"这个作品没有篇目"。
+  const workDirectoryMode = useMemo(
+    () => templatesForEntity(defs, entity?.kind || "", entity?.attributes).map((tpl) => tpl?.directory).find(Boolean),
+    [defs, entity],
+  );
+  const directoryVisible =
+    entity?.kind === "work" &&
+    (directoryData.status !== "ready" ||
+      hasWorkDirectoryContent(directoryData, entity.id || id, (code) => defs?.relations?.[code]?.aggregate === true));
+
   // 关系筛选：维度与选项由关系数据与 definitions 动态生成（关联对象 / 关系分类 / 关系类型），
   // 与作品详情的关系列表同一套口径；行里带上关系对象本身，筛完直接取回。
   const relationFacetRows = useMemo(
@@ -964,14 +987,17 @@ export function EntityDetailView({ id }: { id: string }) {
           {/* Action Toolbar */}
           <div className="pt-3 border-t border-line-subtle flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-sm transition-all cursor-pointer"
+              {/* 编辑 / 合并 / 修订历史：此前只有作品页有这三个入口，八种实体统一到同一工具栏。 */}
+              <EntityActionToolbar
+                onEdit={() => setEditing(true)}
+                onHistory={() => setIsHistoryOpen(true)}
+                onMerge={() => setIsMergeOpen(true)}
+                entityTypeLabel={kindLabel(entity.kind)}
               >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>{t("entity.detail.editEntity")}</span>
-              </button>
+                <FavoriteButton targetType={entity.kind as FavoriteTargetType} targetId={entity.id || id} />
+                {/* 条目本身的举报入口：与收藏同一行，不再单开一块工具栏。 */}
+                <ReportButton targetType="entity" targetId={entity.id || id} />
+              </EntityActionToolbar>
 
               <Link
                 href={`/compare?ids=${entity.id}`}
@@ -1009,9 +1035,6 @@ export function EntityDetailView({ id }: { id: string }) {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <FavoriteButton targetType={entity.kind as FavoriteTargetType} targetId={entity.id || id} />
-            </div>
           </div>
         </header>
 
@@ -1374,6 +1397,13 @@ export function EntityDetailView({ id }: { id: string }) {
 
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
             {/* ============================================================ */}
+            {/* 作品内容目录（篇目树 / 表达 / 聚合组成项）：作品页此前独有，现由通用视图按 kind=work 渲染。 */}
+            {active === "contents" && directoryVisible && (
+              <Card id="work-directory" padding="section" className="space-y-4 shadow-soft">
+                <WorkContentDirectory workId={entity.id || id} data={directoryData} directory={workDirectoryMode} />
+              </Card>
+            )}
+
             {active === "contents" && children.length > 0 && (
               <Card id="contents" padding="section" className="space-y-4 shadow-soft">
                 <SectionTitle icon={<List className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
@@ -1467,7 +1497,15 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 4: Releases & Occurrences (发行版本与收录情况)        */}
             {/* ============================================================ */}
-            {active === "releases" && occurrences.length > 0 && (
+            {/* 作品的发行目录：列与可筛选字段由发行版模板声明（columns / facet_fields），
+                以及按实际 Medium 聚合的格式汇总——这一套此前只在作品页，合并后按 kind=work 渲染。 */}
+            {active === "releases" && entity.kind === "work" && (
+              <Card id="releases" padding="none" className="overflow-hidden shadow-soft">
+                <WorkReleasesSection workId={entity.id || id} />
+              </Card>
+            )}
+
+            {active === "releases" && entity.kind !== "work" && occurrences.length > 0 && (
               <Card id="releases" padding="section" className="space-y-4 shadow-soft">
                 <SectionTitle icon={<Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                   {t("entity.page.releasesTitle")}
@@ -1878,6 +1916,21 @@ export function EntityDetailView({ id }: { id: string }) {
           </div>
         </div>
       </PageShell>
+
+      {/* 修订历史与实体合并：与作品页同一实现，八种实体共用。 */}
+      <RevisionHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        targetType={entity.kind}
+        targetId={entity.id || id}
+        entityTitle={localizedTitle}
+      />
+      <EntityMergeModal
+        isOpen={isMergeOpen}
+        onClose={() => setIsMergeOpen(false)}
+        targetType={entity.kind}
+        sourceEntity={{ id: entity.id || id, title: entity.title || "" }}
+      />
     </div>
   );
 }
