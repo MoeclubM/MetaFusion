@@ -99,6 +99,7 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 		"DELETE /api/catalog/relations/:id":          "relation.deleted",
 		"POST /api/importer/import":                  "import.completed",
 		"PUT /api/admin/catalog-definitions":         "definition.updated",
+		"PUT /api/admin/rate-limits":                 "rate_limit.updated",
 		"POST /api/admin/external-databases":         "external_database.created",
 		"PUT /api/admin/external-databases/:code":    "external_database.updated",
 		"DELETE /api/admin/external-databases/:code": "external_database.deleted",

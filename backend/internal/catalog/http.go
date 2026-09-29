@@ -181,14 +181,37 @@ func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
 	})
 }
 
-// routeLimiter 按 IP+路由限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
+// routeLimiter 限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
+//
+// 主体与额度：已登录请求的主体是**账号**（同一账号的多个 IP/标签页共用一个桶），
+// 未登录请求的主体是其真实客户端 IP。额度按
+// 账号 > 用户组 > 全局默认 > 本函数传入的路由内置额度 逐级回落（见 ratelimit.go 的 Resolve）。
+// 命中 unlimited 的主体完全跳过计数（"解除限制"），且不下发 X-RateLimit-* 头——
+// 没有窗口就没有"还剩几次"可言，发一个假上限比不发更容易误导调用方。
+//
 // 口径说明（最小一致化，不做 Redis 大重构）：内存固定窗口，只防单机突发；
-// 写接口（POST entities/relations 等）暂无独立重型限流；多实例一致性与写接口重型限流
+// 额度本身是进程外部配置（catalog.rate_limit_policy），但计数仍是各副本独立的。
+// 写接口（POST entities/relations 等）暂无独立重型限流；多实例共享计数与写接口重型限流
 // 放三期（Redis）。
 func routeLimiter(perMinute int) gin.HandlerFunc {
 	sweepStaleBuckets(&routeAttempts, &routeJanitor)
 	return func(c *gin.Context) {
-		key := c.ClientIP() + "|" + c.FullPath()
+		u := user(c)
+		subject := "ip:" + c.ClientIP()
+		var identities, groups []string
+		if u != nil {
+			// 账号身份优先用令牌 subject（目录侧唯一权威的账号标识），
+			// 用户名作为第二顺位，方便运维直接按用户名配额度。
+			subject = "u:" + u.ID
+			identities = []string{u.ID, u.Username}
+			groups = u.Groups
+		}
+		limit, unlimited := currentRateLimitPolicy().Resolve(identities, groups, u == nil, perMinute)
+		if unlimited {
+			c.Next()
+			return
+		}
+		key := subject + "|" + c.FullPath()
 		now := time.Now()
 		v, _ := routeAttempts.LoadOrStore(key, &routeBucket{start: now, lastSeen: now})
 		b := v.(*routeBucket)
@@ -199,8 +222,8 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 		}
 		b.n++
 		b.lastSeen = now
-		over := b.n > perMinute
-		remaining := perMinute - b.n
+		over := b.n > limit
+		remaining := limit - b.n
 		retrySecs := int(time.Until(b.start.Add(time.Minute)).Seconds()) + 1
 		b.mu.Unlock()
 		if retrySecs < 1 {
@@ -213,7 +236,7 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 		// 服务端此前一个都没发（全仓 grep X-RateLimit = 0），承诺与实现相反。
 		// 三个数值都是调用方本就能观测到的语义（窗口上限、窗口内还剩几次、何时重置），
 		// 不含任何内部实现细节。
-		c.Header("X-RateLimit-Limit", strconv.Itoa(perMinute))
+		c.Header("X-RateLimit-Limit", strconv.Itoa(limit))
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
 		c.Header("X-RateLimit-Reset", strconv.Itoa(retrySecs))
 		if over {
@@ -859,6 +882,27 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.SaveDefinitions(c.Request.Context(), in.Document, in.ExpectedETag, *user(c), in.EditNote, in.Sources)
 		if err == nil {
 			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: "definitions", Changes: map[string]any{"document_counts": map[string]any{"after": definitionsSummary(in.Document)}}})
+		}
+		respond(c, v, err)
+	})
+	// 限流配置是运行参数，不是元数据定义：单独一组端点、单独一张单例表，
+	// 因此调整配额不会改动 /catalog/definitions 的 etag，也不会触发元数据影响面回放。
+	// 权限沿用 catalog.definitions.manage（"平台配置管理"）——新增权限码需要账号服务
+	// 同步播种，跨仓改动不属于本次范围，而复用已播种的管理码不会漏授。
+	limits := api.Group("/admin/rate-limits", required(PermissionDefinitionsManage))
+	limits.GET("", func(c *gin.Context) {
+		v, err := s.RateLimitPolicy(c.Request.Context())
+		respond(c, v, err)
+	})
+	limits.PUT("", func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "rate_limits", TargetID: "rate-limits"})
+		var in RateLimitSave
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.SaveRateLimitPolicy(c.Request.Context(), in.Policy, in.ExpectedETag, *user(c), in.EditNote, in.Sources)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "rate_limits", TargetID: "rate-limits", Changes: map[string]any{"policy_counts": map[string]any{"after": rateLimitSummary(in.Policy)}}})
 		}
 		respond(c, v, err)
 	})

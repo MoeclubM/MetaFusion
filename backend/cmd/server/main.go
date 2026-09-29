@@ -62,6 +62,10 @@ func main() {
 		log.Fatalf("catalog schema incompatible: %v", err)
 	}
 	log.Print("catalog schema compatible; seed upgrades run via mf-migrate seed, integrity scans via mf-migrate check-refs")
+	// 限流策略已在上面的只读检查里载入快照。这里再起一个每分钟的刷新：
+	// 策略只有一处写入入口，但服务是多副本的，保存方只刷新自己的快照，
+	// 其余副本靠 etag 轮询收敛（没有变化就一次索引查询，不反序列化）。
+	go s.RunRateLimitPolicyRefresher(ctx)
 	if searchURL := strings.TrimSpace(os.Getenv("OPENSEARCH_URL")); searchURL != "" {
 		search, searchErr := catalog.NewOpenSearchClient(searchURL, os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))
 		if searchErr != nil {

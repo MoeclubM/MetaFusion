@@ -26,6 +26,7 @@ var requiredCatalogTables = []string{
 	"catalog.entities",
 	"catalog.relations",
 	"catalog.definition_config",
+	"catalog.rate_limit_policy",
 	"catalog.revisions",
 	"catalog.outbox",
 	"catalog.api_request_logs",
@@ -60,6 +61,12 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 	}
 	if !currentContract {
 		return fmt.Errorf("incompatible_schema: generic metadata definitions required (run mf-migrate up, then mf-migrate seed)")
+	}
+	// 限流策略是运行配置：启动时载入进程内快照，限流热路径（每个受限请求）不再查库。
+	// 读失败即拒绝启动：带着"读不到策略"起来会静默退回内置额度，而运维看到的
+	// 现象与"配置没生效"完全一样，只能靠读代码猜。
+	if _, err := s.RateLimitPolicy(ctx); err != nil {
+		return fmt.Errorf("rate_limit_policy_unreadable: %w (run mf-migrate up)", err)
 	}
 	// 反查索引缺失只影响反向别名查询性能（功能不受影响）：告警，不阻断启动。
 	var hasIdx bool

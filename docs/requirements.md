@@ -75,7 +75,7 @@ MetaFusion 是**元数据开放、媒体按绑定实体可见性受控**的多�
 ## 3. 非功能与合规
 
 - **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；跨服务统一审计表 `audit.audit_log` 已落地，四个服务写操作各记一行。唯一读取路由是账号服务的 `GET /api/admin/audit-logs`，作用域分两档：持 `auth.audit.read` 者按任意条件查全量，其余登录用户被收敛到本人（设置页「我的操作记录」，指定他人一律 403）；口径与"完整"的边界（旁路写入会丢行、`changes` 已脱敏截断）见 [审计留痕契约](architecture/audit-log.md)。
-- **速率限制**：网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s），目录服务另有按路由的限额（`routeLimiter`，如列表 120/min、导入预检 10/min）；被限流的路由随响应下发 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（超限另带 `Retry-After`，实现见 `backend/internal/catalog/http.go`）；匿名/登录差异化配额与统一限流中间件未落地。
+- **速率限制**：网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s）；目录服务另有按路由的额度（`routeLimiter`，内置列表 120/min、导入预检 10/min 等）。额度逐级解析：**账号 > 用户组 > 全局默认 > 路由内置**；登录请求以账号为主体（同一账号的多标签页共用一份配额），匿名请求以真实客户端 IP 为主体，保留组码 `anonymous` 单独作用于后者。策略是**运行配置**而非元数据（单例表 `catalog.rate_limit_policy`，读写走 `GET/PUT /api/admin/rate-limits`，需 `catalog.definitions.manage`）：可按用户组预设、按账号单独调整，也可用 `unlimited` 解除某个主体的限制；空文档等于全部沿用内置额度。被限流的主体随响应下发 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（超限另带 `Retry-After`，实现见 `backend/internal/catalog/http.go`）；`unlimited` 主体完全不计数，因此不下发这组头。计数仍是各副本独立的内存固定窗口，多实例共享计数与写接口的重型限流未落地。
 - **SEO**：元数据页 SSR 可被爬虫收录。`robots.txt` 仅用于索引控制，不承担媒体访问权限判定。
 - **版权提示**：媒体预览/下载页需展示版权与合规提示，下载行为需二次确认。
 

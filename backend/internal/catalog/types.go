@@ -299,6 +299,50 @@ type DefinitionConfig struct {
 	Document  Definitions `json:"document"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
+
+// RateLimitRule 是某个主体（账号或用户组）的限流规则。两个字段的语义刻意分开：
+//   - Unlimited 为真：该主体不受限流（"解除限制"），用于受信账号与内部管道；
+//   - PerMinute > 0：覆盖下一级额度；
+//   - 两者都未声明：继承下一级。
+//
+// 0 不表示"禁止"：把未配置与熔断混成同一个值，一次误填就会把账号锁死，
+// 而运维看到的现象与"没生效"完全一样。
+type RateLimitRule struct {
+	PerMinute int  `json:"per_minute,omitempty"`
+	Unlimited bool `json:"unlimited,omitempty"`
+}
+
+// RateLimitPolicy 是唯一的进程外部限流配置文档（catalog.rate_limit_policy）。
+//
+// 解析优先级：账号 > 用户组 > 全局默认 > 路由内置额度。之所以账号压过组：
+// 账号级覆盖是运维对单个账号的即时处置，必须压过批量预设；组是"授予"的集合，
+// 多组命中取最宽松的一项（取交集会让多加入一个组反而变慢）。
+//
+// Groups 里保留 "anonymous" 这个保留组码，用于单独收紧/放宽未登录流量
+// （匿名请求主体是其 IP，没有组）。
+type RateLimitPolicy struct {
+	DefaultPerMinute int                      `json:"default_per_minute,omitempty"`
+	DefaultUnlimited bool                     `json:"default_unlimited,omitempty"`
+	Groups           map[string]RateLimitRule `json:"groups,omitempty"`
+	Accounts         map[string]RateLimitRule `json:"accounts,omitempty"`
+}
+
+// RateLimitConfig 是读取/保存限流的唯一响应形状：etag 是**覆盖保护**，不是版本号
+// （与 DefinitionConfig 同一口径）。
+type RateLimitConfig struct {
+	ETag      string          `json:"etag"`
+	Policy    RateLimitPolicy `json:"policy"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// RateLimitSave 是限流保存的请求体，字段名与 DefinitionSave 同构。
+type RateLimitSave struct {
+	Policy       RateLimitPolicy `json:"policy"`
+	ExpectedETag string          `json:"expected_etag"`
+	EditNote     string          `json:"edit_note"`
+	Sources      []Source        `json:"sources"`
+}
+
 type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
