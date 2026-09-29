@@ -18,6 +18,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ThemePicker } from "@/components/ThemePicker";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
+import { RateLimitsTab } from "./components/tabs/RateLimitsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { ExchangeTab } from "./components/tabs/ExchangeTab";
 import {
@@ -57,6 +58,7 @@ import {
   HardDrive,
   MessageSquare,
   ShieldCheck,
+  Gauge,
 } from "lucide-react";
 
 type AdminTab =
@@ -68,7 +70,8 @@ type AdminTab =
   | "modules"
   | "extdb"
   | "shelves"
-  | "exchange";
+  | "exchange"
+  | "ratelimits";
 
 const NAV_GROUPS: { labelKey: string; tabs: { id: AdminTab; labelKey: string; icon: LucideIcon }[] }[] = [
   { labelKey: "admin.nav.work", tabs: [
@@ -81,6 +84,7 @@ const NAV_GROUPS: { labelKey: string; tabs: { id: AdminTab; labelKey: string; ic
     { id: "definitions", labelKey: "admin.tab.definitions", icon: Sliders },
     { id: "shelves", labelKey: "admin.tab.shelves", icon: LayoutDashboard },
     { id: "extdb", labelKey: "admin.tab.extdb", icon: Globe },
+    { id: "ratelimits", labelKey: "admin.tab.ratelimits", icon: Gauge },
   ] },
   { labelKey: "admin.nav.operations", tabs: [
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
@@ -1019,6 +1023,8 @@ function AdminInner() {
           {activeTab === "extdb" && <ExternalDatabasesTab />}
 
           {activeTab === "shelves" && <ShelvesTab />}
+
+          {activeTab === "ratelimits" && <RateLimitsTab />}
 
           {activeTab === "reviews" && (
             <div className="space-y-4">

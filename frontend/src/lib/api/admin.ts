@@ -1,3 +1,52 @@
+// ── API 限流策略（单例） ──
+export interface RateLimitRule {
+  /** 每分钟额度；0 或缺失 = 未声明、继承下一级，不是禁止。 */
+  per_minute?: number;
+  /** true = 解除限制：该主体完全跳过计数，服务端也不下发 X-RateLimit-* 头。 */
+  unlimited?: boolean;
+}
+
+export interface RateLimitPolicy {
+  default_per_minute?: number;
+  default_unlimited?: boolean;
+  groups?: Record<string, RateLimitRule>;
+  accounts?: Record<string, RateLimitRule>;
+}
+
+export interface RateLimitConfig {
+  etag: string;
+  policy: RateLimitPolicy;
+  updated_at: string;
+}
+
+export function fetchAdminRateLimits(): Promise<RateLimitConfig> {
+  return fetch("/api/admin/rate-limits", { credentials: "same-origin" })
+    .then(async (res) => {
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      return body;
+    });
+}
+
+// PUT 是**整体替换**，且后端 DisallowUnknownFields：请求体只能是这四个键。
+export function saveAdminRateLimits(policy: RateLimitPolicy, expectedEtag: string, editNote: string): Promise<RateLimitConfig> {
+  return fetch("/api/admin/rate-limits", {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      policy,
+      expected_etag: expectedEtag,
+      edit_note: editNote,
+      sources: [{ kind: "self", citation: editNote }],
+    }),
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  });
+}
+
 // ── 外部权威数据库预设定义 ──
 export interface ExternalDatabaseDefinition {
   code: string;
