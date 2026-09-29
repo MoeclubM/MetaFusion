@@ -1,6 +1,6 @@
 # ==============================================================================
 # MetaFusion 全系统编排：一条命令拉起网关 + 前端 + 文档站 + 元数据目录 + 账号 +
-# 互动 + 存储，以及基础设施 (PostgreSQL / Redis / RustFS)。
+# 互动 + 存储，以及基础设施 (PostgreSQL / RustFS)。
 #
 #   docker compose -f deploy/docker-compose.yml up -d
 #
@@ -67,7 +67,7 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 1. 前端应用 (Next.js 14 — 见 frontend/package.json，含 /admin 管理后台)
+  # 1. 前端应用 (Next.js 16 — 见 frontend/package.json，含 /admin 管理后台)
   #    调用都是同源 /api/*，由网关分流，前端不感知服务拆分。
   # --------------------------------------------------------------------------
   frontend:
@@ -78,8 +78,6 @@ services:
       # NEXT_PUBLIC_* 是**构建期内联**：必须在 build 阶段传，运行期 environment 无效。
       # 留空即前端按同源网关路径工作（当前部署形态）；要指向外部服务域名再填。
       args:
-        NEXT_PUBLIC_FORUM_URL: ${NEXT_PUBLIC_FORUM_URL:-}
-        NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:-}
         NEXT_PUBLIC_RESOURCE_STATION_URL: ${NEXT_PUBLIC_RESOURCE_STATION_URL:-}
         NEXT_PUBLIC_DOCS_URL: ${NEXT_PUBLIC_DOCS_URL:-}
     container_name: metafusion-frontend
@@ -148,8 +146,8 @@ services:
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 CATALOG_DATABASE_URL 同源。
       # 值的形状：postgres://mf_catalog:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
       # （刻意不写 <键名>=<连接串> 的字面行：gitleaks 的 generic-api-key 规则会误判成密钥，见 .env.example）
-      # 本地开发：按上面形状填本域 DSN；旧共用身份只许出现在 git 忽略的本地覆盖文件里，
-      # 例外：在 deploy/docker-compose.local.yml 中为本服务补 DB_* 后再 -f 叠加启动。
+      # 本地开发：按上面形状填本域 DSN。确实需要旧共用身份的，自建一份被 git 忽略的
+      # deploy/docker-compose.local.yml 补 DB_* 再用 -f 叠加（仓库里没有这份文件）。
       - DATABASE_URL=${CATALOG_DATABASE_URL:-}
       # 库与各服务同在 metafusion-net（PostgreSQL 未开 TLS）：显式写 disable 与原行为一致，
       # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
@@ -165,7 +163,7 @@ services:
       # 互动（论坛/短评/收藏/私信）由同一个互动服务承载，因此只有一条 community 声明。
       - COMMUNITY_URL=http://community:8083
       - STORAGE_URL=http://storage:8082
-      # 目录只验签、不签发：优先静态公钥，其次账号服务的 JWKS，都没有时才回退到私钥（启动会打告警）。
+      # 目录只验签、不签发：优先静态公钥，其次账号服务的 JWKS；都没有时验签器不可用（fail closed）。
       # 私钥只属于账号服务——目录**不再需要** AUTH_JWT_PRIVATE_KEY，因此这里不再注入。
       # 切换窗口：公钥与 JWKS 都没配时，目录的写接口会一律按未登录处理（fail closed，不会静默放行）。
       - AUTH_JWT_PUBLIC_KEY=${AUTH_JWT_PUBLIC_KEY:-}

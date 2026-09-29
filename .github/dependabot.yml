@@ -17,22 +17,9 @@ updates:
         patterns: ["*"]
         update-types: ["major"]
 
-  - package-ecosystem: "npm"
-    directory: "/frontend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "03:00"
-    open-pull-requests-limit: 10
-    labels: ["dependencies", "frontend"]
-    # minor+patch 归组减少噪音，major 单独成 PR 便于逐个人工评估
-    groups:
-      npm-minor-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-      npm-major:
-        patterns: ["*"]
-        update-types: ["major"]
+  # 前端（Bun）不在这里：Dependabot 按 package-lock.json 解析 npm 生态，而本仓库
+  # 只入库 bun.lock（package-lock.json 被 .gitignore 拦掉），挂上去等于一条永不触发的配置。
+  # 前端依赖更新用 `cd frontend && bun update`，提交 bun.lock 即可。
 
   - package-ecosystem: "docker"
     directory: "/deploy"

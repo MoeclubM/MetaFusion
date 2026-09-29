@@ -42,7 +42,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 
 
-技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x。
+技术栈：Go + Next.js / Bun + PostgreSQL + RustFS（S3）+ OpenSearch 2.x。
 
 涉及 API 或数据行为时，以目标实例响应 + 实际处理器 + 已执行迁移为准；有矛盾记差异、停掉依赖写入，不改文案掩盖。接口或外部行为变化时，只同步直接受影响的 OpenAPI 与开发文档。
 

@@ -43,7 +43,7 @@
 
 ### 2. 🔐 会话认证与访问控制
 - **服务端会话 + RS256 访问令牌**：账号与令牌由独立服务 `metafusion-auth`（`auth` schema）负责——登录签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，`POST /api/auth/refresh` 轮转会话，`POST /api/auth/logout-all` 吊销全部会话；目录侧只做**验签**，不保存账号数据、不查对方表。
-- **令牌密钥（环境变量）**：私钥只在账号服务——`AUTH_JWT_PRIVATE_KEY`（PKCS#1/PKCS#8 PEM 或其 base64）由 auth 用于**签发**，是**必填项**：未配置时账号服务拒绝启动（本地开发可显式设 `AUTH_JWT_ALLOW_EPHEMERAL_KEY=1` 改用进程内临时密钥，重启即失效且启动会打 WARNING）。目录侧只验签，按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS，默认 `http://auth:8081/api/oidc/jwks`）取公钥；`AUTH_JWT_PRIVATE_KEY` 在目录侧只剩兼容兜底（启动会告警，待移除）。`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
+- **令牌密钥（环境变量）**：私钥只在账号服务——`AUTH_JWT_PRIVATE_KEY`（PKCS#1/PKCS#8 PEM 或其 base64）由 auth 用于**签发**，是**必填项**：未配置时账号服务拒绝启动（本地开发可显式设 `AUTH_JWT_ALLOW_EPHEMERAL_KEY=1` 改用进程内临时密钥，重启即失效且启动会打 WARNING）。目录侧只验签，按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS，默认 `http://auth:8081/api/oidc/jwks`）取公钥。`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
 - **OAuth 2.0 / OIDC 接入**：由账号服务提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo`、
   `/.well-known/openid-configuration` 与 `/api/oidc/jwks`（其他服务用 JWKS 本地验签）。
 - **个人访问令牌（PAT）**：账号服务签发 `mfp_` + 43 位 base62 的长期令牌（明文只在创建响应里出现一次，库里只存 sha256），供调 API 与接 bot 使用。下游（目录 / 互动 / 存储）遇到 `Authorization: Bearer mfp_…` 一律把该令牌交给账号服务的 `POST /api/auth/tokens/introspect` 判定，**不读账号库、不签发**；有效权限 = 用户自身权限 ∩ 该令牌的 scopes，授权判定仍走各服务自己的权限码。内省结果在下游进程内按明文 sha256 缓存 **60 秒**（同键并发只打一次，缓存有上限与逐出），因此**吊销与过期最长 60 秒后才在下游生效**；状态码映射的边界（别按字面"非 200 都当不认"改回去）：只有 `401` / `403` 是账号服务对**令牌本身**的判定，才回 `401 invalid_token`；`503`（账号服务读不动库）、`404`（内省端点还没上线，滚动部署期）、`429`（内省限流）与 5xx / 网络超时都**不是**"令牌无效"的证据，一律回 `503 auth_unavailable`（**不是 401**：依赖故障回 401 会让 bot/CI 误以为凭据问题去换令牌，换令牌解决不了这些故障）；两种映射都 fail-closed，刻意选更诚实的那个。PAT 请求不回落也不产出 `mf_session` Cookie。
@@ -109,7 +109,7 @@
 
 ## 🛠️ 技术栈清单
 
-- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5（对象存储走 S3 协议，客户端库为 minio-go——它只是 S3 SDK，服务端是 RustFS）
+- **后端核心 (Backend)**：Go 1.25, Gin（令牌验签用标准库 crypto/rsa，不引第三方 JWT 库）
 - **前端系统 (Frontend)**：Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, RustFS (S3-compatible Object Storage)
