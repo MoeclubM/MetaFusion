@@ -1955,5 +1955,6 @@
   "developer.reqlogs.failed": "読み込みに失敗しました",
   "developer.reqlogs.allCredentials": "すべての認証情報",
   "developer.apiKeys.new": "新規作成",
-  "catalog.allLanguages": "すべての言語"
+  "catalog.allLanguages": "すべての言語",
+  "entity.detail.partialFailure": "一部の情報を読み込めませんでした：{sections}。該当する記録がないという意味ではありません。再試行してください。"
 }

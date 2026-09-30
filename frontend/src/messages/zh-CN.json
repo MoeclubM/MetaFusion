@@ -1955,5 +1955,6 @@
   "developer.reqlogs.failed": "读取失败，稍后重试",
   "developer.reqlogs.allCredentials": "全部凭据",
   "developer.apiKeys.new": "新建",
-  "catalog.allLanguages": "全部语言"
+  "catalog.allLanguages": "全部语言",
+  "entity.detail.partialFailure": "部分内容加载失败：{sections}。这不代表没有相关记录，请重试。"
 }

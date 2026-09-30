@@ -127,6 +127,11 @@ export function EntityEditor({
   const [tagInput, setTagInput] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
+  const pictureFileRef = useRef<HTMLInputElement | null>(null);
+  const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
   if (!definitions) return <p>{t("catalog.loading")}</p>;
   if (!user) {
     // ?edit=1 已由 AuthGate 纳入登录闸门（未登录先跳 /login 并带回完整目标）。这里只兜底
@@ -336,11 +341,6 @@ export function EntityEditor({
   // 封面上传完整复用 storage 服务链路：sha256→initiate→put→complete→bind(role=cover_image)。
   // 新建实体无 id 时跳过 bind（asset 仍由 pictures[].asset_id 引用，保存后可补绑）。
   // 上传成功后把 asset_id 与 assetContentUrl 一次性写回该行，缩略图随之回显。
-  const pictureFileRef = useRef<HTMLInputElement | null>(null);
-  const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
-  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState("");
   const startPictureUpload = async (index: number, file: File) => {
     if (!file || file.size <= 0) return;
     setUploadError("");

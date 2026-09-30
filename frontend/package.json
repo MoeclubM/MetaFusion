@@ -11,7 +11,8 @@
     "contracts:build": "node scripts/generate-contracts.mjs",
     "contracts:check": "node scripts/generate-contracts.mjs --check",
     "langs:build": "bun scripts/gen-languages.mjs",
-    "langs:check": "bun scripts/gen-languages.mjs --check"
+    "langs:check": "bun scripts/gen-languages.mjs --check",
+    "test": "bun test tests"
   },
   "dependencies": {
     "@types/katex": "^0.16.8",

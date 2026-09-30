@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +20,7 @@ import {
   Relation,
   title,
 } from "@/components/catalog/api";
+import { loadCatalogSection } from "@/lib/catalogSection";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
@@ -175,6 +176,8 @@ export function EntityDetailView({ id }: { id: string }) {
   const [relationSubjectId, setRelationSubjectId] = useState<string>("");
   const [children, setChildren] = useState<Entity[]>([]);
   const [revisions, setRevisions] = useState<any[]>([]);
+  const [sectionFailures, setSectionFailures] = useState<Record<string, boolean>>({});
+  const loadRequest = useRef(0);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
   const [communityPosts, setCommunityPosts] = useState<EntityComment[]>([]);
   // 失败与「没有评论/没有合集」必须分开：两处的空列表都各有一句文案。
@@ -205,28 +208,43 @@ export function EntityDetailView({ id }: { id: string }) {
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const load = async () => {
+    const request = ++loadRequest.current;
+    const isCurrent = () => request === loadRequest.current;
+    setSectionFailures({});
+    setMotherWork(null);
+    setMotherRelease(null);
+    setMotherMedium(null);
+    setSubjectWorks([]);
+    setChildren([]);
     setLoading(true);
     setError("");
     try {
       const e = await api<Entity>(`/catalog/entities/${id}/resolve`);
+      if (!isCurrent()) return;
       setEntity(e);
 
       // resolve 可能返回合并后的规范 id；回落路由参数只为类型收口（能渲染到这里的实体必有 id）。
       const communityId = e.id || id;
       // Fetch occurrences, relations, revisions, posts, collections in parallel
       // 互动服务的两条列表失败时只影响各自那一块：先记下失败，稍后连同数据一起落到 state。
+      const failed: Record<string, boolean> = {};
       let postsFailed = false;
       let collectionsFailed = false;
-      const [occRes, relRes, revRes, posts, collections] = await Promise.all([
-        api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[]; entities: Record<string, Entity>; subject_id: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: {} as Record<string, Entity>, subject_id: e.id || "" })),
-        api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
+      const [occResult, relResult, revResult, posts, collections] = await Promise.all([
+        loadCatalogSection(api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`), { items: [] }),
+        loadCatalogSection(api<{ items: Relation[]; entities: Record<string, Entity>; subject_id: string }>(`/catalog/entities/${e.id}/relations`), { items: [] as Relation[], entities: {} as Record<string, Entity>, subject_id: e.id || "" }, (value) => !!value.entities && typeof value.entities === "object" && typeof value.subject_id === "string"),
+        loadCatalogSection(api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`), { items: [] }),
         // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
         // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
         fetchEntityPosts(communityId).catch(() => { postsFailed = true; return [] as EntityComment[]; }),
         fetchEntityCollections(communityId).catch(() => { collectionsFailed = true; return [] as EntityCollectionRef[]; }),
       ]);
 
+      if (!isCurrent()) return;
+      const occRes = occResult.data, relRes = relResult.data, revRes = revResult.data;
+      failed.occurrences = occResult.failed;
+      failed.relations = relResult.failed;
+      failed.revisions = revResult.failed;
       const occItems = Array.isArray(occRes.items) ? occRes.items : [];
       const relItems = Array.isArray(relRes.items) ? relRes.items : [];
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
@@ -248,22 +266,22 @@ export function EntityDetailView({ id }: { id: string }) {
       if (e.work_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.work_id}`)
-            .then(setMotherWork)
-            .catch(() => setMotherWork(null))
+            .then((parent) => { if (isCurrent()) setMotherWork(parent); })
+            .catch(() => { if (isCurrent()) setMotherWork(null); })
         );
       }
       if (e.release_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.release_id}`)
-            .then(setMotherRelease)
-            .catch(() => setMotherRelease(null))
+            .then((parent) => { if (isCurrent()) setMotherRelease(parent); })
+            .catch(() => { if (isCurrent()) setMotherRelease(null); })
         );
       }
       if (e.medium_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.medium_id}`)
-            .then(setMotherMedium)
-            .catch(() => setMotherMedium(null))
+            .then((parent) => { if (isCurrent()) setMotherMedium(parent); })
+            .catch(() => { if (isCurrent()) setMotherMedium(null); })
         );
       }
 
@@ -274,7 +292,7 @@ export function EntityDetailView({ id }: { id: string }) {
             e.subjects.slice(0, 10).map((s) =>
               api<Entity>(`/catalog/entities/${s.work_id}`).catch(() => null)
             )
-          ).then((works) => setSubjectWorks(works.filter(Boolean) as Entity[]))
+          ).then((works) => { if (isCurrent()) setSubjectWorks(works.filter(Boolean) as Entity[]); })
         );
       }
 
@@ -284,7 +302,7 @@ export function EntityDetailView({ id }: { id: string }) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${primaryWorkId}`)
             .then((w) => {
-              if (w) {
+              if (w && isCurrent()) {
                 setSubjectWorks((prev) => (prev.some((x) => x.id === w.id) ? prev : [...prev, w]));
               }
             })
@@ -309,25 +327,27 @@ export function EntityDetailView({ id }: { id: string }) {
                     .filter((x) => x.kind === "medium" && x.id)
                     .map((m) => allEntities(`medium_id=${m.id}`))
                 );
-                setChildren([...ch, ...tracks.flat()]);
+                if (isCurrent()) setChildren([...ch, ...tracks.flat()]);
               } else {
-                setChildren(ch);
+                if (isCurrent()) setChildren(ch);
               }
             })
-            .catch(() => setChildren([]))
+            .catch(() => { failed.children = true; if (isCurrent()) setChildren([]); })
         );
       }
 
       await Promise.all(parentPromises);
+      if (isCurrent()) setSectionFailures(failed);
     } catch (err) {
-      setError((err as Error).message);
+      if (isCurrent()) setError((err as Error).message);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
+    return () => { loadRequest.current++; };
   }, [id, user?.id]);
 
   // 封面派生链：本实体 → 母作品 → 发行对象作品 → 所属发行。比例一律留给 AdaptiveCover
@@ -739,15 +759,15 @@ export function EntityDetailView({ id }: { id: string }) {
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length + staffRelations.length, visible: staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "staff", label: t("entity.page.navStaff"), badge: sectionFailures.relations ? undefined : staffCredits.length + staffRelations.length, visible: sectionFailures.relations || staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // 作品的内容目录覆盖篇目/表达/聚合组成项，比"子实体列表"更准（子实体查询会连发行版一起带回），
     // 因此目录在场时以目录计数，且不再重复渲染子实体网格。
-    { id: "contents", label: t("entity.page.navContents"), badge: directoryVisible ? directoryData.items.length : children.length, visible: directoryVisible || children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "contents", label: t("entity.page.navContents"), badge: sectionFailures.children ? undefined : directoryVisible ? directoryData.items.length : children.length, visible: directoryVisible || sectionFailures.children || children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "releases", label: t("entity.page.navReleases"), badge: entity?.kind === "work" || sectionFailures.occurrences ? undefined : occurrences.length, visible: entity?.kind === "work" || sectionFailures.occurrences || occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "relations", label: t("entity.page.navRelations"), badge: sectionFailures.relations ? undefined : mediaRelations.length, visible: sectionFailures.relations || mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
     { id: "resources", label: t("entity.detail.resourcesTitle"), visible: defs?.structure?.[String(entity?.kind || "")]?.resources === true, icon: <HardDrive className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: sectionFailures.revisions ? undefined : revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
   ];
   const { active, select } = useHashTab(tabs);
 
@@ -928,6 +948,14 @@ export function EntityDetailView({ id }: { id: string }) {
                   title={title(motherRelease, locale, titleOrder)}
                 >
                   {title(motherRelease, locale, titleOrder)}
+                </Link>
+              </>
+            )}
+            {motherMedium && (
+              <>
+                <span className="text-text-muted dark:text-white/20">/</span>
+                <Link href={`/catalog/${motherMedium.id}`} className="hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[200px]" title={title(motherMedium, locale, titleOrder)}>
+                  {title(motherMedium, locale, titleOrder)}
                 </Link>
               </>
             )}
@@ -1174,6 +1202,17 @@ export function EntityDetailView({ id }: { id: string }) {
           {/* RIGHT COLUMN: Main Content Flow (Wiki Standard)              */}
           {/* ============================================================ */}
           <div className="min-w-0 flex-1 space-y-4">
+            {Object.values(sectionFailures).some(Boolean) && (
+              <div role="alert" className="rounded-lg border border-line p-4 space-y-2 text-sm">
+                <p>{t("entity.detail.partialFailure", { sections: [
+                  sectionFailures.occurrences && t("entity.page.navReleases"),
+                  sectionFailures.relations && t("entity.page.navRelations"),
+                  sectionFailures.revisions && t("entity.detail.revisionsTitle"),
+                  sectionFailures.children && t("entity.page.navContents"),
+                ].filter(Boolean).join(" / ") })}</p>
+                <button type="button" onClick={() => void load()} className="text-primary hover:underline">{t("catalog.retry")}</button>
+              </div>
+            )}
             {/* 分节标签栏：每节独立面板，不再整页滚动找内容（页头已提到两栏之上）。 */}
             <TabBar
               ariaLabel={t("entity.page.sections")}
@@ -1704,7 +1743,7 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 7: Revisions (修订历史)                             */}
             {/* ============================================================ */}
-            {active === "revisions" && (
+            {active === "revisions" && !sectionFailures.revisions && (
             <Card id="revisions" padding="section" className="space-y-4 shadow-soft">
               <SectionTitle icon={<History className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                 {t("entity.page.revisionsHistory")}
@@ -1931,7 +1970,7 @@ export function EntityDetailView({ id }: { id: string }) {
         isOpen={isMergeOpen}
         onClose={() => setIsMergeOpen(false)}
         targetType={entity.kind}
-        sourceEntity={{ id: entity.id || id, title: entity.title || "" }}
+        sourceEntity={{ ...entity, id: entity.id || id, title: entity.title || "" }}
       />
     </div>
   );
