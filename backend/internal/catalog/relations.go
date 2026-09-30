@@ -78,7 +78,13 @@ func getManyFrom(ctx context.Context, q queryer, ids []string, u *User) (map[str
 		return nil, err
 	}
 	rows.Close()
-	return fillStructural(ctx, q, out)
+	if out, err = fillStructural(ctx, q, out); err != nil {
+		return nil, err
+	}
+	if err = filterVisibleTrackContents(ctx, q, out, u); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // fillStructural 按 kind 批量补齐结构侧表字段（content_unit/expression 的 work 与父级、
@@ -880,12 +886,13 @@ func (s *Store) fetchOccurrenceRows(ctx context.Context, expressionIDs []string)
 	return rows, q.Err()
 }
 
-// occurrenceEntry 用批量补齐的实体表组装一条收录；不可见/缺失返回 false。
+// occurrenceEntry 用批量补齐的实体表组装一条收录；载体链与表达任一不可见/缺失返回 false。
 func occurrenceEntry(r occurrenceRow, got map[string]Entity) (map[string]any, bool) {
 	rel, ok1 := got[r.release]
 	med, ok2 := got[r.medium]
 	track, ok3 := got[r.track]
-	if !ok1 || !ok2 || !ok3 {
+	_, ok4 := got[r.expr]
+	if !ok1 || !ok2 || !ok3 || !ok4 {
 		return nil, false
 	}
 	return map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs}, true
@@ -908,9 +915,9 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 	}
 	need := []string{}
 	for _, r := range rows {
-		need = append(need, r.release, r.medium, r.track)
+		need = append(need, r.release, r.medium, r.track, r.expr)
 	}
-	// 去 N+1: 收集全部 release/medium/track ID, 一次 IN 批量拉取(含侧表),
+	// 去 N+1: 收集全部 release/medium/track/expression ID, 一次 IN 批量拉取(含侧表),
 	// 不可见/缺失的按原语义跳过该行。
 	got, err := s.getMany(ctx, need, u)
 	if err != nil {
@@ -1049,10 +1056,10 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	if err != nil {
 		return out, err
 	}
-	// 批量解析收录行引用的 release/medium/track，不可见者按原语义跳过。
+	// 批量解析收录行引用的 release/medium/track/expression，不可见者跳过。
 	need := []string{}
 	for _, r := range rows {
-		need = append(need, r.release, r.medium, r.track)
+		need = append(need, r.release, r.medium, r.track, r.expr)
 	}
 	got, err := s.getMany(ctx, need, u)
 	if err != nil {
@@ -1073,6 +1080,9 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			continue
 		}
 		if _, ok3 := got[r.track]; !ok3 {
+			continue
+		}
+		if _, ok4 := got[r.expr]; !ok4 {
 			continue
 		}
 		mat = append(mat, matRow{expr: r.expr, ref: occurrenceRef(r)})

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"testing"
 
@@ -82,6 +83,7 @@ func TestRespondHidesDriverText(t *testing.T) {
 		{"bad conn", driver.ErrBadConn},
 		{"conn closed", errors.New("sql: database is closed")},
 		{"json decode", errors.New("invalid character 'x' looking for beginning of value")},
+		{"json field type", &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Struct: "Entity", Field: "title"}},
 		{"unexpected eof", io.ErrUnexpectedEOF},
 		{"file path", errors.New("open /etc/metafusion/catalog.json: permission denied")},
 		{"sql fragment", errors.New("SELECT id FROM catalog.entities WHERE id = $1")},

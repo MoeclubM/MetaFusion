@@ -24,7 +24,7 @@ func (h HTTP) registerExchange(api *gin.RouterGroup) {
 	ex.GET("/entities/:id", func(c *gin.Context) {
 		e, err := s.Get(c.Request.Context(), c.Param("id"), user(c))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+			respond(c, nil, err)
 			return
 		}
 		b, err := json.Marshal(e)

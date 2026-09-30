@@ -315,6 +315,10 @@ func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (Identi
 		if !visible(e, u) {
 			return out, sql.ErrNoRows
 		}
+		e, err = visibleEntityContents(ctx, s.DB, e, u)
+		if err != nil {
+			return out, err
+		}
 		out.CanonicalID, out.Entity = e.ID, e
 		extra, err := s.reverseAliases(ctx, e.ID, seen)
 		if err != nil {
@@ -387,7 +391,7 @@ func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error)
 		if !visible(e, u) {
 			return Entity{}, sql.ErrNoRows
 		}
-		return e, nil
+		return visibleEntityContents(ctx, s.DB, e, u)
 	}
 	return Entity{}, errRedirectCycle
 }

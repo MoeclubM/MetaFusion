@@ -426,7 +426,10 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 	if err == nil && !visible(e, u) {
 		return Entity{}, sql.ErrNoRows
 	}
-	return e, err
+	if err != nil {
+		return e, err
+	}
+	return visibleEntityContents(ctx, s.DB, e, u)
 }
 
 // reference 是写侧身份归一：merged/deleted 行的引用一律拒绝（invalid_reference），
@@ -545,6 +548,9 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		}
 		if old.Status == "published" && e.Status != "published" {
 			return fmt.Errorf("use_lifecycle_endpoint")
+		}
+		if err = preserveHiddenTrackContents(ctx, tx, old, e, u); err != nil {
+			return err
 		}
 		e.Title = strings.TrimSpace(e.Title)
 		e.UpdatedAt = time.Now().UTC()
@@ -1149,13 +1155,22 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	// 所以需要区分本次查询的目标类型。
 	entityScoped := true
 	if _, err := s.Get(ctx, id, u); err != nil {
-		r, rerr := relationByID(ctx, s.DB, id)
-		if rerr != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
+		r, rerr := relationByID(ctx, s.DB, id)
+		if rerr != nil {
+			return nil, rerr
+		}
 		src, serr := get(ctx, s.DB, r.SourceID)
+		if serr != nil {
+			return nil, serr
+		}
 		tgt, terr := get(ctx, s.DB, r.TargetID)
-		if serr != nil || terr != nil || !visible(src, u) || !visible(tgt, u) ||
+		if terr != nil {
+			return nil, terr
+		}
+		if !visible(src, u) || !visible(tgt, u) ||
 			src.Status == "deleted" || src.Status == "merged" || tgt.Status == "deleted" || tgt.Status == "merged" {
 			return nil, sql.ErrNoRows
 		}
@@ -1175,6 +1190,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	}
 	defer rows.Close()
 	out := []map[string]any{}
+	historicalTracks := map[string]Entity{}
 	for rows.Next() {
 		var revID, version int64
 		var actorID, actorName, note string
@@ -1193,6 +1209,11 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 			if !visible(historical, u) {
 				continue
 			}
+			if historical.Kind == "track" && len(historical.Contents) > 0 {
+				// Each revision needs its own key: all snapshots have the same
+				// entity ID, while their inclusion records can differ.
+				historicalTracks[fmt.Sprint(len(out))] = historical
+			}
 		}
 		out = append(out, map[string]any{
 			"id":         revID,
@@ -1205,7 +1226,36 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 			"created_at": at,
 		})
 	}
-	return out, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// Current expression visibility also governs historical read projections.
+	// One batch query handles all visible revisions; stored snapshots are untouched.
+	if err = filterVisibleTrackContents(ctx, s.DB, historicalTracks, u); err != nil {
+		return nil, err
+	}
+	for i, revision := range out {
+		historical, ok := historicalTracks[fmt.Sprint(i)]
+		if !ok {
+			continue
+		}
+		// Preserve unrelated and legacy snapshot fields verbatim as JSON values;
+		// only the structural contents projection is replaced.
+		var document map[string]json.RawMessage
+		if err = json.Unmarshal(revision["snapshot"].(json.RawMessage), &document); err != nil {
+			return nil, err
+		}
+		if document["contents"], err = json.Marshal(historical.Contents); err != nil {
+			return nil, err
+		}
+		filtered, marshalErr := json.Marshal(document)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		revision["snapshot"] = json.RawMessage(filtered)
+	}
+	return out, nil
 }
 
 // ListAll is used for bounded entity directories, which must not silently truncate at 100.

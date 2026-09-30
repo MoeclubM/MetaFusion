@@ -16,6 +16,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"io"
 	"regexp"
@@ -56,6 +57,13 @@ func firstCode(message string) string {
 func internalFailure(err error) bool {
 	var pg *pq.Error
 	if errors.As(err, &pg) {
+		return true
+	}
+	// These standard decoding errors start with "json:", which otherwise
+	// looks like a domain code and leaks Go struct/field names as a 400 response.
+	var valueType *json.UnmarshalTypeError
+	var syntax *json.SyntaxError
+	if errors.As(err, &valueType) || errors.As(err, &syntax) {
 		return true
 	}
 	for _, sentinel := range []error{
