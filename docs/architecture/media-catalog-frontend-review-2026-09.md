@@ -161,6 +161,8 @@ curator 负责实例编目/API 操作，lrm-catalog-standards 负责身份/层�
 
 本轮纠正非 200 都算不存在、旧业务类型近似指导以及硬编码全零审计结论。404 表示不存在/不可见；401/403 是凭据/权限问题，429 要退避，5xx 是故障。工具未检查的项目须明确标记；非原子合并不能冒用 self 来源或忽略删除失败继续写入。
 
+技能同步单份 definitions/ETag、真实修订形状、Picture 资产与图片版本字段、所有 kind 的 Compare 响应和可配置限流；限流计数仍按副本独立，不能因配置存在数据库就声称共享计数。导入来源已有 Bangumi、DLsite、DMM，以 /importer/sources 为准；Preview 的 auto 自动识别来源，Import 应回传预览中的明确 source。GUI 可补字段的种子缺项与固定结构限制分别说明，不再指导用其它关系日期、附件、重叠曲序或复制表达凑事实。
+
 工作树清理同时检查 tracked/untracked/ignored 文件、独有提交、分支占用、锁和其他任务引用。干净且已合入的 detached 树仅是清理候选；占用 main、有独有提交或用户改动的树应保留。git worktree prune --dry-run 只判断过期登记，不代表仍存在的 checkout 可以删除。具体本机路径和当前分支状态只记 docs-local，不作为跨部署契约。
 
 ## 8. 验证与交付边界

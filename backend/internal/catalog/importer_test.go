@@ -395,9 +395,9 @@ func TestImporterImportNormalizesSource(t *testing.T) {
 	}
 }
 
-// 归一化函数本身的口径（Preview 与 Import 共用）：大小写/空白收敛到 bangumi，
-// 其余一律 not_supported——注册表里有 code 但没有适配器的来源（douban / bangumi_person）
-// 同样被拒，不因为"注册表认识"就放行。
+// 归一化函数本身的口径（Preview 与 Import 共用）：大小写/空白归一，空值/auto 默认 bangumi。
+// 未实现适配器的来源（包括注册表里的 douban / bangumi_person）返回 not_supported，
+// 不因为"注册表认识"就放行；Preview 的 auto 探测在调用此函数前完成。
 func TestNormalizeImporterSourceSharedByBothEndpoints(t *testing.T) {
 	for _, in := range []string{"", "auto", "AUTO", "  Auto  ", "bangumi", "Bangumi"} {
 		if got, err := normalizeImporterSource(in); err != nil || got != "bangumi" {

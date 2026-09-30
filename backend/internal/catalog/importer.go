@@ -1,13 +1,15 @@
 package catalog
 
-// 外部目录导入器（OmniImportModal 后端最小实现）。
+// 外部目录导入器（OmniImportModal 后端）。
 //
-// 只实现 Bangumi 公开 API 的预览与落库；其余来源一律返回 not_supported，
-// 不伪造数据。图片只做远端 URL 引用，不抓取、不转存（转存归存储子系统）；
+// 通过已实现的适配器预览并导入外部目录，可用来源由 /importer/sources 自描述；
+// 未实现适配器的来源返回 not_supported。图片只做远端 URL 引用，不抓取、不转存
+// （转存归存储子系统）；
 // download_cover 显式 false 时不写 Picture，见 importerApplyFieldSwitches。
 //
 // 落库全部走 Store.Save / Store.SaveRelation，证据（edit_note + sources）必填；
-// 幂等键 external_ids.metafusion_import=bangumi:{kind}:{id}，已存在直接返回旧 ID。
+// 幂等键 external_ids.metafusion_import={source}:{resource-kind}:{id}，
+// 具体资源类型由来源适配器决定，已有实体按导入模式复用。
 
 import (
 	"context"
@@ -270,8 +272,8 @@ func normalizeImporterSource(source string) (string, error) {
 	if src == "" {
 		src = "auto"
 	}
-	// auto 是解析别名而非法定来源：Preview 会按 URL/ID 判定具体适配器，
-	// 这里先回落到默认（bangumi），保证只认单一来源码的写路径口径不变。
+	// auto 是解析别名而非法定来源：Preview 先按 URL/ID 判定具体适配器，
+	// Import 不做来源探测，空值/auto 在这里默认 bangumi；客户端应回传预览的具体 source。
 	if src == "auto" {
 		return "bangumi", nil
 	}
@@ -1244,7 +1246,9 @@ func bangumiTranslationItems(name, nameCN, summary string) []ImporterTranslation
 	return items
 }
 
-// Preview 解析外部 ID 并抓取 Bangumi 公开 API 生成预览；非 Bangumi 来源返回 not_supported。
+// Preview 通过已实现的来源适配器生成预览，返回具体 source 与实际 entity_type。
+// 空来源/auto 按 URL/ID 探测；Bangumi 支持条目、人物与角色，DLsite/DMM 商品返回 work，
+// 不使用请求 entity_type 做人物/角色路由或校验，各来源的字段与关联覆盖由适配器决定。
 func (s *Store) Preview(ctx context.Context, source, urlOrID, entityType string) (ImporterPreviewResponse, error) {
 	// auto（含空值）按 URL/ID 字面形态判定具体来源；显式指定来源时以指定为准。
 	rawSource := strings.ToLower(strings.TrimSpace(source))
@@ -4250,16 +4254,14 @@ func buildReleaseTitle(workTitle string, rel *ImporterReleasePreview) string {
 // Import 落库：work/artist 分支 + link_mode（new_work / append_release_to_work /
 // create_relation）；append_release_to_work 挂靠目标 work 只补发行链。
 func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor User) (ImporterImportResponse, error) {
-	// 非法 entity_type 明确报错（错误码与 Preview 同一处归一化函数，见 normalizeImporterEntityType）：
-	// 此前这里吞掉错误回落成 work，同一份载荷会被预览拒、被落库悄悄建成作品——两边口径不一致。
+	// 所有来源的导入载荷都校验 entity_type，非法值返回 invalid_entity_type；
+	// Bangumi Preview 也用此函数，DLsite/DMM Preview 则固定返回 work。
 	entityType, err := normalizeImporterEntityType(req.EntityType)
 	if err != nil {
 		return ImporterImportResponse{}, err
 	}
-	// 来源归一化必须与 Preview 共用同一个函数。这里曾自带一套（"" → bangumi，但
-	// "auto" 原样收下）：于是 source=auto 的落库既拿不到 importDedupKey 的幂等键，
-	// 又把 external_ids 的键名写成 "auto"——auto 不在 external_databases 预设里，
-	// 带 external_id 的载荷会在写库前的预检被 invalid_external_key: auto 拒。
+	// 与 Preview 共用具体来源归一化，但这里不调用探测函数：空值/auto 默认 bangumi。
+	// 客户端应提交 Preview 返回的 source，保证幂等键、external_ids 和证据使用真实来源。
 	source, err := normalizeImporterSource(req.Source)
 	if err != nil {
 		return ImporterImportResponse{}, err

@@ -22,8 +22,9 @@ type ImporterSource struct {
 // externalDatabaseSeeds 里有对应的注册表行（importer_sources_test 直接断言这一点），
 // 否则下方合成会丢掉它——界面不撒谎的前提是这份清单只增真实条目。
 //
-// "auto" 不在这里：它是解析别名而非法定来源。Preview 把 auto 归一为默认适配器，
-// 弹窗把它作为显式选项单独呈现（见 OmniImportModal 的 sourceAuto）。
+// "auto" 不在这里：它是解析别名而非法定来源。Preview 按 URL/ID 探测具体来源，
+// 无法判定时默认 bangumi；Import 的空来源/auto 则直接默认 bangumi，不做探测。
+// 弹窗单独呈现 auto（见 OmniImportModal 的 sourceAuto），导入时应回传预览的具体 source。
 var importerAdapterCodes = []string{"bangumi", "dlsite", "dmm"}
 
 // importerAdapterSet 供 O(1) 判定使用。

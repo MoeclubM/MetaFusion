@@ -54,7 +54,7 @@ func TestImporterSourcesMatchAdapterCodes(t *testing.T) {
 			t.Errorf("%s 没有导入适配器，却被列为可用导入源", code)
 		}
 	}
-	// auto 是解析别名而非来源：它在 Preview 里被归一成默认适配器，
+	// auto 是解析别名而非来源：Preview 探测具体适配器，Import 默认 bangumi，
 	// 因此不能作为独立来源混进 items（否则管理台会多出一个"库"）。
 	if _, ok := byID["auto"]; ok {
 		t.Error("auto 是解析别名，不应作为独立来源出现在清单里")
