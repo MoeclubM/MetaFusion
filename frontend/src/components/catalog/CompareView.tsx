@@ -3,10 +3,12 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, mapLimit, title } from "./api";
-import { EntityLink, ErrorMessage } from "./Fields";
-import { FieldValue } from "./TemplateAttributeSections";
-import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
+import { api, Entity, title } from "./api";
+import { ErrorMessage } from "./Fields";
+import { useAuth } from "@/lib/authContext";
+import { useInclusionExpressions } from "./useInclusionExpressions";
+import { FieldValue, GroupAttributeInline, LocatorInline } from "./TemplateAttributeSections";
+import { useDefinitions, getFieldName, getKindName, getTermName, resolveKindOptions, resolveLocalizedName } from "@/lib/definitions";
 import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
 import {
   COMPARE_MAX_SLOTS,
@@ -19,7 +21,7 @@ import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { coverUrl as firstCoverUrl } from "@/lib/cover";
 import { RevisionsCompare } from "./RevisionsCompare";
 import { canonicalDetailPath } from "@/lib/entityRoutes";
-import { ENTITY_KINDS } from "@/lib/kinds.generated";
+import { orderedTracksWithDepth } from "@/lib/trackTree";
 import {
   ArrowRightLeft,
   Search,
@@ -36,9 +38,11 @@ import {
 
 export function Compare({ ids, revisions, mode }: { ids: string; revisions?: string; mode?: string }) {
   const { t, tr, locale } = useI18n();
+  const { user } = useAuth();
+  const viewerId = user?.id || "";
   // 定义只有这一份来源：CatalogProvider 只留模块状态与实例初始化状态，从不持有定义，
   // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
-  const { definitions: dynamicDefs } = useDefinitions();
+  const { definitions: dynamicDefs, kinds } = useDefinitions();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const initialList = useMemo(() => {
@@ -53,14 +57,23 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
   // 跨标签页同步在 hook 里完成：另一页加入/移除后本页不刷新即一致。
   const { basket: storedBasket, setBasket: writeBasket } = useCompareBasket();
   const [selectedIds, setSelectedIds] = useState<string[]>(initialList);
-  const [items, setItems] = useState<any[]>([]);
+  const [loadedItems, setItems] = useState<any[]>([]);
+  const [itemsKey, setItemsKey] = useState("");
+  const queryKey = selectedIds.join(",");
+  const requestKey = JSON.stringify([viewerId, queryKey]);
+  // 身份或选择变化的同次渲染即隐藏旧资料，不等待 effect 清空私有名称。
+  const items = itemsKey === requestKey ? loadedItems : [];
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [recentEntities, setRecentEntities] = useState<Entity[]>([]);
+  const [loadedRecentEntities, setRecentEntities] = useState<Entity[]>([]);
+  const [recentViewerId, setRecentViewerId] = useState("");
+  const recentEntities = recentViewerId === viewerId ? loadedRecentEntities : [];
   const [searchQuery, setSearchQuery] = useState("");
   // 选择器层级：all 不带 kind 参数（八层级混排），其余只取该层级。
   const [pickerKind, setPickerKind] = useState<string>("all");
-  const [searchResults, setSearchResults] = useState<Entity[]>([]);
+  const [loadedSearchResults, setSearchResults] = useState<Entity[]>([]);
+  const [searchViewerId, setSearchViewerId] = useState("");
+  const searchResults = searchViewerId === viewerId ? loadedSearchResults : [];
   const [searching, setSearching] = useState(false);
   const [customIdInput, setCustomIdInput] = useState("");
   const [highlightDiff, setHighlightDiff] = useState(true);
@@ -129,59 +142,70 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
   };
 
   useEffect(() => {
+    let active = true;
+    setRecentEntities([]);
+    setRecentViewerId(viewerId);
     const kindParam = pickerKind === "all" ? "" : `kind=${encodeURIComponent(pickerKind)}&`;
     api<{ items: Entity[] }>(`/catalog/entities?${kindParam}limit=12`)
-      .then((r) => setRecentEntities(Array.isArray(r.items) ? r.items : []))
+      .then((r) => { if (active) setRecentEntities(Array.isArray(r.items) ? r.items : []); })
       .catch(() => {});
-  }, [pickerKind]);
+    return () => { active = false; };
+  }, [pickerKind, viewerId]);
 
   useEffect(() => {
+    let active = true;
+    setSearchResults([]);
+    setSearchViewerId(viewerId);
+    setSearching(false);
     const q = searchQuery.trim();
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
+    if (!q) return;
     const timer = setTimeout(() => {
       setSearching(true);
       const kindParam = pickerKind === "all" ? "" : `kind=${encodeURIComponent(pickerKind)}&`;
       api<{ items: Entity[] }>(`/catalog/entities?${kindParam}q=${encodeURIComponent(q)}&limit=8`)
-        .then((r) => setSearchResults(Array.isArray(r.items) ? r.items : []))
-        .catch((e) => setError(e.message))
-        .finally(() => setSearching(false));
+        .then((r) => { if (active) setSearchResults(Array.isArray(r.items) ? r.items : []); })
+        .catch((e) => { if (active) setError(e.message); })
+        .finally(() => { if (active) setSearching(false); });
     }, 250);
-    return () => clearTimeout(timer);
-  }, [searchQuery, pickerKind]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [searchQuery, pickerKind, viewerId]);
 
-  // 同一 ids 只取一次：无论 effect 因何重入（依赖抖动、跨标签页写回），
-  // ids 不变就不重发——线上曾出现同一 compare URL 每秒多次 429 的刷击。
+  // 同一身份与 ids 只取一次；请求序号也阻止身份或选择往返后的旧响应覆盖新结果。
   const lastFetchedRef = useRef("");
+  const fetchSequenceRef = useRef(0);
   useEffect(() => {
     if (selectedIds.length < COMPARE_MIN_SLOTS) {
       setItems([]);
       setError("");
+      setLoading(false);
       lastFetchedRef.current = "";
+      fetchSequenceRef.current += 1;
       return;
     }
     if (selectedIds.length > maxSlots) {
       setError(t("catalog.compareLimitError"));
       return;
     }
-    const key = selectedIds.join(",");
+    const key = requestKey;
     if (lastFetchedRef.current === key) return;
     lastFetchedRef.current = key;
+    const sequence = ++fetchSequenceRef.current;
     setLoading(true);
     setError("");
-    api<{ items: any[] }>(`/catalog/compare?ids=${key}`)
+    api<{ items: any[] }>(`/catalog/compare?ids=${encodeURIComponent(queryKey)}`)
       .then((r) => {
+        if (fetchSequenceRef.current !== sequence) return;
         setItems(Array.isArray(r.items) ? r.items : []);
+        setItemsKey(key);
         setError("");
       })
       .catch((e) => {
+        if (fetchSequenceRef.current !== sequence) return;
         setItems([]);
         setError(e.message);
       })
-      .finally(() => setLoading(false));
-  }, [selectedIds, t, maxSlots]);
+      .finally(() => { if (fetchSequenceRef.current === sequence) setLoading(false); });
+  }, [selectedIds, t, maxSlots, requestKey, queryKey]);
 
   const comparableFields = useMemo(() => {
     const defs = dynamicDefs;
@@ -223,28 +247,13 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
     return Array.from(ids);
   }, [items]);
 
-  const [exprEntities, setExprEntities] = useState<Record<string, Entity>>({});
-  useEffect(() => {
-    if (expressionIds.length === 0) {
-      setExprEntities({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const map: Record<string, Entity> = {};
-      await mapLimit(expressionIds, 8, async (id) => {
-        try {
-          map[id] = await api<Entity>(`/catalog/entities/${id}/resolve`);
-        } catch {
-          /* ignore */
-        }
-      });
-      if (!cancelled) setExprEntities(map);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [expressionIds.join(",")]);
+  const inclusionExpressions = useInclusionExpressions(expressionIds, viewerId);
+  const exprEntities = inclusionExpressions.expressions;
+  const expressionIdentityReady = !inclusionExpressions.loading && inclusionExpressions.failedCount === 0
+    && expressionIds.every((id) => Boolean(exprEntities[id]?.content_unit_id || exprEntities[id]?.work_id));
+  const expressionName = (id: string) => exprEntities[id]
+    ? title(exprEntities[id], locale)
+    : t(inclusionExpressions.loading ? "catalog.entityReference" : "catalog.referenceUnknown");
 
   const alignment = useMemo(
     () => computeAlignment(items, exprEntities, compareSemanticsOf(dynamicDefs)),
@@ -272,7 +281,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
     return String(value);
   };
 
-  const kindName = (kind: string) => (kind ? tr(`catalog.kind.${kind}`, kind) : "");
+  const kindName = (kind: string) => (kind ? getKindName(kinds, kind, locale, tr(`catalog.kind.${kind}`, kind)) : "");
 
   // 槽位/卡片摘要：标题+封面通用，副标题按层级取（发行：品番/格式；载体：格式；其余：层级名）。
   const getEntitySummary = (id: string) => {
@@ -282,7 +291,8 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
     const coverUrl = obj ? firstCoverUrl(obj) : "";
     const kind = obj?.kind || "";
     const catalogNo = obj?.attributes?.catalog_number || "";
-    const format = obj?.attributes?.format || "";
+    const rawFormat = obj?.attributes?.format || "";
+    const format = rawFormat ? getTermName(dynamicDefs, dynamicDefs?.fields?.format?.vocabulary || "", String(rawFormat), locale) : "";
     const subtitle =
       kind === "release"
         ? [catalogNo, format].filter(Boolean).map(String).join(" · ") || kindName(kind)
@@ -497,7 +507,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
 
           {/* 选择器层级页签：默认混排，选定后搜索与快速加入只取该层级。 */}
           <div className="flex flex-wrap gap-1.5 mb-4" role="tablist" aria-label={t("catalog.kindFilter")}>
-            {["all", ...ENTITY_KINDS].map((k) => (
+            {["all", ...resolveKindOptions(kinds)].map((k) => (
               <button
                 key={k}
                 type="button"
@@ -737,6 +747,15 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
               {t("catalog.compareContentAlignment")}
             </h2>
           </div>
+          {inclusionExpressions.loading && (
+            <p role="status" className="m-0 text-xs text-muted-foreground">{t("catalog.compareExpressionsLoading")}</p>
+          )}
+          {inclusionExpressions.failedCount > 0 && (
+            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-3 text-xs text-amber-700 dark:text-warn-soft">
+              <span>{t("entity.page.inclusionsLoadFailed", { count: inclusionExpressions.failedCount })}</span>
+              <button type="button" onClick={inclusionExpressions.retry} className="text-primary hover:underline cursor-pointer">{t("catalog.retry")}</button>
+            </div>
+          )}
           {/* 资料不足与待确认提示必须在"无可对齐内容"时也出现：全部发行都还没录入
               曲目/收录时，只显示"没有可对齐内容"会让人误以为已比对完成。 */}
           {alignment.incomplete.length > 0 && (
@@ -768,7 +787,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                         key={id}
                         className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-foreground"
                       >
-                        {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                        {expressionName(id)}
                       </span>
                     ))}
                   </div>
@@ -783,7 +802,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                     {alignment.partial.map(({ id, in: inSet }) => (
                       <li key={id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
                         <span className="font-medium text-foreground">
-                          {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                          {expressionName(id)}
                         </span>
                         <span className="text-muted-foreground">
                           {t("catalog.compareIncludedIn")}{" "}
@@ -794,7 +813,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   </ul>
                 </div>
               )}
-              {alignment.workVariants.length > 0 && (
+              {expressionIdentityReady && alignment.workVariants.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
                     {t("catalog.compareWorkVariants")} · {alignment.workVariants.length}
@@ -805,7 +824,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                         {ids.map((id) => (
                           <span key={id} className="inline-flex items-baseline gap-1">
                             <span className="font-medium text-foreground">
-                              {exprEntities[id] ? title(exprEntities[id], locale) : id.slice(0, 8)}
+                              {expressionName(id)}
                             </span>
                             <span className="text-muted-foreground">
                               ({items
@@ -820,7 +839,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   </ul>
                 </div>
               )}
-              {alignment.carrierOnly.length > 0 && (
+              {expressionIdentityReady && alignment.carrierOnly.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
                     {t("catalog.compareCarrierOnly")}
@@ -828,7 +847,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.carrierOnly.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.entity, locale)}
                       </li>
                     ))}
                   </ul>
@@ -836,7 +855,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
               )}
               {/* 引用同一表达但收录范围/重复/顺序不同（如完整录音 vs 片段）：
                   这不是"仅载体差异"，必须单独指出。 */}
-              {alignment.rangeDiffer.length > 0 && (
+              {expressionIdentityReady && alignment.rangeDiffer.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
                     {t("catalog.compareRangeDiffer")}
@@ -844,7 +863,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.rangeDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.entity, locale)}
                       </li>
                     ))}
                   </ul>
@@ -852,7 +871,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
               )}
               {/* 内容与范围一致、仅本版定位（页码/时间码）不同：如同一译文换了排版位置。
                   这不是内容变化，也不是收录范围变化，单独一类避免误报。 */}
-              {alignment.locatingDiffer.length > 0 && (
+              {expressionIdentityReady && alignment.locatingDiffer.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
                     {t("catalog.compareLocatingDiffer")}
@@ -860,14 +879,14 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.locatingDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.entity, locale)}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               {/* 记录级附加属性差异无法归类为内容或定位：不能断言仅载体不同，提示人工核对。 */}
-              {alignment.attributeDiffer.length > 0 && (
+              {expressionIdentityReady && alignment.attributeDiffer.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
                     {t("catalog.compareAttributeDiffer")}
@@ -875,7 +894,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.attributeDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.entity, locale)}
                       </li>
                     ))}
                   </ul>
@@ -1069,45 +1088,54 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                           >
                             <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border">
                               <h3 className="text-xs font-bold text-foreground m-0 truncate">
-                                {title(m.medium, locale)}
+                                <Link href={`/catalog/${m.medium.id}`} className="hover:text-primary">{title(m.medium, locale)}</Link>
                               </h3>
                               {m.medium.attributes?.format ? (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                                  {String(m.medium.attributes.format)}
+                                  {getTermName(dynamicDefs, dynamicDefs?.fields?.format?.vocabulary || "", String(m.medium.attributes.format), locale)}
                                 </span>
                               ) : null}
                             </div>
 
                             <div className="space-y-1.5">
-                              {m.tracks?.map((tr: Entity) => (
+                              {orderedTracksWithDepth(m.tracks || []).map(({ track: tr, depth }) => (
                                 <div
                                   key={tr.id}
                                   className="text-xs py-1 border-b border-dashed border-border/60 last:border-b-0"
+                                  style={depth ? { marginLeft: `${depth * 12}px` } : undefined}
                                 >
                                   <div className="flex items-center gap-1.5">
                                     <span className="font-mono text-muted-foreground text-[11px] shrink-0 font-semibold w-5">
                                       {tr.number || tr.position}
                                     </span>
-                                    <span className="font-medium text-foreground truncate">
+                                    <Link href={`/catalog/${tr.id}`} className="font-medium text-foreground hover:text-primary truncate">
                                       {title(tr, locale)}
-                                    </span>
+                                    </Link>
                                   </div>
 
-                                  {tr.contents?.map((c: any, i: number) => {
+                                  {[...(tr.contents || [])].sort((a, b) => a.position - b.position).map((c, i) => {
                                     const isVariant = sets.some(
                                       (s, j) => j !== index && !s.has(c.expression_id)
                                     );
                                     return (
                                       <div
                                         key={i}
-                                        className="pl-6 pt-0.5 flex items-center gap-2 text-[11px]"
+                                        className="pl-6 pt-0.5 space-y-0.5 text-[11px]"
                                       >
-                                        <EntityLink id={c.expression_id} />
-                                        {isVariant && (
-                                          <span className="text-[10px] px-1.5 py-0.2 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20 shadow-2xs">
-                                            {t("catalog.variantContent")}
-                                          </span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                          {exprEntities[c.expression_id] ? (
+                                            <Link href={`/catalog/${c.expression_id}`} className="text-primary hover:underline">{title(exprEntities[c.expression_id], locale)}</Link>
+                                          ) : <span className="text-muted-foreground">{expressionName(c.expression_id)}</span>}
+                                          {isVariant && (
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20 shadow-2xs">
+                                              {t("catalog.variantContent")}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                          <LocatorInline defs={dynamicDefs} value={c.locator} locale={locale} />
+                                          <GroupAttributeInline defs={dynamicDefs} code="inclusion_attributes" value={c.attributes} locale={locale} />
+                                        </div>
                                       </div>
                                     );
                                   })}

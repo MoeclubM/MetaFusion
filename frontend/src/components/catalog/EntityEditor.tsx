@@ -726,9 +726,7 @@ export function EntityEditor({
             const scope = f.scoped_by ? String((e as Record<string, unknown>)[f.scoped_by] || "") : "";
             return (
               <label key={f.code}>
-                {f.target_kinds && f.target_kinds.length > 0
-                  ? f.target_kinds.map((k) => kindLabel(k)).join(" / ")
-                  : t("catalog.parent")}
+                {local(f.names, locale, "", t("catalog.parent"))}
                 <EntityPicker
                   kinds={targets}
                   query={scope ? `&${f.scoped_by}=${scope}` : ""}
@@ -876,7 +874,7 @@ export function EntityEditor({
                     if (!def) return null;
                     return (
                       <label key={k}>
-                        {getFieldName(defs as any, k, locale) || k}
+                        {local(def.names, locale, "", k)}
                         <FieldInput
                           field={def}
                           value={c.locator[k]}

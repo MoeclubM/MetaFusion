@@ -36,7 +36,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Film,
   Layers,
   Users,
 } from "lucide-react";
@@ -205,14 +204,14 @@ export default function ReleaseDetailLayout() {
         rows.forEach((r) => r.tracks.sort((a, b) => (a.position || 0) - (b.position || 0)));
         const workIds = Array.from(new Set((currentRelease.subjects || []).map((s) => s.work_id).filter(Boolean)));
         const workMap: Record<string, Entity> = {};
-        await Promise.all(
-          workIds.map(async (id) => {
+        await mapLimit(
+          workIds, 8, async (id) => {
             try {
               workMap[id] = await api<Entity>(`/catalog/entities/${id}`);
             } catch {
               /* ignore */
             }
-          })
+          }
         );
         if (cancelled) return;
         setRelease(currentRelease);
@@ -528,10 +527,10 @@ export default function ReleaseDetailLayout() {
             <span className="w-6.5 h-6.5 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
               <Layers className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
             </span>
-            <span className="font-display text-sm font-bold tracking-tight text-text-strong truncate">
+            <Link href={`/catalog/${medium.id}`} className="font-display text-sm font-bold tracking-tight text-text-strong truncate hover:text-primary">
               {depth === 0 && medium.position ? `${medium.position} · ` : ""}
               {mediumTitle}
-            </span>
+            </Link>
             {fmtLabel && ownFmt !== "unknown" && (
               <span className="hidden sm:inline font-mono text-[11px] text-text-faint shrink-0">{fmtLabel}</span>
             )}
@@ -586,7 +585,7 @@ export default function ReleaseDetailLayout() {
                           style={trDepth > 0 ? { paddingLeft: `${trDepth * 14}px` } : undefined}
                         >
                           {trDepth > 0 && <span className="text-text-muted font-mono text-[10px]">└</span>}
-                          <span>{displayTitle || t("release.detail.untitledTrack")}</span>
+                          <Link href={`/catalog/${tr.id}`} className="hover:text-primary">{displayTitle || t("release.detail.untitledTrack")}</Link>
                           {overridden && (
                             <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>
                           )}
@@ -595,7 +594,7 @@ export default function ReleaseDetailLayout() {
                               href={`/catalog/${trWork.id}`}
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-info-soft border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors duration-fast ease-soft font-mono"
                             >
-                              <Film className="w-2.5 h-2.5" />
+                              <Layers className="w-2.5 h-2.5" />
                               <span className="truncate max-w-[22ch]">{entityTitle(trWork, locale)}</span>
                             </Link>
                           )}

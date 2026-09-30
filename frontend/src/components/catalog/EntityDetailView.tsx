@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import { useCatalog } from "@/components/catalog/CatalogProvider";
 import {
   api,
   Entity,
+  mapLimit,
   Relation,
   title,
 } from "@/components/catalog/api";
@@ -55,6 +56,11 @@ import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { WorkContentDirectory, hasWorkDirectoryContent, useWorkDirectoryData } from "@/components/work/WorkContentDirectory";
 import { WorkReleasesSection } from "@/components/entity/WorkReleasesSection";
+import { InclusionContents } from "./InclusionContents";
+import { TrackDirectory } from "./TrackDirectory";
+import { GroupAttributeInline, LocatorInline } from "./TemplateAttributeSections";
+import { EntityLink } from "./Fields";
+import { useInclusionExpressions } from "./useInclusionExpressions";
 import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -164,7 +170,14 @@ export function EntityDetailView({ id }: { id: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [entity, setEntity] = useState<Entity | null>(null);
+  const readKey = JSON.stringify([id, user?.id || ""]);
+  const currentReadKeyRef = useRef(readKey);
+  currentReadKeyRef.current = readKey;
+  const loadSequenceRef = useRef(0);
+  const [loadedKey, setLoadedKey] = useState("");
+  const isCurrentRead = loadedKey === readKey;
+  const [loadedEntity, setEntity] = useState<Entity | null>(null);
+  const entity = isCurrentRead ? loadedEntity : null;
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
   const [motherRelease, setMotherRelease] = useState<Entity | null>(null);
   const [motherMedium, setMotherMedium] = useState<Entity | null>(null);
@@ -173,7 +186,8 @@ export function EntityDetailView({ id }: { id: string }) {
   const [relatedEntities, setRelatedEntities] = useState<Record<string, Entity>>({});
   // 响应标出的主体 id（/relations 的 subject_id）。
   const [relationSubjectId, setRelationSubjectId] = useState<string>("");
-  const [children, setChildren] = useState<Entity[]>([]);
+  const [loadedChildren, setChildren] = useState<Entity[]>([]);
+  const children = isCurrentRead ? loadedChildren : [];
   const [revisions, setRevisions] = useState<any[]>([]);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
   const [communityPosts, setCommunityPosts] = useState<EntityComment[]>([]);
@@ -185,14 +199,22 @@ export function EntityDetailView({ id }: { id: string }) {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState("");
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [readLoading, setLoading] = useState(true);
+  const loading = !isCurrentRead || readLoading;
+  const [readError, setError] = useState("");
+  const error = isCurrentRead ? readError : "";
+  const [readProjectionFailed, setProjectionFailed] = useState(false);
+  const projectionFailed = isCurrentRead && readProjectionFailed;
   const [editing, setEditing] = useState(searchParams.get("edit") === "1");
   // 编辑/合并/历史：作品页此前独有的三个动作，现在对八种实体一致提供（kind 只决定文案）。
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   // 作品内容目录：hook 必须无条件调用（早期 return 之前），非作品实体传空 id 时不发请求。
   const directoryData = useWorkDirectoryData(entity?.kind === "work" ? entity.id || id : "");
+  const inclusionExpressions = useInclusionExpressions(
+    [entity, ...children].flatMap((item) => (item?.contents || []).map((content) => content.expression_id)),
+    user?.id,
+  );
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   // 复制失败的分支：null 表示没有失败。复制不是"点了没反应"的动作，失败必须可见。
@@ -205,10 +227,31 @@ export function EntityDetailView({ id }: { id: string }) {
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const load = async () => {
+    const key = readKey;
+    const sequence = ++loadSequenceRef.current;
+    const current = () => currentReadKeyRef.current === key && loadSequenceRef.current === sequence;
+    setLoadedKey(key);
     setLoading(true);
     setError("");
+    setProjectionFailed(false);
+    setEntity(null);
+    setMotherWork(null);
+    setMotherRelease(null);
+    setMotherMedium(null);
+    setSubjectWorks([]);
+    setChildren([]);
+    setOccurrences([]);
+    setRelations([]);
+    setRelatedEntities({});
+    setRelationSubjectId("");
+    setRevisions([]);
+    setCommunityPosts([]);
+    setCommunityCollections([]);
+    setCommunityPostsFailed(false);
+    setCommunityCollectionsFailed(false);
     try {
       const e = await api<Entity>(`/catalog/entities/${id}/resolve`);
+      if (!current()) return;
       setEntity(e);
 
       // resolve 可能返回合并后的规范 id；回落路由参数只为类型收口（能渲染到这里的实体必有 id）。
@@ -217,21 +260,24 @@ export function EntityDetailView({ id }: { id: string }) {
       // 互动服务的两条列表失败时只影响各自那一块：先记下失败，稍后连同数据一起落到 state。
       let postsFailed = false;
       let collectionsFailed = false;
+      let metadataFailed = false;
       const [occRes, relRes, revRes, posts, collections] = await Promise.all([
-        api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[]; entities: Record<string, Entity>; subject_id: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: {} as Record<string, Entity>, subject_id: e.id || "" })),
-        api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
+        api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => { metadataFailed = true; return { items: [] }; }),
+        api<{ items: Relation[]; entities: Record<string, Entity>; subject_id: string }>(`/catalog/entities/${e.id}/relations`).catch(() => { metadataFailed = true; return { items: [] as Relation[], entities: {} as Record<string, Entity>, subject_id: e.id || "" }; }),
+        api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => { metadataFailed = true; return { items: [] }; }),
         // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
         // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
         fetchEntityPosts(communityId).catch(() => { postsFailed = true; return [] as EntityComment[]; }),
         fetchEntityCollections(communityId).catch(() => { collectionsFailed = true; return [] as EntityCollectionRef[]; }),
       ]);
+      if (!current()) return;
 
       const occItems = Array.isArray(occRes.items) ? occRes.items : [];
       const relItems = Array.isArray(relRes.items) ? relRes.items : [];
+      if (!Array.isArray(occRes.items) || !Array.isArray(relRes.items) || !Array.isArray(revRes.items)) metadataFailed = true;
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
       // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
-      setRelatedEntities(relRes.entities);
+      setRelatedEntities(relRes.entities || {});
       setRelationSubjectId(relRes.subject_id);
       const revItems = Array.isArray(revRes.items) ? revRes.items : [];
       setOccurrences(occItems);
@@ -248,33 +294,32 @@ export function EntityDetailView({ id }: { id: string }) {
       if (e.work_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.work_id}`)
-            .then(setMotherWork)
-            .catch(() => setMotherWork(null))
+            .then((work) => { if (current()) setMotherWork(work); })
+            .catch(() => { metadataFailed = true; if (current()) setMotherWork(null); })
         );
       }
       if (e.release_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.release_id}`)
-            .then(setMotherRelease)
-            .catch(() => setMotherRelease(null))
+            .then((release) => { if (current()) setMotherRelease(release); })
+            .catch(() => { metadataFailed = true; if (current()) setMotherRelease(null); })
         );
       }
       if (e.medium_id) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${e.medium_id}`)
-            .then(setMotherMedium)
-            .catch(() => setMotherMedium(null))
+            .then((medium) => { if (current()) setMotherMedium(medium); })
+            .catch(() => { metadataFailed = true; if (current()) setMotherMedium(null); })
         );
       }
 
       // If entity is a release, resolve its subject works
       if (e.kind === "release" && e.subjects && e.subjects.length > 0) {
         parentPromises.push(
-          Promise.all(
-            e.subjects.slice(0, 10).map((s) =>
-              api<Entity>(`/catalog/entities/${s.work_id}`).catch(() => null)
-            )
-          ).then((works) => setSubjectWorks(works.filter(Boolean) as Entity[]))
+          mapLimit(
+            e.subjects, 8, (s) =>
+              api<Entity>(`/catalog/entities/${s.work_id}`).catch(() => { metadataFailed = true; return null; })
+          ).then((works) => { if (current()) setSubjectWorks(works.filter(Boolean) as Entity[]); })
         );
       }
 
@@ -284,50 +329,55 @@ export function EntityDetailView({ id }: { id: string }) {
         parentPromises.push(
           api<Entity>(`/catalog/entities/${primaryWorkId}`)
             .then((w) => {
-              if (w) {
+              if (current() && w) {
                 setSubjectWorks((prev) => (prev.some((x) => x.id === w.id) ? prev : [...prev, w]));
               }
             })
-            .catch(() => {})
+            .catch(() => { metadataFailed = true; })
         );
       }
 
-      // Query children for work or release
-      let childQuery = "";
-      if (e.kind === "work") childQuery = `work_id=${e.id}`;
-      else if (e.kind === "content_unit") childQuery = `content_unit_id=${e.id}`;
-      else if (e.kind === "release") childQuery = `release_id=${e.id}`;
-      else if (e.kind === "medium") childQuery = `medium_id=${e.id}`;
+      // 归属与父子树是不同结构；章节、载体与轨道的直接子项都保留。
+      const childQueries: string[] = [];
+      if (e.kind === "work") childQueries.push(`work_id=${e.id}`);
+      else if (e.kind === "content_unit") childQueries.push(`content_unit_id=${e.id}`, `kind=content_unit&parent_id=${e.id}`);
+      else if (e.kind === "release") childQueries.push(`release_id=${e.id}`);
+      else if (e.kind === "medium") childQueries.push(`medium_id=${e.id}`, `kind=medium&parent_id=${e.id}`);
+      else if (e.kind === "track") childQueries.push(`kind=track&parent_id=${e.id}`);
 
-      if (childQuery) {
+      if (childQueries.length) {
         parentPromises.push(
-          allEntities(childQuery)
+          Promise.all(childQueries.map((query) => allEntities(query).catch(() => { metadataFailed = true; return [] as Entity[]; })))
+            .then((pages) => Array.from(new Map(pages.flat().map((child) => [child.id, child])).values()))
             .then(async (ch) => {
-              if (e.kind === "release") {
-                const tracks = await Promise.all(
-                  ch
-                    .filter((x) => x.kind === "medium" && x.id)
-                    .map((m) => allEntities(`medium_id=${m.id}`))
+              if (!current()) return;
+              if (e.kind === "release" || e.kind === "medium") {
+                const tracks = await mapLimit(
+                  ch.filter((x) => x.kind === "medium" && x.id),
+                  8,
+                  (m) => allEntities(`medium_id=${m.id}`).catch(() => { metadataFailed = true; return [] as Entity[]; })
                 );
-                setChildren([...ch, ...tracks.flat()]);
+                if (current()) setChildren([...ch, ...tracks.flat()]);
               } else {
-                setChildren(ch);
+                if (current()) setChildren(ch);
               }
             })
-            .catch(() => setChildren([]))
+            .catch(() => { metadataFailed = true; if (current()) setChildren([]); })
         );
       }
 
       await Promise.all(parentPromises);
+      if (current()) setProjectionFailed(metadataFailed);
     } catch (err) {
-      setError((err as Error).message);
+      if (current()) setError((err as Error).message);
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
+    return () => { loadSequenceRef.current += 1; };
   }, [id, user?.id]);
 
   // 封面派生链：本实体 → 母作品 → 发行对象作品 → 所属发行。比例一律留给 AdaptiveCover
@@ -742,7 +792,7 @@ export function EntityDetailView({ id }: { id: string }) {
     { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length + staffRelations.length, visible: staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // 作品的内容目录覆盖篇目/表达/聚合组成项，比"子实体列表"更准（子实体查询会连发行版一起带回），
     // 因此目录在场时以目录计数，且不再重复渲染子实体网格。
-    { id: "contents", label: t("entity.page.navContents"), badge: directoryVisible ? directoryData.items.length : children.length, visible: directoryVisible || children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "contents", label: t("entity.page.navContents"), badge: directoryVisible ? directoryData.items.length : children.length + (entity?.contents?.length || 0), visible: directoryVisible || children.length > 0 || (entity?.contents?.length || 0) > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
@@ -786,6 +836,9 @@ export function EntityDetailView({ id }: { id: string }) {
           <div className="font-mono text-sm text-red-500 dark:text-danger">
             {!error || isNotFoundError(error) ? t("entity.detail.notFound") : localizeCatalogError(error, t)}
           </div>
+          {error && !isNotFoundError(error) && (
+            <button type="button" onClick={() => void load()} className="text-sm text-primary hover:underline cursor-pointer">{t("catalog.retry")}</button>
+          )}
           <Link
             href="/explore"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all duration-base ease-soft"
@@ -854,7 +907,7 @@ export function EntityDetailView({ id }: { id: string }) {
   ];
 
   // Group directory elements
-  const mediums = children.filter((c) => c.kind === "medium");
+  const mediums = children.filter((c) => c.kind === "medium").sort((a, b) => a.position - b.position);
   const tracksByMedium: Record<string, Entity[]> = {};
   for (const m of mediums) {
     if (!m.id) continue;
@@ -862,9 +915,10 @@ export function EntityDetailView({ id }: { id: string }) {
       .filter((c) => c.kind === "track" && c.medium_id === m.id)
       .sort((a, b) => (a.position || 0) - (b.position || 0));
   }
-  const unassignedTracks = children.filter((c) => c.kind === "track" && !c.medium_id);
-  const contentUnits = children.filter((c) => c.kind === "content_unit");
-  const expressions = children.filter((c) => c.kind === "expression");
+  const listedMediumIds = new Set(mediums.map((medium) => medium.id));
+  const directTracks = children.filter((c) => c.kind === "track" && !listedMediumIds.has(c.medium_id));
+  const otherChildren = children.filter((c) => c.kind !== "medium" && c.kind !== "track")
+    .sort((a, b) => a.position - b.position);
 
   const rowLocales = Object.keys(entity.translations || {});
   const chain = buildTitleChain(locale, { order: titleOrder, originalLanguage: entity.original_language }, rowLocales);
@@ -931,6 +985,14 @@ export function EntityDetailView({ id }: { id: string }) {
                 </Link>
               </>
             )}
+            {motherMedium && (
+              <>
+                <span className="text-text-muted dark:text-white/20">/</span>
+                <Link href={`/catalog/${motherMedium.id}`} className="hover:text-primary truncate max-w-[200px]">
+                  {title(motherMedium, locale, titleOrder)}
+                </Link>
+              </>
+            )}
             <span className="text-text-muted dark:text-white/20">/</span>
             <span className="text-text-strong font-semibold truncate max-w-[280px]">
               {localizedTitle}
@@ -959,6 +1021,12 @@ export function EntityDetailView({ id }: { id: string }) {
 
         }
       >
+        {projectionFailed && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-3 text-xs text-amber-700 dark:text-warn-soft">
+            <span>{t("catalog.loadFailed")}</span>
+            <button type="button" onClick={() => void load()} className="text-primary hover:underline cursor-pointer">{t("catalog.retry")}</button>
+          </div>
+        )}
         {/* 页面级标题区：跨两栏放在封面列之上，左边界落在外壳内容基线上
             （与 /works、/releases、/mediums 等同一条左边线）；两栏结构保留在标题之下。 */}
         <header className="space-y-4 pb-2">
@@ -1091,6 +1159,22 @@ export function EntityDetailView({ id }: { id: string }) {
                     <span>{kindLabel(entity.kind)}</span>
                   </dd>
                 </div>
+
+                {(defs?.structure?.[entity.kind]?.fields || []).map((field) => {
+                  const reference = (entity as Record<string, unknown>)[field.code];
+                  if (typeof reference !== "string" || !reference) return null;
+                  const resolved = [motherWork, motherRelease, motherMedium].find((parent) => parent?.id === reference);
+                  return (
+                    <div key={field.code}>
+                      <dt className="text-text-muted font-mono text-[11px] mb-0.5">
+                        {resolveLocalizedName(field.names, locale, field.code)}
+                      </dt>
+                      <dd>
+                        {resolved ? <Link href={`/catalog/${reference}`} className="text-primary hover:underline">{title(resolved, locale, titleOrder)}</Link> : <EntityLink id={reference} />}
+                      </dd>
+                    </div>
+                  );
+                })}
 
                 {officialInfo && (
                   <div>
@@ -1406,17 +1490,24 @@ export function EntityDetailView({ id }: { id: string }) {
               </Card>
             )}
 
-            {active === "contents" && !directoryVisible && children.length > 0 && (
+            {active === "contents" && !directoryVisible && (children.length > 0 || entity.contents?.length > 0) && (
               <Card id="contents" padding="section" className="space-y-4 shadow-soft">
                 <SectionTitle icon={<List className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                   {t("entity.page.contentsTitle")}
                   <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    {children.length}
+                    {children.length + (entity.contents?.length || 0)}
                   </span>
                 </SectionTitle>
 
-                {/* Mediums & Tracks (for Releases) */}
-                {mediums.length > 0 ? (
+                {inclusionExpressions.failedCount > 0 && (
+                  <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-2">
+                    <p>{t("entity.page.inclusionsLoadFailed", { count: inclusionExpressions.failedCount })}</p>
+                    <button type="button" className="text-primary hover:underline" onClick={inclusionExpressions.retry}>{t("catalog.retry")}</button>
+                  </div>
+                )}
+                <InclusionContents contents={entity.contents} expressions={inclusionExpressions.expressions} loading={inclusionExpressions.loading} />
+                {directTracks.length > 0 && <TrackDirectory tracks={directTracks} expressions={inclusionExpressions.expressions} loading={inclusionExpressions.loading} titleOrder={titleOrder} />}
+                {mediums.length > 0 && (
                   <div className="space-y-4">
                     {mediums.map((m) => {
                       const mTracks = (m.id ? tracksByMedium[m.id] : []) || [];
@@ -1425,10 +1516,10 @@ export function EntityDetailView({ id }: { id: string }) {
                           <div className="px-4 py-3 bg-black/[0.03] dark:bg-white/[0.04] border-b border-line flex items-center justify-between">
                             <div className="flex items-center gap-2 font-mono text-xs font-bold text-text-strong">
                               <Disc className="w-4 h-4 text-primary" />
-                              <span>{title(m, locale, titleOrder)}</span>
+                              <Link href={`/catalog/${m.id}`} className="hover:text-primary">{title(m, locale, titleOrder)}</Link>
                               {m.attributes?.format && (
                                 <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] uppercase">
-                                  {m.attributes.format}
+                                  {getTermName(defs, defs?.fields?.format?.vocabulary || "", String(m.attributes.format), locale)}
                                 </span>
                               )}
                             </div>
@@ -1437,43 +1528,15 @@ export function EntityDetailView({ id }: { id: string }) {
                             </span>
                           </div>
 
-                          <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                            {mTracks.map((t: Entity, idx: number) => {
-                              const tDur = t.attributes?.duration_seconds || t.attributes?.duration;
-                              let durStr = "";
-                              if (typeof tDur === "number") {
-                                durStr = `${Math.floor(tDur / 60)}:${String(tDur % 60).padStart(2, "0")}`;
-                              }
-                              return (
-                                <div key={t.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-xs hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <span className="font-mono text-text-muted w-6 text-right shrink-0">
-                                      {t.position || idx + 1}
-                                    </span>
-                                    <Link
-                                      href={`/catalog/${t.id}`}
-                                      className="font-medium text-text-strong hover:text-primary truncate"
-                                    >
-                                      {title(t, locale, titleOrder)}
-                                    </Link>
-                                  </div>
-                                  {durStr && (
-                                    <span className="font-mono text-text-muted shrink-0">
-                                      {durStr}
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <TrackDirectory tracks={mTracks} expressions={inclusionExpressions.expressions} loading={inclusionExpressions.loading} titleOrder={titleOrder} />
                         </Card>
                       );
                     })}
                   </div>
-                ) : (
-                  /* Content Units & Expressions (for Works) */
+                )}
+                {otherChildren.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {children.map((c) => (
+                    {otherChildren.map((c) => (
                       <Card key={c.id} tone="subtle" padding="none" className="hover:border-primary/50 transition-all group">
                       <Link
                         href={`/catalog/${c.id}`}
@@ -1522,6 +1585,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       <tr className="border-b border-line text-text-muted">
                         <th className="pb-2 font-medium">{t("entity.page.colEdition")}</th>
                         <th className="pb-2 font-medium">{t("entity.page.colFormat")}</th>
+                        <th className="pb-2 font-medium">{t("entity.page.colInclusionLocation")}</th>
                         <th className="pb-2 font-medium">{t("entity.page.colCatalogNo")}</th>
                         <th className="pb-2 font-medium text-right">{t("entity.page.colDate")}</th>
                       </tr>
@@ -1554,11 +1618,20 @@ export function EntityDetailView({ id }: { id: string }) {
                               </div>
                             </td>
                             <td className="py-2.5 px-3 uppercase text-text-body">
-                              {rel.attributes?.format
-                                ? getTermName(defs, "format", String(rel.attributes.format), locale) !== String(rel.attributes.format)
-                                  ? getTermName(defs, "format", String(rel.attributes.format), locale)
-                                  : String(rel.attributes.format)
+                              {occ.medium?.attributes?.format
+                                ? getTermName(defs, defs?.fields?.format?.vocabulary || "", String(occ.medium.attributes.format), locale)
                                 : "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-text-body">
+                              {occ.track?.id && (
+                                <Link href={`/catalog/${occ.track.id}`} className="hover:text-primary">
+                                  {[occ.track.number || occ.track.position, title(occ.track, locale, titleOrder)].filter((value) => value !== "" && value != null).join(" · ")}
+                                </Link>
+                              )}
+                              <div className="mt-1 flex flex-col gap-0.5 text-[11px]">
+                                <LocatorInline defs={defs} value={occ.locator} locale={locale} />
+                                <GroupAttributeInline defs={defs} code="inclusion_attributes" value={occ.attributes} locale={locale} />
+                              </div>
                             </td>
                             <td className="py-2.5 px-3 text-primary font-semibold">
                               {rel.attributes?.catalog_number || "—"}

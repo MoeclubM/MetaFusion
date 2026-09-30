@@ -215,7 +215,7 @@ export function LocatorInline({
   const fields: Record<string, any> = (defs as any)?.fields?.["locator"]?.fields || {};
   if (!value) return null;
   const present = Object.keys(fields).filter(
-    (c) => value[c] !== undefined && value[c] !== null && value[c] !== "",
+    (c) => fields[c]?.enabled !== false && !fields[c]?.hidden && value[c] !== undefined && value[c] !== null && value[c] !== "",
   );
   if (present.length === 0) return null;
   return (
