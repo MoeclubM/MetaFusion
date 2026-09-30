@@ -23,7 +23,9 @@
 有 `USAGE` + 全部对象的 CRUD/序列/函数权限，对**别人的 schema 一点权限都没有**（含 schema USAGE）。
 库 owner（compose 里的 `POSTGRES_USER`，默认 `metafusion`）保留为运维/迁移身份。
 
-## 2. 服务 × 表矩阵（本机真库实测，2026-09-19）
+## 2. 服务 × 表矩阵（历史快照，2026-09-19）
+
+下表是当时的结构快照，不是当前迁移清单。例如目录迁移 `000014` 已将 definitions 改为 definition_config，`000018` 新增 rate_limit_policy。目标实例以已执行迁移与库侧检查为准，授权脚本以 schema 为范围覆盖新对象，不按此快照逐表授予。
 
 库 = 一个（`metafusion_db`），四个业务 schema + 一个共享审计 schema；下表由 `pg_class` 实测导出
 （`docs-local/task-db-roles/recon.sql`，只读侦察入口 `run-recon.sh <db>`），不是凭印象：
@@ -43,10 +45,7 @@
 
 ## 3. 为什么运行角色仍持有本域 DDL（Tier 1 → Tier 2）
 
-目标形态是"运行角色只有 CRUD、结构变更由 owner 单独跑"。**今天做不到**，原因是四个服务的启动路径
-都会执行 DDL（catalog `Store.Initialize`、auth `store.Init`、community `store.Init`、
-storage `store.Init`），而 PostgreSQL 在 `CREATE SCHEMA IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`
-上**先检查权限、再看对象是否存在**：
+目标形态是“运行角色只有 CRUD、结构变更由 owner 单独跑”。目录 HTTP 进程已经改为 `CheckCompatibleVersion` 只读启动，结构与种子由 `mf-migrate up/seed` 显式执行。账号、互动与存储仍在启动路径执行自身 DDL/迁移，尚不能一起撤销运行角色 DDL 权限。下面是 2026-09-19 的权限实验；`CREATE SCHEMA IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS` 仍可能先要求 CREATE 权限，不能仅因对象已经存在就认为受限启动安全：
 
 | 实测（本机真库） | 结果 |
 | --- | --- |
@@ -57,10 +56,10 @@ storage `store.Init`），而 PostgreSQL 在 `CREATE SCHEMA IF NOT EXISTS` / `CR
 
 因此本脚本采用**两段式**：
 
-- **Tier 1（现在启用）**：运行角色是**本域 `*_owner` 的成员**，并额外持有 `CREATE ON DATABASE`
+- **Tier 1（脚本默认）**：运行角色是**本域 `*_owner` 的成员**，并额外持有 `CREATE ON DATABASE`
   （`CREATE SCHEMA IF NOT EXISTS` 需要它）。权限边界仍然只在本域 schema 内——P0 要堵的
-  "跨服务读写"已完全关闭；残留是"某服务能在自己域内 DDL、能新建自己的 schema"。
-- **Tier 2（可选降级，脚本第 6 节）**：等"启动只校验、迁移由 owner 单独跑"落地后，
+  “跨服务业务表读写”由 schema 权限隔离；残留是“某服务能在自己域内 DDL、能新建自己的 schema”。实例是否已执行授权仍须用断言确认。
+- **Tier 2（逐服务验证后启用，脚本第 6 节）**：目录已有代码前提，其余服务需先拆迁移/启动；确认审计等共享对象已预建、兼容性检查与 owner 迁移通过后，
   `REVOKE <svc>_owner FROM <svc>` + `REVOKE CREATE ON DATABASE`，第 4 节的 CRUD 与
   默认权限立即接管，不需要再补授权清单。
 
