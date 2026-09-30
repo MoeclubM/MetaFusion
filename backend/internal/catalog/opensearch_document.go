@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type searchDocument struct {
@@ -36,7 +37,7 @@ func makeSearchDocument(e Entity) searchDocument {
 		if value == "" {
 			return
 		}
-		if len(value) > 4096 {
+		if utf8.RuneCountInString(value) > 4096 {
 			value = string([]rune(value)[:4096])
 		}
 		*dst = append(*dst, value)
