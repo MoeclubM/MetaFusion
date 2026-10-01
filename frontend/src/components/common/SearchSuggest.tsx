@@ -11,7 +11,7 @@ import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { searchKeyAction } from "@/lib/searchKeyboard";
 import { kindIcon } from "@/lib/kindIcons";
 
-/** /catalog/suggest 的联想项：图片结构复用 lib/cover 的 CoverBearing，不再自带一份 pictures。 */
+/** 实体检索的联想项，图片结构复用 lib/cover 的 CoverBearing。 */
 interface SuggestItem extends CoverBearing {
   id: string;
   kind: string;
@@ -28,7 +28,6 @@ interface SearchSuggestProps {
   placeholder: string;
   submitLabel: string;
   ariaLabel?: string;
-  size?: "lg" | "md";
   className?: string;
 }
 
@@ -45,7 +44,6 @@ export function SearchSuggest({
   placeholder,
   submitLabel,
   ariaLabel,
-  size = "md",
   className = "",
 }: SearchSuggestProps) {
   const { t, tr, locale } = useI18n();
@@ -106,6 +104,13 @@ export function SearchSuggest({
     router.push("/catalog/" + item.id);
   };
 
+  const submit = () => {
+    setFocused(false);
+    setActive(-1);
+    inputRef.current?.blur();
+    onSubmit(q);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const action = searchKeyAction({ key: e.key, isComposing: composingRef.current || e.nativeEvent.isComposing, keyCode: e.nativeEvent.keyCode }, open, active, items.length);
     if (action === "ignore") {
@@ -120,26 +125,21 @@ export function SearchSuggest({
     if (action === "next") setActive((i) => (i + 1) % items.length);
     else if (action === "previous") setActive((i) => (i <= 0 ? items.length - 1 : i - 1));
     else if (action === "select") go(items[active]);
-    else if (action === "submit") onSubmit(q);
+    else if (action === "submit") submit();
     else if (action === "dismiss") { setFocused(false); setActive(-1); }
   };
-
-  const lg = size === "lg";
 
   return (
     <form
       className={"relative flex items-center " + className}
       onSubmit={(e) => {
         e.preventDefault();
-        if (!composingRef.current && !compositionSubmitRef.current) onSubmit(q);
+        if (!composingRef.current && !compositionSubmitRef.current) submit();
       }}
       role="search"
     >
       <Search
-        className={
-          "absolute top-1/2 -translate-y-1/2 text-text-muted pointer-events-none " +
-          (lg ? "w-5 h-5 left-4" : "w-4 h-4 left-3.5")
-        }
+        className="absolute top-1/2 -translate-y-1/2 text-text-muted pointer-events-none w-4 h-4 left-3.5"
       />
       <input
         ref={inputRef}
@@ -168,19 +168,12 @@ export function SearchSuggest({
           "w-full border border-line hover:border-emphasis/20 focus:border-primary focus:ring-1 " +
           "focus:ring-primary text-emphasis placeholder:text-text-faint outline-none " +
           "transition-all duration-base ease-soft " +
-          (lg
-            ? "pl-12 pr-24 py-3.5 rounded-xl text-sm bg-emphasis/[0.04]"
-            : "pl-10 pr-20 py-2 rounded-lg text-xs bg-black/[0.02] dark:bg-white/[0.04] focus:bg-surface")
+          "pl-10 pr-20 h-10 md:h-9 rounded-lg text-base md:text-xs bg-black/[0.02] dark:bg-white/[0.04] focus:bg-surface"
         }
       />
       <button
         type="submit"
-        className={
-          "absolute top-1/2 -translate-y-1/2 transition-colors duration-fast ease-soft cursor-pointer " +
-          (lg
-            ? "right-2 px-5 py-2 rounded-lg text-sm bg-primary hover:bg-primary/90 text-white font-medium shadow-2xs"
-            : "right-1.5 px-3 py-1 rounded text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary")
-        }
+        className="absolute top-1/2 -translate-y-1/2 transition-colors duration-fast ease-soft cursor-pointer right-1.5 px-3 py-1 rounded text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary"
       >
         {submitLabel}
       </button>

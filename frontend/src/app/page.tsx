@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName, getTagNames, type KindMap } from "@/lib/definitions";
@@ -12,7 +11,6 @@ import { PageContainer, PageShell } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
 import { EntityCard } from "@/components/common/EntityCard";
-import { SearchSuggest } from "@/components/common/SearchSuggest";
 import { fetchApi } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { HomeCustomizeModal } from "@/components/home/HomeCustomizeModal";
@@ -42,12 +40,10 @@ type FeedSection = { shelf: ShelfLike; items: EntityItem[]; total?: number };
 
 export default function HomePage() {
   const { t, tr, locale } = useI18n();
-  const router = useRouter();
   const { definitions, kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
   const { user, loading: authLoading } = useAuth();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [sections, setSections] = useState<FeedSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -147,7 +143,7 @@ export default function HomePage() {
 
   // 根容器裁剪装饰光晕：-bottom-40/-right-40 的 600px 光晕溢出到视口外会撑出横向滚动条
   // （线上实测桌面 +154px / 移动 +161px）。用 overflow-clip 而不是 overflow-hidden——
-  // clip 不建滚动容器，页内 sticky 的搜索栏与顶栏照旧相对视口吸附。
+  // clip 不建滚动容器，顶栏照旧相对视口吸附。
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-strong relative overflow-clip selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
@@ -155,20 +151,6 @@ export default function HomePage() {
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
 
       <Navbar />
-
-      <div className="border-b border-line-subtle bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
-        <PageContainer className="py-4 flex justify-center">
-          <SearchSuggest
-            className="w-full max-w-3xl"
-            size="lg"
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            onSubmit={(q) => router.push(q ? "/explore?q=" + encodeURIComponent(q) : "/explore")}
-            placeholder={t("home.searchPlaceholder")}
-            submitLabel={t("home.search")}
-          />
-        </PageContainer>
-      </div>
 
       {/* 首页区块间距保持 40px：首屏块与列表差异大，收紧会挤在一起。 */}
       <PageShell width="page" spacing="none" contentClassName="space-y-10" className="relative z-10">

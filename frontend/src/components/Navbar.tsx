@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { ThemePicker } from "./ThemePicker";
@@ -13,6 +13,7 @@ import { displayNameOf, fetchUnreadMessageCount, fetchUnreadCount, NOTIFICATIONS
 import { ACCOUNT_CONSOLE_CODES, can, canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import { PageContainer } from "@/components/ui/PageShell";
+import { SearchSuggest } from "@/components/common/SearchSuggest";
 import {
   Bell,
   Plus,
@@ -48,10 +49,18 @@ function isNavLinkActive(
   return tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
 }
 
-export const Navbar: React.FC = () => {
+export const Navbar: React.FC<{
+  searchQuery?: string;
+  onSearch?: (query: string) => void;
+}> = ({ searchQuery = "", onSearch }) => {
   const { user, logout } = useAuth();
   const { t, locale } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
+  const [query, setQuery] = useState(searchQuery);
+  useEffect(() => {
+    setQuery(searchQuery);
+  }, [pathname, searchQuery]);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   // 登录链接的回跳地址依赖 window.location.href，服务端渲染时只能取 "/" 兜底：
@@ -215,9 +224,9 @@ export const Navbar: React.FC = () => {
 
   return (
     <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-line-subtle bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
-      <PageContainer className="h-14 sm:h-15 flex items-center justify-between gap-3">
+      <PageContainer className="min-h-14 sm:min-h-15 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 md:py-0">
         {/* Left Brand + Navigation */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           {/* 品牌名 span 在 <640px 被隐藏，只剩 26×26 的图形：title 只是兜底名，
               显式 aria-label 才是稳定可访问名（屏幕阅读器与自动化都以它为准）。 */}
           <Link href="/landing" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
@@ -232,12 +241,12 @@ export const Navbar: React.FC = () => {
             </span>
           </Link>
 
-          <nav className="hidden xl:flex items-center gap-1.5 ml-2">
+          <nav className="hidden xl:flex items-center gap-1 ml-2">
             {/* 开发者中心与管理后台都不在顶栏——统一收进用户菜单，顶栏只剩内容导航。 */}
             {navLinks.map((tab) => {
               const Icon = tab.icon;
               const active = isNavLinkActive(pathname, tab);
-              const className = `relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
+              const className = `relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
                 active
                   ? "text-primary bg-primary/10 border border-primary/25 font-semibold shadow-xs"
                   : "text-text-muted hover:text-emphasis hover:bg-surfaceHover"
@@ -262,8 +271,17 @@ export const Navbar: React.FC = () => {
           </nav>
         </div>
 
+        <SearchSuggest
+          className="order-last w-full min-w-0 md:order-none md:flex-1 md:min-w-[12rem] md:max-w-sm"
+          value={query}
+          onValueChange={setQuery}
+          onSubmit={onSearch || ((q) => router.push(q ? "/explore?q=" + encodeURIComponent(q) : "/explore"))}
+          placeholder={t("search.placeholder")}
+          submitLabel={t("search.submit")}
+        />
+
         {/* Right Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {/* 新建：指向统一新建页 /new（层级在编辑器内切换，?kind= 只做预选）。
               标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
           {/* 站内通知：常驻铃铛入口（未登录不显示），未读 >0 才挂角标，>99 显示 99+。
@@ -345,7 +363,7 @@ export const Navbar: React.FC = () => {
                 {/* 未读私信角标改挂在顶栏信封入口上（见上）：同一个计数在顶栏只出现一次，
                     头像按钮回归"纯菜单开关"，不再承担未读提示。 */}
                 <UserAvatar user={user} size="sm" shape="rounded" />
-                <span className="font-medium max-w-[90px] truncate hidden sm:inline text-xs">
+                <span className="font-medium max-w-[90px] truncate hidden lg:inline text-xs">
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}
                 </span>
                 <ChevronDown
@@ -462,10 +480,11 @@ export const Navbar: React.FC = () => {
           ) : (
             <a
               href={loginHref}
+              aria-label={t("navbar.signIn")}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
-              <span>{t("navbar.signIn")}</span>
+              <span className="hidden sm:inline">{t("navbar.signIn")}</span>
             </a>
           )}
 

@@ -663,13 +663,12 @@ img, video { max-width: 100%; }
 }
 
 /* 站点顶栏高度：吸顶元素（筛选条、详情子头、管理台内栏）统一按它定位。
-   组成 = 主行（h-14 / sm:h-15）+ <xl 才渲染的移动导航行（Navbar.tsx 的 xl:hidden 行：
-   链接 py-2 + 行高 1.25rem + 容器 pb-2 = 2.75rem）+ 1px 下边框。
+   <md 时搜索独占一行，<xl 时另有移动导航行；桌面只保留主行。
    Navbar 挂载后会写入实测值覆盖这里，这是无 Navbar 页面与首帧的兜底。 */
 :root {
-  --mf-header-h: 6.25rem;
+  --mf-header-h: 9rem;
 }
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   :root {
     --mf-header-h: 6.5rem;
   }

@@ -7,7 +7,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { EntityCard } from "@/components/common/EntityCard";
 import { Pagination } from "@/components/common/Pagination";
-import { SearchSuggest } from "@/components/common/SearchSuggest";
 import { kindIcon } from "@/lib/kindIcons";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName, getTagName, getTagNames } from "@/lib/definitions";
@@ -94,7 +93,6 @@ function ExploreInner() {
   const limit = 24;
   const offset = (currentPage - 1) * limit;
 
-  const [qInput, setQInput] = useState(currentQ);
   // 标签云本地搜索：只过滤面板展示，不发请求。
   const [tagQuery, setTagQuery] = useState("");
   const [items, setItems] = useState<EntityItem[]>([]);
@@ -153,10 +151,6 @@ function ExploreInner() {
   // 这不是"没有结果"，页面要说清"没有更多"并把用户带回第一页——线上实测这一页
   // 显示"共 0 条"，与侧栏"全部实体 3070"自相矛盾，原因正是总数被写死成 0。
   const outOfRange = !loading && !loadError && items.length === 0 && total > 0 && currentPage > totalPages;
-
-  useEffect(() => {
-    setQInput(currentQ);
-  }, [currentQ]);
 
   // 标签云：来自真实聚合（各实体 attributes.tags 的频次），按使用量取前若干。
   // 取不到时说明"标签面板暂时不可用"，不再与"暂无标签"混成同一句。
@@ -305,7 +299,7 @@ function ExploreInner() {
   }, [kindOptions]);
 
   // 列表容器 key：视图与筛选变化时重挂载、重放 .mf-tabpanel；
-  // 搜索框的本地输入（qInput）不参与，否则打字过程会一直闪。
+  // 顶栏尚未提交的搜索输入不参与，否则打字过程会一直闪。
   const listKey = [
     viewMode,
     currentKind,
@@ -318,7 +312,7 @@ function ExploreInner() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
-      <Navbar />
+      <Navbar searchQuery={currentQ} onSearch={(q) => updateFilters({ q })} />
 
       <PageShell
         width="page"
@@ -530,21 +524,10 @@ function ExploreInner() {
           </aside>
 
           <div className="min-w-0 space-y-5">
-            {/* 检索与排序：筛选条件收归左侧栏（种类/状态/标签/原语言/封面），这里只留检索、排序与视图切换。 */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
-              <SearchSuggest
-                className="sm:col-span-8"
-                value={qInput}
-                onValueChange={setQInput}
-                onSubmit={(q) => updateFilters({ q })}
-                placeholder={t("catalog.searchPlaceholder")}
-                submitLabel={t("catalog.searchAction")}
-              />
-
-              {/* 类型筛选已移除：类型属硬分类，筛选一律走标签（左侧标签面板 / ?tags=）。 */}
-
+            {/* 搜索统一在顶栏；本栏只保留排序与视图切换。 */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
               {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
-              <div className="sm:col-span-2 flex items-center">
+              <div className="w-full sm:w-48">
                 <Select
                   value={sortValue}
                   aria-label={t("catalog.sort")}
@@ -561,7 +544,7 @@ function ExploreInner() {
                 />
               </div>
 
-              <div className="sm:col-span-2 flex items-center justify-end gap-1.5">
+              <div className="flex items-center justify-end gap-1.5">
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
