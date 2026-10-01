@@ -965,7 +965,7 @@ export function EntityDetailView({ id }: { id: string }) {
         header={
         <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-text-faint border-b border-line-subtle pb-2.5">
           <div className="flex items-center gap-1.5 truncate">
-            <Link href="/" className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
+            <Link href="/home" className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
               <span>{t("nav.home")}</span>
             </Link>

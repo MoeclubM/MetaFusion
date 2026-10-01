@@ -20,7 +20,7 @@ export const DOCS_SERVICE_URL =
   process.env.NEXT_PUBLIC_DOCS_URL || "/docs";
 
 export function getAuthLoginUrl(returnTo?: string): string {
-  const redirect = returnTo || (typeof window !== "undefined" ? window.location.href : "/");
+  const redirect = returnTo || (typeof window !== "undefined" ? window.location.href : "/home");
   return `/login?redirect=${encodeURIComponent(redirect)}`;
 }
 

@@ -46,7 +46,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     // 首次检测系统是否完成 OOBE 初始化
     if (cachedSetupStatus && cachedSetupStatus.is_initialized) {
       if (pathname === "/setup") {
-        router.replace("/");
+        router.replace("/home");
       }
       return;
     }
@@ -62,7 +62,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
         } else {
           // 系统已完成初始化且当前访问 /setup，则重定向回首页
           if (pathname === "/setup") {
-            router.replace("/");
+            router.replace("/home");
           }
         }
       })

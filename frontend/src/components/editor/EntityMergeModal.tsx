@@ -104,7 +104,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       } else {
         // id 必须是 UUID，不把接口返回值原样当 URL；未知 kind 使用通用详情。
         const id = String(res.target_id || "");
-        window.location.href = UUID_PATTERN.test(id) ? catalogEntityHref(id) : "/";
+        window.location.href = UUID_PATTERN.test(id) ? catalogEntityHref(id) : "/home";
       }
     } catch (err: any) {
       // 后端给稳定错误码（invalid_merge_target / invalid_status / evidence_required …）：

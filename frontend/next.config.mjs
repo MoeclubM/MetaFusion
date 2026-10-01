@@ -52,10 +52,10 @@ const nextConfig = {
   async rewrites() {
     return [{source:"/api/:path*",destination:`${process.env.BACKEND_ORIGIN || "http://127.0.0.1:8080"}/api/:path*`}];
   },
-  // 只保留两条地址别名（不是旧版本兼容，也没有旧多轨路由要迁就）：实体内容只在
-  // /catalog/:id 维护一份，历史 URL 不再提供跳转。
+  // 集中维护入口别名；实体内容只在 /catalog/:id 维护一份。
   async redirects() {
     return [
+      { source: "/landing", destination: "/", permanent: true },
       // 资源上传属存储域（独立资源站）：本前端的资源入口是 /downloads——
       // 资源站已配置时整页跳过去，未配置时显示「资源站未接入」的说明，两种情况都不说谎。
       { source: "/upload", destination: "/downloads", permanent: true },

@@ -36,7 +36,7 @@ function Exits() {
   const router = useRouter();
   const back = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push("/");
+    else router.push("/home");
   };
   return (
     <div className="flex flex-wrap items-center justify-center gap-2.5">
@@ -49,7 +49,7 @@ function Exits() {
         <span>{t("common.back")}</span>
       </button>
       <Link
-        href="/"
+        href="/home"
         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors duration-fast ease-soft"
       >
         <Home className="w-3.5 h-3.5" />

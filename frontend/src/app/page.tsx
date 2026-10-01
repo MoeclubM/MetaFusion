@@ -1,313 +1,95 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
+import { ArrowRight, BookOpen, Compass, Disc3, Film, Library, LogIn, PencilLine } from "lucide-react";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { Navbar } from "@/components/Navbar";
-import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getKindName, getTagNames, type KindMap } from "@/lib/definitions";
-import { pickRecordTitle } from "@/lib/titles";
-import { coverUrl, type CoverBearing } from "@/lib/cover";
-import { PageContainer, PageShell } from "@/components/ui/PageShell";
-import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { BrandMark } from "@/components/Logo";
+import { GitHubIcon } from "@/components/Icons";
+import { PageShell } from "@/components/ui/PageShell";
 import { useAuth } from "@/lib/authContext";
-import { EntityCard } from "@/components/common/EntityCard";
-import { fetchApi } from "@/lib/api";
-import { localizeCatalogError } from "@/lib/catalogErrors";
-import { HomeCustomizeModal } from "@/components/home/HomeCustomizeModal";
-import {
-  EMPTY_PREFERENCES,
-  iconFor,
-  normalizePreferences,
-  shelfTitle,
-  type HomePreferences,
-  type ShelfLike,
-} from "@/lib/homeSections";
-import { Sparkles, Sliders } from "lucide-react";
+import { useI18n } from "@/i18n/I18nProvider";
 
-/** 首页分区条目：图片结构复用 lib/cover 的 CoverBearing（首张即封面只在那一处定义）。 */
-type EntityItem = CoverBearing & {
-  id: string;
-  kind: string;
-  title: string;
-  original_language?: string;
-  translations?: Record<string, { title?: string; summary?: string; aliases?: string[] }>;
-  attributes?: { tags?: string[] };
-  version?: number;
-};
+const examples = [
+  { key: "music", icon: Disc3, steps: ["work", "edition", "medium", "tracks"] },
+  { key: "screen", icon: Film, steps: ["work", "expression", "release", "units"] },
+  { key: "books", icon: BookOpen, steps: ["work", "units", "expression", "release"] },
+] as const;
+const entries = [
+  { href: "/home", key: "home", icon: Library },
+  { href: "/explore", key: "browse", icon: Compass },
+  { href: "/contribute", key: "contribute", icon: PencilLine },
+] as const;
 
-// 分区定义（含 source：system 只能隐藏、custom 可删除）与图标集见 lib/homeSections.ts。
-type FeedSection = { shelf: ShelfLike; items: EntityItem[]; total?: number };
+function RootLandingInner() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const actionClass = "inline-flex items-center justify-center gap-2 min-h-10 px-3 rounded-control border border-line bg-surface text-sm text-text-strong hover:border-primary/50 hover:text-primary";
 
-export default function HomePage() {
-  const { t, tr, locale } = useI18n();
-  const { definitions, kinds } = useDefinitions();
-  const titleOrder = useTitleDisplayOrder();
-  const { user, loading: authLoading } = useAuth();
-
-  const [sections, setSections] = useState<FeedSection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [customizing, setCustomizing] = useState(false);
-  const [prefs, setPrefs] = useState<HomePreferences>(EMPTY_PREFERENCES);
-  const [templates, setTemplates] = useState<ShelfLike[]>([]);
-  const [prefsLoading, setPrefsLoading] = useState(false);
-  const [prefsLoadFailed, setPrefsLoadFailed] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-
-  const loadFeed = useCallback(async () => {
-    setLoading(true);
-    setFailed(false);
-    try {
-      // 统一走 fetchApi：同域 Cookie、语言头与错误处理保持一致。
-      // 用 components/catalog 的 api() 只会发 cookie，带身份的偏好不会被识别。
-      const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=14");
-      setSections(Array.isArray(r.items) ? r.items : []);
-    } catch {
-      setSections([]);
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (authLoading) return;
-    void loadFeed();
-  }, [authLoading, loadFeed]);
-
-  // 空分区不展示：推荐位不该出现"0 部作品"这类噪音。
-  const visibleSections = useMemo(
-    () => sections.filter((s) => (Array.isArray(s.items) ? s.items : []).length > 0),
-    [sections],
-  );
-
-  const openCustomize = async () => {
-    setSaveError("");
-    setPrefsLoadFailed(false);
-    setCustomizing(true);
-    if (!user) return;
-    setPrefsLoading(true);
-    try {
-      // 偏好给出用户自己的分区配置；/catalog/shelves 给出系统预设——它既是「添加分区」
-      // 的候选，也是隐藏分区的定义来源（feed 已按偏好把隐藏项过滤掉了）。
-      const [loaded, tpl] = await Promise.all([
-        fetchApi<HomePreferences>("/catalog/me/home-preferences"),
-        fetchApi<{ items: ShelfLike[] }>("/catalog/shelves"),
-      ]);
-      setPrefs(normalizePreferences(loaded));
-      setTemplates(Array.isArray(tpl.items) ? tpl.items : []);
-    } catch {
-      setPrefsLoadFailed(true);
-      setSaveError(t("catalog.loadFailed"));
-    } finally {
-      setPrefsLoading(false);
-    }
-  };
-
-  const savePrefs = async (payload: HomePreferences) => {
-    setSaving(true);
-    setSaveError("");
-    try {
-      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify(payload) });
-      setCustomizing(false);
-      await loadFeed();
-    } catch (e) {
-      // 后端给的是稳定错误码（invalid_slug / too_many_sections …），翻成四语文案再显示。
-      setSaveError(localizeCatalogError((e as Error).message, t));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // 恢复默认 = 清空偏好、回落到系统预设；不改系统货架，也不影响别人。
-  const resetPrefs = async () => {
-    setSaving(true);
-    setSaveError("");
-    try {
-      await fetchApi("/catalog/me/home-preferences", {
-        method: "PUT",
-        body: JSON.stringify(EMPTY_PREFERENCES),
-      });
-      setPrefs(EMPTY_PREFERENCES);
-      setCustomizing(false);
-      await loadFeed();
-    } catch (e) {
-      setSaveError(localizeCatalogError((e as Error).message, t));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const showSkeleton = authLoading || loading;
-
-  // 根容器裁剪装饰光晕：-bottom-40/-right-40 的 600px 光晕溢出到视口外会撑出横向滚动条
-  // （线上实测桌面 +154px / 移动 +161px）。用 overflow-clip 而不是 overflow-hidden——
-  // clip 不建滚动容器，顶栏照旧相对视口吸附。
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text-strong relative overflow-clip selection:bg-primary selection:text-white">
-      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
-
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
-
-      {/* 分区维持紧凑节奏，标题与列表之间仍保留清晰层级。 */}
-      <PageShell width="page" spacing="none" contentClassName="space-y-5" className="relative z-10">
-        {user && (
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-display text-lg font-bold tracking-tight text-emphasis">
-              {t("home.recommended")}
-            </h1>
-            <button
-              type="button"
-              onClick={() => void openCustomize()}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>{t("home.customize")}</span>
-            </button>
-          </div>
-        )}
-
-        {failed && (
-          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-warn-soft text-xs font-mono">
-            {t("catalog.connectionError")}
-          </div>
-        )}
-
-        {showSkeleton ? (
-          <div className="space-y-5">
-            {[1, 2].map((i) => (
-              <div key={i} className="space-y-4">
-                <div className="h-5 w-40 bg-emphasis/[0.04] rounded-md animate-pulse" />
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <div key={j} className="aspect-square rounded-card bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
-                  ))}
-                </div>
+      <PageShell contentClassName="space-y-6">
+        <header className="grid gap-5 lg:grid-cols-2 lg:items-start">
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <BrandMark size={48} idSuffix="landing" className="shrink-0" />
+              <div className="min-w-0 space-y-1">
+                <h1 className="text-2xl font-bold tracking-tight">MetaFusion</h1>
+                <p className="text-sm text-text-body leading-relaxed">{t("landing.heroSubtitle")}</p>
               </div>
+            </div>
+            <p className="text-sm text-text-body leading-relaxed">{t("landing.intro")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/home" className="inline-flex items-center justify-center gap-2 min-h-10 px-3 rounded-control bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+                <Library className="w-4 h-4" aria-hidden />{t("landing.enterHome")}
+              </Link>
+              <Link href="/explore" className={actionClass}><Compass className="w-4 h-4" aria-hidden />{t("landing.explore")}</Link>
+              {!user && <a href="/login?tab=register&redirect=%2Fhome" className={actionClass}><LogIn className="w-4 h-4" aria-hidden />{t("landing.join")}</a>}
+            </div>
+          </div>
+          <nav aria-label={t("landing.startTitle")} className="divide-y divide-line rounded-card border border-line bg-surface">
+            {entries.map(({ href, key, icon: Icon }) => (
+              <Link key={key} href={href} className="flex items-center gap-3 p-3 hover:bg-surfaceHover transition-colors">
+                <Icon className="w-5 h-5 shrink-0 text-primary" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm font-semibold">{t(`landing.start.${key}.title`)}</span>
+                  <p className="mt-1 text-xs text-text-muted leading-relaxed">{t(`landing.start.${key}.body`)}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 shrink-0 text-text-muted" aria-hidden />
+              </Link>
+            ))}
+          </nav>
+        </header>
+        <section aria-labelledby="landing-relations" className="space-y-3">
+          <div className="border-b border-line pb-3 space-y-1">
+            <h2 id="landing-relations" className="text-lg font-semibold">{t("landing.relationsTitle")}</h2>
+            <p className="text-sm text-text-muted">{t("landing.relationsIntro")}</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {examples.map(({ key, icon: Icon, steps }) => (
+              <article key={key} className="rounded-card border border-line bg-surface p-4 space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold"><Icon className="w-4 h-4 text-primary" aria-hidden />{t(`landing.example.${key}.title`)}</h3>
+                <ul className="flex flex-wrap gap-1.5" aria-label={t(`landing.example.${key}.title`)}>
+                  {steps.map((step) => <li key={step} className="rounded-chip border border-line bg-background px-2 py-1 text-xs text-text-body">{t(`landing.example.${key}.${step}`)}</li>)}
+                </ul>
+                <p className="text-sm text-text-body leading-relaxed">{t(`landing.example.${key}.body`)}</p>
+              </article>
             ))}
           </div>
-        ) : visibleSections.length === 0 && !failed ? (
-          <div className="p-5 rounded-card border border-dashed border-line bg-emphasis/[0.01] text-center space-y-3">
-            <Sparkles className="w-7 h-7 text-gray-600 mx-auto" />
-            <p className="text-sm text-text-muted">{t("home.recommendEmpty")}</p>
-            <Link
-              href="/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors duration-fast ease-soft"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{t("home.addFirst")}</span>
-            </Link>
-          </div>
-        ) : (
-          visibleSections.map(({ shelf, items, total }) => {
-            const Icon = iconFor(shelf);
-            const title = shelfTitle(shelf, locale);
-            return (
-              <section key={shelf.slug} className="space-y-4">
-                <div className="flex items-center justify-between border-b border-emphasis/[0.08] pb-3">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="font-bold text-emphasis text-base sm:text-lg tracking-tight">{title}</h2>
-                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-xs font-mono">
-                        {t("home.itemCount", { count: (total ?? items.length).toString() })}
-                      </span>
-                    </div>
-                  </div>
-                  <Link
-                    href={"/explore?" + shelfExploreParam(shelf)}
-                    className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:underline"
-                  >
-                    <span>{t("home.viewAll")}</span>
-                  </Link>
-                </div>
-
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
-                  {items.map((item) => {
-                    const displayTitle = pickRecordTitle(locale, item.translations, item.title, {
-                      order: titleOrder,
-                      originalLanguage: item.original_language,
-                    });
-                    // 角标显示**实体类型**（八骨架 kind），不是业务分类：
-                    // 分类由货架（catalog.shelves）承担，业务类型在卡片正文里另行展示。
-                    const badge = badgeFor(item.kind, kinds, locale, tr);
-                    // 首页分区只看封面（首张图）：多图画廊在详情页。
-                    const cover = coverUrl(item);
-                    return (
-                      <EntityCard
-                        key={item.id}
-                        id={item.id}
-                        kind={item.kind}
-                        badgeLabel={badge}
-                        title={displayTitle}
-                        baseTitle={item.title}
-                        tags={getTagNames(definitions, item.attributes?.tags, locale)}
-                        pictureUrl={cover}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })
-        )}
+          <p className="text-xs text-text-muted leading-relaxed">{t("landing.relationsNote")}</p>
+        </section>
+        <nav aria-label={t("landing.docsTitle")} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-4 text-sm">
+          <a href="/docs/catalog" className="inline-flex items-center gap-1.5 text-primary hover:underline"><BookOpen className="w-4 h-4" aria-hidden />{t("landing.docsCenter")}</a>
+          <Link href="/developers" className="text-primary hover:underline">{t("home.footerApi")}</Link>
+          <a href="https://github.com/MoeclubM/MetaFusion" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-text-muted hover:text-primary"><GitHubIcon className="w-4 h-4" />GitHub</a>
+        </nav>
       </PageShell>
-
-      <HomeCustomizeModal
-        open={customizing}
-        loading={prefsLoading}
-        prefs={prefs}
-        templates={templates}
-        feedSections={sections}
-        defs={definitions}
-        saving={saving}
-        loadFailed={prefsLoadFailed}
-        error={saveError}
-        onClose={() => setCustomizing(false)}
-        onSave={(payload) => void savePrefs(payload)}
-        onReset={() => void resetPrefs()}
-      />
-
-      <footer className="border-t border-line-subtle py-4 bg-surface/30 backdrop-blur-md">
-        <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-text-muted">
-          <div>
-            <span>© 2026 MetaFusion</span>
-          </div>
-          {/* 这里只留顶栏没有的入口：/landing 与 /explore、/community、/docs/catalog
-              都已由顶栏 Logo 与主导航覆盖，不再重复。 */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <a href="/developers" className="hover:text-emphasis transition-colors duration-fast ease-soft">
-              {t("home.footerApi")}
-            </a>
-          </div>
-        </PageContainer>
-      </footer>
     </div>
   );
 }
 
-// 分区“查看全部”进入探索页，使用规则的全部开放标签。
-function shelfExploreParam(shelf: ShelfLike): string {
-  const params = new URLSearchParams({ kind: "work" });
-  for (const tag of shelf.query?.tags || []) if (tag) params.append("tags", tag);
-  return params.toString();
-}
-
-// 卡片左上角角标 = 实体类型（八骨架 kind），名称取服务端 definitions 的多语言 kinds，
-// 缺失时回退前端字典的同名键。**不再**用业务类型当"分类"角标：
-//   * 业务类型（album/song/动画…）是动态类型，本就该在卡片正文里以类型标签呈现；
-//   * "分类"这件事只由货架（catalog.shelves，数据驱动、后台可配、名称多语言）承担。
-// 这样页面不再出现"系统自己发明一套固定分类"的东西。
-function badgeFor(
-  kind: string,
-  kinds: KindMap | null,
-  loc: string,
-  translate: (k: string, f: string) => string,
-): string {
-  return getKindName(kinds, kind, loc, translate("catalog.kind." + kind, kind));
+export default function RootLandingPage() {
+  return <Suspense fallback={<LoadingFallback />}><RootLandingInner /></Suspense>;
 }

@@ -643,7 +643,7 @@ function AdminInner() {
         <PageContainer className="h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href="/home"
               className="flex items-center gap-1 text-xs text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
             >
               <ArrowLeft className="w-4 h-4" />

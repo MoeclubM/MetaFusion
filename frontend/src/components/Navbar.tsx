@@ -63,12 +63,12 @@ export const Navbar: React.FC<{
   }, [pathname, searchQuery]);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  // 登录链接的回跳地址依赖 window.location.href，服务端渲染时只能取 "/" 兜底：
+  // 登录链接的回跳地址依赖 window.location.href，服务端渲染时只能取 "/home" 兜底：
   // 两边各算各的会让水合报 href 属性不匹配。首帧与服务端同值，挂载后再换真实地址。
-  const [loginHref, setLoginHref] = useState(() => getAuthLoginUrl("/"));
+  const [loginHref, setLoginHref] = useState(() => getAuthLoginUrl("/home"));
   useEffect(() => {
     setLoginHref(getAuthLoginUrl());
-  }, []);
+  }, [pathname]);
   // 未读私信角标：登录后拉一次 + 每 30s 一次。失败一律隐藏角标（null），**不渲染成 0**——
   // "取不到"与"没有未读"必须能区分；失败也不影响导航其余部分。
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
@@ -211,7 +211,7 @@ export const Navbar: React.FC<{
   }, [user]);
 
   const navLinks = [
-    { href: "/", label: t("navigation.home"), icon: Library, exact: true },
+    { href: "/home", label: t("navigation.home"), icon: Library, exact: true },
     { href: "/explore", label: t("navigation.explore"), icon: Compass },
     { href: "/community", label: t("navigation.community"), icon: MessageSquare },
     // 资源站未接入时不展示入口，避免死链。
@@ -229,7 +229,7 @@ export const Navbar: React.FC<{
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           {/* 品牌名 span 在 <640px 被隐藏，只剩 26×26 的图形：title 只是兜底名，
               显式 aria-label 才是稳定可访问名（屏幕阅读器与自动化都以它为准）。 */}
-          <Link href="/landing" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
+          <Link href="/" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
             <span className="hidden sm:flex flex-col leading-none">
               <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-emphasis group-hover:text-primary transition-colors duration-fast ease-soft">
