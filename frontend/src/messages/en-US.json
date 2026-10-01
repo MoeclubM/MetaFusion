@@ -139,6 +139,7 @@
   "work.detail.tableDate": "Date",
   "work.detail.tabAll": "All",
   "work.detail.filterRelation": "Filter by relation type",
+  "work.detail.showAllParticipants": "Show all {count} cards",
   "work.releases.backToWork": "Back to work",
   "work.releases.allReleases": "All releases",
   "work.releases.releaseCount": "Releases · {count} total",

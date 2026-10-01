@@ -139,6 +139,7 @@
   "work.detail.tableDate": "発売日",
   "work.detail.tabAll": "すべて",
   "work.detail.filterRelation": "関係の種類で絞り込む",
+  "work.detail.showAllParticipants": "全{count}件のカードを表示",
   "work.releases.backToWork": "作品に戻る",
   "work.releases.allReleases": "すべてのリリース",
   "work.releases.releaseCount": "リリース・全{count}件",

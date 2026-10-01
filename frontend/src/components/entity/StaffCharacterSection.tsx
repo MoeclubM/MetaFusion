@@ -2,7 +2,8 @@
 
 import React, { useId, useState, useMemo } from "react";
 import Link from "next/link";
-import { User, Mic } from "lucide-react";
+import { User } from "lucide-react";
+import { EntityCover } from "@/components/common/EntityCover";
 import { useI18n } from "@/i18n/I18nProvider";
 import { relationParticipantSlot, useDefinitions, type ParticipantSlot } from "@/lib/definitions";
 import type { StaffCredit } from "./staffCredits";
@@ -15,6 +16,7 @@ export type { StaffCredit } from "./staffCredits";
 
 /** 主角番位码：character_rank 词表用 main；早期字典键 era 用过 primary（同一含义）。 */
 const MAIN_CHARACTER_RANKS = new Set(["main", "primary"]);
+const COLLAPSED_COUNT = 24;
 
 interface StaffCharacterSectionProps {
   credits: StaffCredit[];
@@ -25,8 +27,60 @@ interface CharacterVoice {
   id: string;
   name: string;
   avatar_url?: string;
+  role: string;
   /** 语言 / 适用篇目等上下文，仅在存在时展示，用于区分多版配音。 */
   context?: string;
+}
+
+/** 立绘、人物照都完整放进竖向画框，不把实体封面当成可裁切的头像。 */
+function ParticipantPortrait({ name, src, compact = false }: { name: string; src?: string; compact?: boolean }) {
+  return (
+    <div className={`${compact ? "w-8 h-10" : "w-16 h-24 sm:w-20 sm:h-28"} shrink-0 rounded-md border border-line-subtle bg-surfaceSubtle overflow-hidden flex items-center justify-center`}>
+      {src ? (
+        <EntityCover key={src} src={src} alt={name} title={name} className="w-full h-full" imgClassName="w-full h-full object-contain" compact />
+      ) : (
+        <User className="w-6 h-6 text-text-muted" strokeWidth={1.5} />
+      )}
+    </div>
+  );
+}
+
+function CharacterCard({ item }: { item: CharacterCardItem }) {
+  const characterContent = (
+    <>
+      <ParticipantPortrait name={item.character.name} src={item.character.avatar_url} />
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-text-strong break-words group-hover:text-primary transition-colors duration-fast ease-soft">
+          {item.character.name}
+        </div>
+        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${MAIN_CHARACTER_RANKS.has(item.character.rankCode || "") ? "bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium" : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint"}`}>
+          {item.character.roleBadge}
+        </span>
+      </div>
+    </>
+  );
+  return (
+    <div className="h-full min-w-0 p-3 rounded-md border border-line bg-background/80 hover:border-primary/40 transition-colors shadow-xs space-y-2.5">
+      {item.character.id ? (
+        <Link href={`/catalog/${item.character.id}`} className="flex items-center gap-3 min-w-0 group">{characterContent}</Link>
+      ) : (
+        <div className="flex items-center gap-3 min-w-0">{characterContent}</div>
+      )}
+      {item.voices.length > 0 && (
+        <div className="space-y-1.5 border-t border-line-subtle pt-2.5">
+          {item.voices.map((voice) => (
+            <Link key={`${voice.id}-${voice.role}-${voice.context || ""}`} href={`/catalog/${voice.id}`} className="flex items-center gap-2 min-w-0 group">
+              <ParticipantPortrait name={voice.name} src={voice.avatar_url} compact />
+              <div className="min-w-0">
+                <div className="text-xs text-text-strong break-words group-hover:text-primary">{voice.name}</div>
+                <div className="text-[10px] text-text-muted break-words">{[voice.role, voice.context].filter(Boolean).join(" · ")}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface CharacterCardItem {
@@ -42,40 +96,26 @@ interface CharacterCardItem {
   voices: CharacterVoice[];
 }
 
-/** 一行署名：头像 + 主体名 + 职位/关系名 + 关联角色（有则链）。全部页签与关系页签共用同一行。 */
-function StaffRow({ credit, role, icon }: { credit: StaffCredit; role: string; icon?: React.ReactNode }) {
+/** 人员署名卡：完整图片、主体名、职位与上下文；全部与逐类筛选共用。 */
+function StaffRow({ credit, role }: { credit: StaffCredit; role: string }) {
   const { t } = useI18n();
   return (
     <Link
       href={`/catalog/${credit.agent.id}`}
-      className="flex items-center gap-2 p-2 rounded border border-line-subtle bg-background/60 hover:border-primary/40 hover:bg-background transition-all group shadow-xs"
+      className="flex items-start gap-3 min-w-0 h-full p-3 rounded-md border border-line bg-background/80 hover:border-primary/40 hover:bg-background transition-colors group shadow-xs"
     >
-      {credit.agent.avatarUrl ? (
-        <img
-          src={credit.agent.avatarUrl}
-          alt={credit.agent.name}
-          className="w-8 h-8 rounded-full object-cover shrink-0 border border-line"
-          loading="lazy"
-        />
-      ) : icon ? (
-        <div className="w-8 h-8 rounded-full bg-surfaceSubtle border border-line-subtle flex items-center justify-center shrink-0">
-          {icon}
-        </div>
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-mono text-xs font-semibold shrink-0">
-          {credit.agent.name ? credit.agent.name.charAt(0).toUpperCase() : "A"}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-text-strong truncate group-hover:text-primary transition-colors duration-fast ease-soft">
+      <ParticipantPortrait name={credit.agent.name} src={credit.agent.avatarUrl} />
+      <div className="min-w-0 flex-1 py-1">
+        <div className="text-sm font-medium text-text-strong break-words group-hover:text-primary transition-colors duration-fast ease-soft">
           {credit.agent.name}
         </div>
-        <div className="font-mono text-[10px] text-text-muted truncate">
+        <div className="mt-1 text-xs text-text-muted break-words">
           {role}
           {credit.character && credit.character.name !== credit.agent.name && (
             <span title={t("work.detail.relGroupCharacters")}> · {credit.character.name}</span>
           )}
         </div>
+        {(credit.language || credit.contextLabel) && <div className="mt-1 text-[10px] text-text-muted break-words">{[credit.language, credit.contextLabel].filter(Boolean).join(" · ")}</div>}
       </div>
     </Link>
   );
@@ -87,6 +127,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const defaultRole = t("work.detail.staffDefaultRole");
   const characterFallback = t("work.detail.relGroupCharacters");
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [expandedTab, setExpandedTab] = useState<string | null>(null);
   const relationFilterId = useId();
 
   // 参与者槽位由关系定义声明（person/character/peer）。为什么不用"fields 里有没有 character"：
@@ -95,7 +136,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const participantSlot = (code: string): ParticipantSlot | undefined => relationParticipantSlot(defs, code);
   // 署名主体由逐条关系声明决定，不按字段或展示分组猜测。
   const isCreditRelation = (code: string) => participantSlot(code) === "person";
-  // 角色卡已经显示带 character 引用的主体；「全部」里的人员网格只显示其余署名，
+  // 角色卡已经显示带 character 引用的主体；「全部」里的人员卡只显示其余署名，
   // 同一条关系不再同时以角色卡和人员行出现。逐类筛选仍保留原始关系行。
   const humanCredits = useMemo(
     () => credits.filter((c) => isCreditRelation(c.relationType) && !c.character),
@@ -130,15 +171,17 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
       const selfIsCharacter = !!c.character && !!c.agent.id && c.agent.id === c.character.id;
       if (!selfIsCharacter) {
         const context = [c.language, c.contextLabel].filter(Boolean).join(" · ");
-        // 同一演员在同一上下文的重复关系只留一条；不同语言/篇目各自保留。
+        const role = c.creditRole || c.relationLabel || defaultRole;
+        // 同一演员、职位与上下文的重复关系只留一条；不同语言/篇目各自保留。
         const dup = card.voices.some(
-          (v) => v.id === c.agent.id && (v.context || "") === context,
+          (v) => v.id === c.agent.id && v.role === role && (v.context || "") === context,
         );
         if (!dup) {
           card.voices.push({
             id: c.agent.id,
             name: c.agent.name,
             avatar_url: c.agent.avatarUrl,
+            role,
             context: context || undefined,
           });
         }
@@ -151,7 +194,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
       }
     }
     return Array.from(cardMap.values());
-  }, [credits, characterFallback]);
+  }, [credits, characterFallback, defaultRole]);
 
   // 角色与配音只是「全部」里的合成展示，不另建 A+B 页签；关系筛选只列实际关系码。
   const relationFilters = useMemo(() => {
@@ -176,16 +219,15 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   // 格式化具体职务标签：来源职位文本优先，缺失回退关系本地化名。
   const formatRole = (c: StaffCredit) => c.creditRole || c.relationLabel || defaultRole;
 
-  // 仅当本条署名实际引用角色，且定义为 person 槽位时使用配音图标。
-  // 不能只看 fields 是否允许 character：默认多条关系共享该字段声明。
-  const isVoiceCredit = (c: StaffCredit) =>
-    participantSlot(c.relationType) === "person" && !!c.character;
-  const agentIcon = (c: StaffCredit) => {
-    if (isVoiceCredit(c)) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" strokeWidth={1.5} />;
-    return <User className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={1.5} />;
-  };
-
-  const showCards = effectiveTab === "all" && characterCards.length > 0;
+  // 全部与逐类筛选共用一个网格和展开状态，不再让角色与其他人员各自滚动。
+  const displayItems = effectiveTab === "all"
+    ? [
+        ...characterCards.map((item) => ({ kind: "character" as const, key: `character:${item.character.id || item.id}`, item })),
+        ...humanCredits.map((credit) => ({ kind: "credit" as const, key: `credit:${credit.id}`, credit })),
+      ]
+    : relationCredits.map((credit) => ({ kind: "credit" as const, key: `credit:${credit.id}`, credit }));
+  const expanded = expandedTab === effectiveTab;
+  const visibleItems = expanded ? displayItems : displayItems.slice(0, COLLAPSED_COUNT);
 
   // 数据通常异步到达。所有 hooks 必须先执行，不能在它们之前对空列表 early return。
   if (credits.length === 0) return null;
@@ -223,120 +265,22 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
           )}
         </div>
       </div>
-      {/* 角色与声优双轨卡片 (Characters & Cast) */}
-      {showCards && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
-          {characterCards.map((item) => (
-            <div
-              key={item.character.id || item.id}
-              className="flex items-center justify-between gap-3 p-2.5 rounded-md border border-line bg-background/80 hover:border-primary/40 transition-all shadow-xs"
-            >
-              {/* 角色端 */}
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                {item.character.id ? (
-                  <Link href={`/catalog/${item.character.id}`} className="flex items-center gap-2.5 min-w-0 group">
-                    {item.character.avatar_url ? (
-                      <img
-                        src={item.character.avatar_url}
-                        alt={item.character.name}
-                        className="w-10 h-10 rounded-md object-cover shrink-0 border border-line group-hover:scale-105 transition-transform duration-base ease-soft"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-warn flex items-center justify-center font-bold text-xs shrink-0">
-                        {item.character.name.charAt(0)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-text-strong truncate group-hover:text-primary transition-colors duration-fast ease-soft">
-                        {item.character.name}
-                      </div>
-                      <span
-                        className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide ${
-                          MAIN_CHARACTER_RANKS.has(item.character.rankCode || "")
-                            ? "bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium"
-                            : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint"
-                        }`}
-                      >
-                        {item.character.roleBadge}
-                      </span>
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-warn flex items-center justify-center font-bold text-xs shrink-0">
-                      {item.character.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-text-strong truncate">{item.character.name}</div>
-                      {item.character.roleBadge && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium">
-                          {item.character.roleBadge}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 声优端：同一角色可有多个演员（不同语言/篇目），逐条列出 */}
-              {item.voices.length > 0 && (
-                <div className="flex flex-col gap-1.5 shrink-0 items-end">
-                  {item.voices.map((voice) => (
-                    <Link
-                      key={`${voice.id}-${voice.context || ""}`}
-                      href={`/catalog/${voice.id}`}
-                      className="flex items-center gap-2 p-1.5 rounded bg-surfaceSubtle hover:bg-primary/5 border border-line-subtle hover:border-primary/30 transition-all text-right group"
-                      title={voice.context ? `CV: ${voice.name} (${voice.context})` : `CV: ${voice.name}`}
-                    >
-                      <div className="min-w-0 text-right">
-                        <div className="text-[10px] font-mono text-text-muted">CV</div>
-                        <div className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[90px]">
-                          {voice.name}
-                        </div>
-                        {voice.context && (
-                          <div className="font-mono text-[10px] text-text-muted truncate max-w-[110px]">
-                            {voice.context}
-                          </div>
-                        )}
-                      </div>
-                      {voice.avatar_url ? (
-                        <img
-                          src={voice.avatar_url}
-                          alt={voice.name}
-                          className="w-8 h-8 rounded-full object-cover shrink-0 border border-line"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-600 dark:text-info flex items-center justify-center font-mono text-[10px] shrink-0">
-                          <Mic className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 全部页签：署名主体人员网格（角色卡片与人员网格可以同屏） */}
-      {effectiveTab === "all" && humanCredits.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-          {humanCredits.map((rel) => (
-            <StaffRow key={rel.id} credit={rel} role={formatRole(rel)} icon={agentIcon(rel)} />
-          ))}
-        </div>
-      )}
-
-      {/* 关系页签：该类型的全部署名行（与全部页签同一行组件，列表一致） */}
-      {activeRelation && relationCredits.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-          {relationCredits.map((rel) => (
-            <StaffRow key={rel.id} credit={rel} role={formatRole(rel)} icon={agentIcon(rel)} />
-          ))}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        {visibleItems.map((entry) => entry.kind === "character" ? (
+          <CharacterCard key={entry.key} item={entry.item} />
+        ) : (
+          <StaffRow key={entry.key} credit={entry.credit} role={formatRole(entry.credit)} />
+        ))}
+      </div>
+      {displayItems.length > COLLAPSED_COUNT && (
+        <button
+          type="button"
+          onClick={() => setExpandedTab(expanded ? null : effectiveTab)}
+          aria-expanded={expanded}
+          className="text-xs font-medium text-primary hover:underline underline-offset-2"
+        >
+          {expanded ? t("relations.collapse") : t("work.detail.showAllParticipants", { count: displayItems.length })}
+        </button>
       )}
     </div>
   );
