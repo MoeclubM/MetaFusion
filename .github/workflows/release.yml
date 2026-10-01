@@ -92,7 +92,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
           cache: true
       - name: go test (with DB)
         run: go test ./...
@@ -120,6 +121,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: typecheck
         run: bunx tsc --noEmit
+      - name: frontend unit tests
+        run: bun test tests
       - name: i18n keys sync check
         run: |
           bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"
@@ -312,7 +315,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
 
       - name: Build Cross-Platform Migration Tools
         working-directory: backend
