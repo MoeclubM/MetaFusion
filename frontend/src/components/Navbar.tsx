@@ -241,12 +241,12 @@ export const Navbar: React.FC<{
             </span>
           </Link>
 
-          <nav className="hidden xl:flex items-center gap-1 ml-2">
+          <nav className="hidden xl:flex items-center gap-1">
             {/* 开发者中心与管理后台都不在顶栏——统一收进用户菜单，顶栏只剩内容导航。 */}
             {navLinks.map((tab) => {
               const Icon = tab.icon;
               const active = isNavLinkActive(pathname, tab);
-              const className = `relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
+              const className = `relative flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
                 active
                   ? "text-primary bg-primary/10 border border-primary/25 font-semibold shadow-xs"
                   : "text-text-muted hover:text-emphasis hover:bg-surfaceHover"
@@ -363,7 +363,7 @@ export const Navbar: React.FC<{
                 {/* 未读私信角标改挂在顶栏信封入口上（见上）：同一个计数在顶栏只出现一次，
                     头像按钮回归"纯菜单开关"，不再承担未读提示。 */}
                 <UserAvatar user={user} size="sm" shape="rounded" />
-                <span className="font-medium max-w-[90px] truncate hidden lg:inline text-xs">
+                <span className="font-medium max-w-[60px] truncate hidden lg:inline text-xs">
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}
                 </span>
                 <ChevronDown
