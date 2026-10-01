@@ -1956,5 +1956,10 @@
   "developer.reqlogs.allCredentials": "All credentials",
   "developer.apiKeys.new": "New",
   "catalog.allLanguages": "All languages",
-  "entity.detail.partialFailure": "Some sections could not be loaded: {sections}. This does not mean there are no records. Please retry."
+  "entity.detail.partialFailure": "Some sections could not be loaded: {sections}. This does not mean there are no records. Please retry.",
+  "catalog.state.draft": "Draft",
+  "catalog.state.published": "Published",
+  "catalog.changeKind.title": "Change entity type?",
+  "catalog.changeKind.warning": "Title, original language, translations, tags, pictures, external IDs and status will be kept. Parent links, inclusions, other attributes and queued relations will be cleared. Cancel to keep the current draft.",
+  "catalog.changeKind.confirm": "Change type"
 }

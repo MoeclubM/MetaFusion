@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Upload } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, local, Source } from "./api";
+import { changeDraftKind, hasKindSpecificDraftData } from "@/lib/draftKind";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
@@ -127,6 +129,7 @@ export function EntityEditor({
   const [tagInput, setTagInput] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
+  const [requestedKind, setRequestedKind] = useState("");
   const pictureFileRef = useRef<HTMLInputElement | null>(null);
   const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
@@ -151,6 +154,13 @@ export function EntityEditor({
       </div>
     );
   }
+  const applyKindChange = (kind: string) => {
+    setE((current) => changeDraftKind(current, emptyEntity(kind)));
+    setSelectedFields([]);
+    setSelectedTemplate("");
+    setPendingRelations([]);
+    setRequestedKind("");
+  };
   const d = definitions;
   const applicableFields = Object.entries(d.fields).filter(([, field]) =>
     field.enabled && field.applicable_kinds?.includes(kindKey)
@@ -505,11 +515,11 @@ export function EntityEditor({
             {t("catalog.kindLabel")}
             <Select
               value={e.kind}
-              disabled={!!e.id}
+              disabled={!!e.id || busy || uploadingIndex !== null}
               onChange={(value) => {
-                setE({ ...emptyEntity(value), title: e.title });
-                setSelectedFields([]);
-                setSelectedTemplate("");
+                if (value === e.kind) return;
+                if (hasKindSpecificDraftData(e, pendingRelations.length)) setRequestedKind(value);
+                else applyKindChange(value);
               }}
               options={kindOptions.map((k) => ({ value: k, label: kindLabel(k) }))}
               aria-label={t("catalog.kindLabel")}
@@ -1340,6 +1350,14 @@ export function EntityEditor({
       <button className="cv-primary" disabled={busy}>
         {t("catalog.save")}
       </button>
+      <ConfirmDialog
+        open={!!requestedKind}
+        title={t("catalog.changeKind.title")}
+        message={t("catalog.changeKind.warning")}
+        confirmLabel={t("catalog.changeKind.confirm")}
+        onClose={() => setRequestedKind("")}
+        onConfirm={() => { if (requestedKind) applyKindChange(requestedKind); }}
+      />
     </form>
   );
 }

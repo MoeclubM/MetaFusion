@@ -1956,5 +1956,10 @@
   "developer.reqlogs.allCredentials": "全部凭据",
   "developer.apiKeys.new": "新建",
   "catalog.allLanguages": "全部语言",
-  "entity.detail.partialFailure": "部分内容加载失败：{sections}。这不代表没有相关记录，请重试。"
+  "entity.detail.partialFailure": "部分内容加载失败：{sections}。这不代表没有相关记录，请重试。",
+  "catalog.state.draft": "草稿",
+  "catalog.state.published": "已发布",
+  "catalog.changeKind.title": "切换条目类型？",
+  "catalog.changeKind.warning": "题名、原始语言、多语内容、标签、图片、外部标识和状态会保留。结构归属、收录、其他属性及待保存关系将清空。取消可保留当前内容。",
+  "catalog.changeKind.confirm": "确认切换"
 }

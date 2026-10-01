@@ -1956,5 +1956,10 @@
   "developer.reqlogs.allCredentials": "全部憑據",
   "developer.apiKeys.new": "新建",
   "catalog.allLanguages": "全部語言",
-  "entity.detail.partialFailure": "部分內容載入失敗：{sections}。這不代表沒有相關紀錄，請重試。"
+  "entity.detail.partialFailure": "部分內容載入失敗：{sections}。這不代表沒有相關紀錄，請重試。",
+  "catalog.state.draft": "草稿",
+  "catalog.state.published": "已發布",
+  "catalog.changeKind.title": "切換條目類型？",
+  "catalog.changeKind.warning": "題名、原始語言、多語內容、標籤、圖片、外部識別碼和狀態會保留。結構歸屬、收錄、其他屬性及待儲存關係將清空。取消可保留目前內容。",
+  "catalog.changeKind.confirm": "確認切換"
 }
