@@ -59,9 +59,9 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 `/api/users/{id}` 归账号服务、`/api/users/{id}/favorites` 与 `/api/users/{id}/stats` 归互动服务、
 `/api/users/{id}/contributions` 归目录服务（前三条把对应路径从目录兜底里分流出去，最后一条落兜底）。
 
-### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
+### 2.1 网关矩阵、密钥与 UI 的归属
 
-- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`。2026-09 已把 `metafusion-api-gateway` 仓库里的旧矩阵移入 `examples/pre-cutover/` 并标注不参与部署（该仓库现在只有脚本），`cutover-check.sh` 改为**断言服务标记头**、新增离线 `--self-check`。矩阵的自动校验在主仓库：`scripts/check_gateway_matrix.py`（条数、每条 `/api/*` 必须挂限流、矩阵↔本文 §2 表的登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。**仍未做**的是“把矩阵本体搬进网关仓库、主仓库只引用”，见 [审计文档](./decoupling-audit-2026-09.md) §6。
+- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`，网关仓只提供验收脚本，旧矩阵样例已删除。`cutover-check.sh` 断言服务标记头并提供离线 `--self-check`。矩阵的自动校验在主仓：`scripts/check_gateway_matrix.py`（限流覆盖、路径登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。迁移矩阵权威来源仍是后续选项，见 [服务解耦路线](./decoupling-audit-2026-09.md) §6。
 - **密钥边界**：签发私钥只在账号服务。目录侧按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，不再从 `AUTH_JWT_PRIVATE_KEY` 派生公钥。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
 - **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；接入前需核对各服务现行的分页语义。
 - **UI 归属**：三个服务各自的管理台（账号 / 互动 / 存储，各自仓库的 `admin/` 目录）已由网关与主编排接入。普通用户页面仍跨主仓库 `frontend/` 与账号服务的 `user/` 应用；社区与资源区块仍耦合在目录详情页。逐域独立发布、共享 UI 层与嵌入契约仍是目标，见 [审计文档](./decoupling-audit-2026-09.md) §7。

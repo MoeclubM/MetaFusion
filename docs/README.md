@@ -9,8 +9,8 @@
 | 部署、回滚与存储 | [切流手册](architecture/cutover-runbook.md)、[存储运行约定](architecture/storage-operations.md) |
 | 能力清单与审计留痕 | [能力清单](architecture/capabilities.md)、[统一审计留痕契约](architecture/audit-log.md) |
 | 元数据结构演进 | [演进方案](architecture/metadata-structure-evolution-plan.md)；已实现契约归入核心实现 |
-| 拆分整改路线与历史证据 | [解耦审计](architecture/decoupling-audit-2026-09.md)；当前媒体评估归入媒体编目与前端复核 |
+| 拆分状态与剩余路线 | [服务解耦路线](architecture/decoupling-audit-2026-09.md)；媒体评估见媒体编目与前端复核 |
 | 公开教程与 API | 独立仓库 [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) |
 | 编目技能 | 独立仓库 [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) |
 
-具体实例状态和本机开发记录在不提交的 `docs-local/`。带日期的审计报告只记录当时证据；当前行为以处理器、已执行迁移和目标实例响应核对。
+具体实例状态和本机开发记录在不提交的 `docs-local/`。当前契约以处理器、已执行迁移和目标实例响应核对；文档文件名中的旧日期不作为运行版本。
