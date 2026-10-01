@@ -1958,5 +1958,11 @@
   "developer.reqlogs.failed": "読み込みに失敗しました",
   "developer.reqlogs.allCredentials": "すべての認証情報",
   "developer.apiKeys.new": "新規作成",
-  "catalog.allLanguages": "すべての言語"
+  "catalog.allLanguages": "すべての言語",
+  "entity.detail.partialFailure": "一部の情報を読み込めませんでした：{sections}。該当する記録がないという意味ではありません。再試行してください。",
+  "catalog.state.draft": "下書き",
+  "catalog.state.published": "公開済み",
+  "catalog.changeKind.title": "エンティティの種類を変更しますか？",
+  "catalog.changeKind.warning": "タイトル、原語、多言語情報、タグ、画像、外部ID、状態は保持されます。所属・収録情報、その他の属性、保存前の関係は消去されます。キャンセルすると現在の内容を保持します。",
+  "catalog.changeKind.confirm": "種類を変更"
 }

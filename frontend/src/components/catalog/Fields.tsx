@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";
 import { getKindName, useDefinitions } from "@/lib/definitions";
 import { CORE_LOCALE_CODES } from "@/lib/languages";
+import { entityIdentitySuffix } from "@/lib/entityIdentity";
 import { Select } from "@/components/ui/Select";
 export function NamesEditor({
   value,
@@ -68,6 +69,7 @@ export function EntityPicker({
   }, [value]);
   useEffect(() => {
     let active = true;
+    setItems([]);
     const timer = setTimeout(() => {
       // kind 约束下沉到查询，避免前端截断合法候选。
       const qs = new URLSearchParams({ q: search, limit: "30" });
@@ -81,7 +83,7 @@ export function EntityPicker({
           }
         })
         .catch(() => {
-          if (active) setError(true);
+          if (active) { setItems([]); setError(true); }
         });
     }, 200);
     return () => {
@@ -106,11 +108,11 @@ export function EntityPicker({
         options={[
           { value: "", label: t("catalog.none") },
           ...(selected && !items.some((x) => x.id === selected.id)
-            ? [{ value: selected.id || "", label: title(selected, locale) }]
+            ? [{ value: selected.id || "", label: `${title(selected, locale)} · ${kindLabel(selected.kind)} · ${entityIdentitySuffix(selected)}` }]
             : []),
           ...items.map((x) => ({
             value: x.id || "",
-            label: `${title(x, locale)} · ${kindLabel(x.kind)}`,
+            label: `${title(x, locale)} · ${kindLabel(x.kind)} · ${entityIdentitySuffix(x)}`,
           })),
         ]}
       />

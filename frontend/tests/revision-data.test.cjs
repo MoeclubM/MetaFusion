@@ -1,14 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const ts = require('typescript');
-
-const source = fs.readFileSync(path.join(__dirname, '../src/components/catalog/revisionData.ts'), 'utf8');
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } });
-const helpers = {};
-new Function('exports', compiled.outputText)(helpers);
-const { revisionChanges, prepareRevisionRestore, canEditRevision } = helpers;
+const { revisionChanges, prepareRevisionRestore, canEditRevision } = require('../src/components/catalog/revisionData');
 
 test('history includes structural content, authority IDs and complete translated text', () => {
   const before = { subjects: [{ work_id: 'song' }], contents: [], translations: { ja: { title: 'Song', summary: 'old' } }, pictures: [{ url: 'cover', caption: { en: 'old' } }] };
@@ -47,12 +39,12 @@ test('restore rejects other identities, incompatible scopes and retired entities
   assert.throws(() => prepareRevisionRestore({ ...current, status: 'deleted' }, snapshot));
 });
 
-test('restore eligibility respects the existing editing roles', () => {
+test('restore eligibility respects the current permission codes', () => {
   assert.equal(canEditRevision(current, undefined), false);
-  assert.equal(canEditRevision(current, { id: 'other', role: 'editor' }), true);
-  assert.equal(canEditRevision({ ...current, status: 'draft' }, { id: 'other', role: 'editor' }), false);
-  assert.equal(canEditRevision(current, { id: 'owner', role: 'user' }), false);
-  assert.equal(canEditRevision(current, { id: 'owner', role: 'editor' }), true);
-  assert.equal(canEditRevision(current, { id: 'admin', role: 'admin' }), true);
-  assert.equal(canEditRevision({ ...current, status: 'draft' }, { id: 'owner', role: 'user' }), true);
+  assert.equal(canEditRevision(current, { id: 'other', permissions: ['catalog.entity.edit'] }), true);
+  assert.equal(canEditRevision({ ...current, status: 'draft' }, { id: 'other', permissions: ['catalog.entity.edit'] }), true);
+  assert.equal(canEditRevision(current, { id: 'owner', permissions: [] }), false);
+  assert.equal(canEditRevision(current, { id: 'owner', permissions: ['catalog.entity.edit'] }), true);
+  assert.equal(canEditRevision(current, { id: 'admin', permissions: ['catalog.lifecycle.manage'] }), true);
+  assert.equal(canEditRevision({ ...current, status: 'draft' }, { id: 'owner', permissions: [] }), true);
 });

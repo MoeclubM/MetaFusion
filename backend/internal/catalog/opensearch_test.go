@@ -221,3 +221,39 @@ func TestListFilterRechecksExternalIDs(t *testing.T) {
 		t.Fatalf("list filter args = %#v", args)
 	}
 }
+
+func TestMakeSearchDocumentTruncatesByRunes(t *testing.T) {
+	for _, tc := range []struct {
+		name, unit string
+		count      int
+	}{
+		{"ascii below limit", "a", 4095},
+		{"ascii at limit", "a", 4096},
+		{"ascii over limit", "a", 4097},
+		{"Japanese bytes above limit", "あ", 2000},
+		{"Japanese at limit", "あ", 4096},
+		{"Japanese over limit", "あ", 4097},
+		{"emoji bytes above limit", "🎵", 1100},
+		{"emoji over limit", "🎵", 4097},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			value := strings.Repeat(tc.unit, tc.count)
+			doc := makeSearchDocument(Entity{Title: "  " + value + "  "})
+			count := tc.count
+			if count > 4096 {
+				count = 4096
+			}
+			want := strings.Repeat(tc.unit, count)
+			if len(doc.TitleText) != 1 || doc.TitleText[0] != want {
+				t.Fatalf("unexpected title truncation")
+			}
+			if len(doc.SearchText) != 1 || doc.SearchText[0] != want {
+				t.Fatalf("unexpected analyzed text truncation")
+			}
+			// Exact-text chunks must still cover the full source, including its tail.
+			if len(doc.SearchTextExact) == 0 || !strings.HasSuffix(value, doc.SearchTextExact[len(doc.SearchTextExact)-1]) {
+				t.Fatalf("missing exact text tail")
+			}
+		})
+	}
+}

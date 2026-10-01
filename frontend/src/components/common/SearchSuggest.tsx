@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -8,6 +8,7 @@ import { useDefinitions, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { coverUrl, type CoverBearing } from "@/lib/cover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { searchKeyAction } from "@/lib/searchKeyboard";
 import { kindIcon } from "@/lib/kindIcons";
 
 /** /catalog/suggest 的联想项：图片结构复用 lib/cover 的 CoverBearing，不再自带一份 pictures。 */
@@ -31,7 +32,6 @@ interface SearchSuggestProps {
   className?: string;
 }
 
-const LIST_ID = "mf-search-suggest";
 
 /**
  * 带联想的搜索框：输入即下拉候选（封面缩略 + 类型 + 题名），
@@ -57,6 +57,9 @@ export function SearchSuggest({
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
+  const compositionSubmitRef = useRef(false);
+  const listId = useId();
 
   const q = value.trim();
 
@@ -65,6 +68,8 @@ export function SearchSuggest({
       setItems([]);
       return;
     }
+    setItems([]);
+    setActive(-1);
     let alive = true;
     const timer = setTimeout(() => {
       fetch(
@@ -102,24 +107,21 @@ export function SearchSuggest({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open) {
-      if (e.key === "Enter") onSubmit(q);
+    const action = searchKeyAction({ key: e.key, isComposing: composingRef.current || e.nativeEvent.isComposing, keyCode: e.nativeEvent.keyCode }, open, active, items.length);
+    if (action === "ignore") {
+      if (e.key === "Enter") {
+        compositionSubmitRef.current = true;
+        setTimeout(() => { compositionSubmitRef.current = false; }, 0);
+      }
       return;
     }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((i) => (i + 1) % items.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((i) => (i <= 0 ? items.length - 1 : i - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (active >= 0 && items[active]) go(items[active]);
-      else onSubmit(q);
-    } else if (e.key === "Escape") {
-      setFocused(false);
-      setActive(-1);
-    }
+    if (action === "none") return;
+    e.preventDefault();
+    if (action === "next") setActive((i) => (i + 1) % items.length);
+    else if (action === "previous") setActive((i) => (i <= 0 ? items.length - 1 : i - 1));
+    else if (action === "select") go(items[active]);
+    else if (action === "submit") onSubmit(q);
+    else if (action === "dismiss") { setFocused(false); setActive(-1); }
   };
 
   const lg = size === "lg";
@@ -129,7 +131,7 @@ export function SearchSuggest({
       className={"relative flex items-center " + className}
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(q);
+        if (!composingRef.current && !compositionSubmitRef.current) onSubmit(q);
       }}
       role="search"
     >
@@ -145,7 +147,8 @@ export function SearchSuggest({
         value={value}
         role="combobox"
         aria-expanded={open}
-        aria-controls={LIST_ID}
+        aria-controls={listId}
+        aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
         aria-autocomplete="list"
         aria-label={ariaLabel || placeholder}
         onChange={(e) => {
@@ -157,6 +160,8 @@ export function SearchSuggest({
           // 延迟收起：让候选项的 mousedown 先于失焦生效。
           setTimeout(() => setFocused(false), 120);
         }}
+        onCompositionStart={() => { composingRef.current = true; }}
+        onCompositionEnd={() => { composingRef.current = false; }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={
@@ -182,7 +187,7 @@ export function SearchSuggest({
 
       {open && (
         <ul
-          id={LIST_ID}
+          id={listId}
           role="listbox"
           aria-label={t("search.suggestions")}
           className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-line bg-surface shadow-elevated overflow-hidden"
@@ -192,7 +197,7 @@ export function SearchSuggest({
             // 缩略图即该条目的封面：取值走 lib/cover（首张图=封面只有一处定义）。
             const cover = coverUrl(item);
             return (
-              <li key={item.id} role="option" aria-selected={i === active}>
+              <li key={item.id} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
                 <button
                   type="button"
                   onMouseDown={(e) => {

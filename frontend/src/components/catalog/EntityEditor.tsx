@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Upload } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, local, Source } from "./api";
+import { changeDraftKind, hasKindSpecificDraftData } from "@/lib/draftKind";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
@@ -127,6 +129,12 @@ export function EntityEditor({
   const [tagInput, setTagInput] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
+  const [requestedKind, setRequestedKind] = useState("");
+  const pictureFileRef = useRef<HTMLInputElement | null>(null);
+  const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
   if (!definitions) return <p>{t("catalog.loading")}</p>;
   if (!user) {
     // ?edit=1 已由 AuthGate 纳入登录闸门（未登录先跳 /login 并带回完整目标）。这里只兜底
@@ -146,6 +154,13 @@ export function EntityEditor({
       </div>
     );
   }
+  const applyKindChange = (kind: string) => {
+    setE((current) => changeDraftKind(current, emptyEntity(kind)));
+    setSelectedFields([]);
+    setSelectedTemplate("");
+    setPendingRelations([]);
+    setRequestedKind("");
+  };
   const d = definitions;
   const applicableFields = Object.entries(d.fields).filter(([, field]) =>
     field.enabled && field.applicable_kinds?.includes(kindKey)
@@ -336,11 +351,6 @@ export function EntityEditor({
   // 封面上传完整复用 storage 服务链路：sha256→initiate→put→complete→bind(role=cover_image)。
   // 新建实体无 id 时跳过 bind（asset 仍由 pictures[].asset_id 引用，保存后可补绑）。
   // 上传成功后把 asset_id 与 assetContentUrl 一次性写回该行，缩略图随之回显。
-  const pictureFileRef = useRef<HTMLInputElement | null>(null);
-  const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
-  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState("");
   const startPictureUpload = async (index: number, file: File) => {
     if (!file || file.size <= 0) return;
     setUploadError("");
@@ -505,11 +515,11 @@ export function EntityEditor({
             {t("catalog.kindLabel")}
             <Select
               value={e.kind}
-              disabled={!!e.id}
+              disabled={!!e.id || busy || uploadingIndex !== null}
               onChange={(value) => {
-                setE({ ...emptyEntity(value), title: e.title });
-                setSelectedFields([]);
-                setSelectedTemplate("");
+                if (value === e.kind) return;
+                if (hasKindSpecificDraftData(e, pendingRelations.length)) setRequestedKind(value);
+                else applyKindChange(value);
               }}
               options={kindOptions.map((k) => ({ value: k, label: kindLabel(k) }))}
               aria-label={t("catalog.kindLabel")}
@@ -1338,6 +1348,14 @@ export function EntityEditor({
       <button className="cv-primary" disabled={busy}>
         {t("catalog.save")}
       </button>
+      <ConfirmDialog
+        open={!!requestedKind}
+        title={t("catalog.changeKind.title")}
+        message={t("catalog.changeKind.warning")}
+        confirmLabel={t("catalog.changeKind.confirm")}
+        onClose={() => setRequestedKind("")}
+        onConfirm={() => { if (requestedKind) applyKindChange(requestedKind); }}
+      />
     </form>
   );
 }

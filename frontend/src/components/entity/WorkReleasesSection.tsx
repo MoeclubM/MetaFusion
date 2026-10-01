@@ -22,6 +22,7 @@ import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/compone
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useDefinitions, getFieldName, getTermName, templatesForEntity, resolveLocalizedName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
+import { matchesEntityQuery } from "@/lib/entitySearch";
 import { useCompareBasket } from "@/lib/compareBasket";
 
 type Props = {
@@ -129,7 +130,7 @@ export function WorkReleasesSection({ workId }: Props) {
   const filteredReleases = useMemo(() => {
     const kw = q.trim().toLowerCase();
     return releaseEntities.filter((e) => {
-      if (kw && !((e.title || "").toLowerCase().includes(kw) || JSON.stringify(e.attributes || {}).toLowerCase().includes(kw))) return false;
+      if (!matchesEntityQuery(e, kw)) return false;
       return releaseFacets.every((code) => {
         const want = facetValues[code];
         if (!want) return true;

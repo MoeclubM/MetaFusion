@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, GitMerge, AlertTriangle, CheckCircle2, Lock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { catalogEntityHref, mergeEntities } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useAuth } from "@/lib/authContext";
+import { api, type Entity, title } from "@/components/catalog/api";
+import { EntityPicker } from "@/components/catalog/Fields";
+import { isCompatibleMergeTarget, type MergeIdentity } from "@/lib/mergeTarget";
+import { entityIdentitySuffix } from "@/lib/entityIdentity";
 import { useI18n } from "@/i18n/I18nProvider";
 
 const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -15,7 +19,7 @@ interface Props {
   onClose: () => void;
   /** 实体 kind：决定合并后跳转的详情路由。 */
   targetType: string;
-  sourceEntity: {
+  sourceEntity: MergeIdentity & {
     id: string;
     title: string;
     sub?: string;
@@ -25,17 +29,44 @@ interface Props {
 
 export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, onMergeSuccess }: Props) {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [targetId, setTargetId] = useState("");
   const [mergeNote, setMergeNote] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const [target, setTarget] = useState<Entity | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const submitLock = useRef(false);
+
+  useEffect(() => {
+    setTargetId(""); setTarget(null); setMergeNote(""); setSourceUrl(""); setError("");
+  }, [isOpen, sourceEntity.id]);
+
+  useEffect(() => {
+    let active = true;
+    setTarget(null);
+    setPreviewFailed(false);
+    const id = targetId.trim();
+    if (!isOpen || !UUID_PATTERN.test(id)) { setPreviewLoading(false); return; }
+    setPreviewLoading(true);
+    api<Entity>(`/catalog/entities/${encodeURIComponent(id)}`)
+      .then((entity) => { if (active) setTarget(entity); })
+      .catch(() => { if (active) setPreviewFailed(true); })
+      .finally(() => { if (active) setPreviewLoading(false); });
+    return () => { active = false; };
+  }, [targetId, isOpen, previewAttempt]);
+
+  const targetReady = !!target && target.id?.toLowerCase() === targetId.trim().toLowerCase()
+    && isCompatibleMergeTarget({ ...sourceEntity, kind: targetType }, target);
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
     if (!user) {
       setError(t("editor.universal.needLoginToSave"));
       return;
@@ -49,17 +80,18 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       return;
     }
     // 自合并（源与目标同一条）服务端必然回 invalid_merge_target：先在本地拦掉并讲清楚原因。
-    if (targetId.trim() === sourceEntity.id) {
+    if (!targetReady) {
       setError(t("catalog.error.invalidMergeTarget"));
       return;
     }
 
+    submitLock.current = true;
     setSubmitting(true);
     setError("");
     try {
       const res = await mergeEntities({
         source_id: sourceEntity.id,
-        target_id: targetId.trim(),
+        target_id: target!.id!,
         merge_note: mergeNote.trim(),
         source_urls: sourceUrl.trim() ? [sourceUrl.trim()] : [],
         // 没填考据链接时的 self 来源文案：用既有键，不硬编码中文。
@@ -79,6 +111,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       // 走码表翻成人话，未知码才回退原文，不把裸码直接贴给用户。
       setError(localizeCatalogError(String(err?.message || ""), t) || t("editor.merge.failedMsg"));
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -104,6 +137,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           <button
             type="button"
             onClick={onClose}
+            disabled={submitting}
             aria-label={t("revisions.close")}
             className="w-7 h-7 grid place-items-center rounded-md hover:bg-emphasis/10 text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft"
           >
@@ -168,6 +202,19 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
             />
           </div>
 
+          <EntityPicker value={targetId} onChange={setTargetId} kinds={[targetType]} query="&status=published" />
+          {previewLoading && <p role="status">{t("catalog.loading")}</p>}
+          {previewFailed && <div role="alert" className="text-danger-soft"><p>{t("catalog.connectionError")}</p><button type="button" onClick={() => setPreviewAttempt((n) => n + 1)}>{t("catalog.retry")}</button></div>}
+          {target && (
+            <div className="rounded-md border border-line p-3 space-y-1" aria-live="polite">
+              <Link href={catalogEntityHref(target.id || "")} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                {title(target, locale)}
+              </Link>
+              <p className="break-all text-text-muted">{entityIdentitySuffix(target)}</p>
+              {!targetReady && <p role="alert" className="text-danger-soft">{t("catalog.error.invalidMergeTarget")}</p>}
+            </div>
+          )}
+
           {/* Merge Note */}
           <div className="space-y-1">
             <label className="block text-text-body font-semibold text-[10px] uppercase tracking-wider">
@@ -214,13 +261,14 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               <button
                 type="button"
                 onClick={onClose}
+            disabled={submitting}
                 className="px-3 h-7 rounded-md border border-line text-xs text-text-body hover:bg-emphasis/10 transition-colors duration-fast ease-soft"
               >
                 {t("editor.universal.cancel")}
               </button>
               <button
                 type="submit"
-                disabled={submitting || !user}
+                disabled={submitting || !user || !targetReady || previewLoading}
                 className="px-3.5 h-7 rounded-md bg-purple-500 hover:bg-purple-400 text-emphasis text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
               >
                 <GitMerge className="w-3.5 h-3.5" />
