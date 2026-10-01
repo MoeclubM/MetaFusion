@@ -1,6 +1,6 @@
 # 元数据身份与层级关系演进方案（提案）
 
-> 状态：2026-09-25 开始分阶段实施。架构基准已同步；首批只实现 A/B 与 C 的只读关系登记和读取，不改变结构写入契约或已发布 definitions。实施证据与未完成项见[首批实施记录](./metadata-structure-first-implementation-2026-09.md)。
+> 状态：首批已实现 A/B 与 C 的只读关系登记和读取，不改变结构写入契约。现行读取边界与尚未实现的逐边溯源见[核心实现](./catalog-core-implementation.md)，媒体样本见[媒体编目与前端复核](./media-catalog-frontend-review-2026-09.md)。本文仅维护后续演进约束。
 
 ## 1. 要解决的问题
 

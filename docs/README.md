@@ -8,8 +8,8 @@
 | 服务与数据归属 | [拆分契约](architecture/service-split-migration.md)、[数据库角色](architecture/database-roles.md) |
 | 部署、回滚与存储 | [切流手册](architecture/cutover-runbook.md)、[存储运行约定](architecture/storage-operations.md) |
 | 能力清单与审计留痕 | [能力清单](architecture/capabilities.md)、[统一审计留痕契约](architecture/audit-log.md) |
-| 元数据结构演进 | [演进方案](architecture/metadata-structure-evolution-plan.md)、[首批实施记录](architecture/metadata-structure-first-implementation-2026-09.md) |
-| 历史审计快照（只记当时证据） | [解耦审计](architecture/decoupling-audit-2026-09.md)、[架构评估](architecture/architecture-assessment-2026-09.md) |
+| 元数据结构演进 | [演进方案](architecture/metadata-structure-evolution-plan.md)；已实现契约归入核心实现 |
+| 拆分整改路线与历史证据 | [解耦审计](architecture/decoupling-audit-2026-09.md)；当前媒体评估归入媒体编目与前端复核 |
 | 公开教程与 API | 独立仓库 [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) |
 | 编目技能 | 独立仓库 [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) |
 

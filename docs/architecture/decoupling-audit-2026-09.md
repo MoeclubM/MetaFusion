@@ -1,7 +1,7 @@
 # 多项目解耦审计与优化建议（2026-09）
 
 > 范围声明：本文保留 **2026-09-16 审计与实施批次的历史快照**。文中的“现状”“待办”“未验证”若无明确更新日期，均指当时，不代表当前运行态。当前路由、数据归属和迁移职责见 [子系统拆分与迁移基准](./service-split-migration.md)；媒体架构与用户前端的本轮复核见 [媒体目录与用户前端评估](./media-catalog-frontend-review-2026-09.md)。
-> 关联文档：[子系统拆分与迁移基准](./service-split-migration.md)（路由与数据归属的唯一契约）、[能力清单](./capabilities.md)、[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)。
+> 关联文档：[子系统拆分与迁移基准](./service-split-migration.md)（路由与数据归属的唯一契约）、[能力清单](./capabilities.md)、[媒体编目与前端复核](./media-catalog-frontend-review-2026-09.md)。
 > 数据约束：本文不含实例数据——不写真实条目名；示例一律用占位符（`<repo>`、`<prefix>`、`<code>`）或代码里的真实标识符。
 > 审计方式：5 个并行只读子代理（主仓库 backend、`metafusion-auth`、`metafusion-community` + `metafusion-storage`、`frontend`、`deploy`/网关/契约面），结论由主代理二次核对；核对面见 §0.2。
 > 状态：审计已完成。§8–§12 记录当时决议与进度，不能直接当作当前实施清单。

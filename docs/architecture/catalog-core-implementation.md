@@ -4,7 +4,11 @@
 
 核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、结构侧表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，迁移 `000003_notifications`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 使用事务级 advisory lock。乐观版本避免静默覆盖，复合外键和延迟触发器拒绝跨域父子和循环。
 
-关系读取的首批统一契约由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系继续由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。具体来源、样本判断及尚未实施的逐边溯源见[首批实施记录](./metadata-structure-first-implementation-2026-09.md)。
+关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。固定规则码以 `structure:` 开头，动态语义码以 `relation:` 开头；返回方向、类别、端点、位置、角色、定位、属性及本次读取的 definitions 版本，limit 默认 50、最大 100。
+
+归属与位置的权威来源是结构侧表的 `work_id`、`release_id`、`medium_id`、`parent_id` 和 `content_unit_id`；发行收录来自 `release_subjects`，轨位收录来自 `track_contents`，署名、改编、聚合等语义来自 `catalog.relations`。固定边须在所属实体或收录写入口编辑。当前 links 不提供逐边证据或历史规则版本；旧外键没有保存这些信息，未来须先在权威写入处设计来源记录与迁移。新增结构写入仍须有现有骨架无法表达的带来源样本，见[演进方案](./metadata-structure-evolution-plan.md)。媒体样本与身份判断见[媒体编目与前端复核](./media-catalog-frontend-review-2026-09.md)。
+
+作品目录共用 ContentUnit、Expression 与聚合关系读取结果；没有可见内容时隐藏，失败时显示重试，同题名 Expression 标为“内容表达”。通用游戏不推断为独立游戏；Bangumi 来源类型映射为 `game` 预览标记，不在实体上虚构业务类型。旧误分类须有来源再更正，定义种子须按部署流程显式执行。
 
 `cmd/server/main.go` 作为纯净的单一启动入口：核心依赖 PostgreSQL；OpenSearch 是可选的实体搜索候选索引，不影响目录启动与编辑。配置 `OPENSEARCH_URL` 后，后台先从目录实体表建立索引，再按 `entity.*` 事件消费同事务写入的 `catalog.outbox`；消费者用 PostgreSQL advisory lock 保证多后端副本只有一个索引器，bulk 写入等待 refresh 以缩短可见性延迟。索引文档覆盖题名、翻译、摘要、别名、标签和外部 ID，状态代际变更时自动清理并重建候选索引；搜索候选仍由 PostgreSQL 复核子串命中、外部 ID、可见性、筛选并读取实体。索引未就绪/不可用、查询无索引命中、结构关系/自定义字段筛选或匹配量超过 10,000 时回退原 PostgreSQL 搜索。未配置时检索完全走 PostgreSQL。Redis 与 S3 不由目录核心强制初始化。
 
