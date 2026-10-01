@@ -279,7 +279,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download image digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: digest-*
           merge-multiple: true
@@ -324,7 +324,7 @@ jobs:
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ../dist/mf-migrate-darwin-arm64 ./cmd/migrate
 
       - name: Download release manifest（随附件发布）
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-manifest
           path: manifest-in
