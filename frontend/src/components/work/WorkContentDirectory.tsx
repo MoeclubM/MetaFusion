@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ListTree } from "lucide-react";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
@@ -8,6 +8,7 @@ import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getKindName, getRelationName, getTermName, useDefinitions } from "@/lib/definitions";
 import { fetchApi } from "@/lib/api";
+import { useAuth } from "@/lib/authContext";
 // 日期值的呈现与信息面板共用同一实现（本地化/图例口径一致，不另写格式化）。
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
@@ -78,15 +79,24 @@ export type WorkDirectoryData = {
 
 /** 作品页与目录面板共用一次读取，标签可见性和实际内容不会各查各的。 */
 export function useWorkDirectoryData(workId: string): WorkDirectoryData {
+  const { user } = useAuth();
+  const viewerId = user?.id || "";
+  const readKey = JSON.stringify([workId, viewerId]);
+  const currentReadKey = useRef(readKey);
+  currentReadKey.current = readKey;
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<Omit<WorkDirectoryData, "retry"> & { workId: string }>({
-    workId: "", status: "loading", items: [], relations: [], relatedEntities: {},
+  const [state, setState] = useState<Omit<WorkDirectoryData, "retry"> & { readKey: string }>({
+    readKey: "", status: "loading", items: [], relations: [], relatedEntities: {},
   });
 
   useEffect(() => {
-    if (!workId) return;
+    if (!workId) {
+      setState({ readKey, status: "ready", items: [], relations: [], relatedEntities: {} });
+      return;
+    }
     let active = true;
-    setState({ workId, status: "loading", items: [], relations: [], relatedEntities: {} });
+    const current = () => active && currentReadKey.current === readKey;
+    setState({ readKey, status: "loading", items: [], relations: [], relatedEntities: {} });
     (async () => {
       try {
         const [units, exprs, rel] = await Promise.all([
@@ -94,22 +104,22 @@ export function useWorkDirectoryData(workId: string): WorkDirectoryData {
           fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`),
           fetchApi<{ items: RelationRow[]; entities: Record<string, Entity> }>(`/catalog/entities/${encodeURIComponent(workId)}/relations`),
         ]);
-        if (active) setState({
-          workId, status: "ready", items: [...units, ...exprs],
+        if (current()) setState({
+          readKey, status: "ready", items: [...units, ...exprs],
           relations: Array.isArray(rel.items) ? rel.items : [],
           relatedEntities: rel.entities && typeof rel.entities === "object" ? rel.entities : {},
         });
       } catch {
-        if (active) setState({ workId, status: "error", items: [], relations: [], relatedEntities: {} });
+        if (current()) setState({ readKey, status: "error", items: [], relations: [], relatedEntities: {} });
       }
     })();
     return () => { active = false; };
-  }, [workId, attempt]);
+  }, [workId, viewerId, attempt]);
 
   const retry = () => setAttempt((n) => n + 1);
-  return state.workId === workId
+  return state.readKey === readKey
     ? { ...state, retry }
-    : { status: "loading", items: [], relations: [], relatedEntities: {}, retry };
+    : { status: workId ? "loading" : "ready", items: [], relations: [], relatedEntities: {}, retry };
 }
 
 export function hasWorkDirectoryContent(
