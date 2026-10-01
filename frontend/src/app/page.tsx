@@ -65,7 +65,7 @@ export default function HomePage() {
     try {
       // 统一走 fetchApi：同域 Cookie、语言头与错误处理保持一致。
       // 用 components/catalog 的 api() 只会发 cookie，带身份的偏好不会被识别。
-      const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=12");
+      const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=14");
       setSections(Array.isArray(r.items) ? r.items : []);
     } catch {
       setSections([]);
