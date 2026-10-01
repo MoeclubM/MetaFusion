@@ -33,8 +33,6 @@ const ALLOWED = new Set([
 
 // 检查上线时已存在的裸文案：止住新增用，不是允许。修一条删一条（脚本会提示）。
 const BASELINE = new Set([
-  "© 2026 MoeClub Ltd · Open Metadata & Resource Platform", // landing 页脚署名
-  "© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform", // 首页页脚署名
   "APPLICATION ERROR", // error.tsx 装饰字（与 not-found 的装饰字同一形态）
   "NOT FOUND", // not-found.tsx 装饰字
 ]);

@@ -176,9 +176,9 @@ export default function WorkReleasesPage() {
           </div>
 
           {loading ? (
-            <div className="p-10 text-center font-mono text-xs text-text-faint">{t("common.loading")}</div>
+            <div className="p-5 text-center font-mono text-xs text-text-faint">{t("common.loading")}</div>
           ) : pageItems.length === 0 ? (
-            <div className="p-10 text-center font-mono text-xs text-text-faint">{entities.length === 0 ? t("work.releases.noReleases") : t("work.detail.noFilterResult")}</div>
+            <div className="p-5 text-center font-mono text-xs text-text-faint">{entities.length === 0 ? t("work.releases.noReleases") : t("work.detail.noFilterResult")}</div>
           ) : (
             <>
               <div className="hidden sm:block overflow-x-auto">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, Suspense } from "react";
+import React, { useEffect, useState, useMemo, useId, Suspense } from "react";
 import { safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -25,6 +25,8 @@ import {
   RefreshCw,
   GitCompare,
   Check,
+  SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Select } from "@/components/ui/Select";
@@ -61,6 +63,8 @@ function ExploreInner() {
   const { t, tr, locale } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const filterPanelId = useId();
 
   const { definitions, kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
@@ -336,10 +340,17 @@ function ExploreInner() {
       >
         {/* 双栏：左侧实体种类与标签筛选，右侧结果区 */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-5">
-          <aside className="space-y-4 min-w-0">
+          <div className="min-w-0 space-y-3">
+            <button type="button" aria-expanded={filtersExpanded} aria-controls={filterPanelId} onClick={() => setFiltersExpanded((value) => !value)} className="lg:hidden w-full flex items-center gap-2 p-3 rounded-control border border-line bg-surface text-sm text-text-body">
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>{t("catalog.filters")}</span>
+              <span className="text-xs text-text-muted">{t("catalog.activeFilters", { count: Number(currentKind !== "all") + Number(currentStatus !== "published") + currentTags.length + Number(!!currentOriginalLanguage) + Number(currentHasPictures) })}</span>
+              <ChevronDown className={`ml-auto w-4 h-4 transition-transform ${filtersExpanded ? "rotate-180" : ""}`} />
+            </button>
+          <aside id={filterPanelId} className={`min-w-0 grid-cols-2 gap-3 lg:block lg:space-y-3 ${filtersExpanded ? "grid" : "hidden"}`}>
             {/* 实体种类：条目来自服务端 definitions.kinds 里启用中的种类 +「全部」，
                 点击即写回 ?kind=<code>，与标签筛选叠加；窄屏收成一行横向滚动。 */}
-            <Card padding="none" className="shadow-soft overflow-hidden">
+            <Card padding="none" className="order-1 col-span-2 shadow-xs overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.kindFilter")}
@@ -379,7 +390,7 @@ function ExploreInner() {
             </Card>
 
             {/* 状态：与种类/标签叠加；原来在顶部检索栏，现收归侧栏统一筛选。 */}
-            <Card padding="none" className="shadow-soft overflow-hidden">
+            <Card padding="none" className="order-2 shadow-xs overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.status")}
@@ -401,7 +412,7 @@ function ExploreInner() {
 
             {/* 标签筛选：与种类筛选叠加生效；来源为真实标签聚合
                 （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
-            <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
+            <div className="order-4 col-span-2 rounded-card border border-line bg-surface shadow-xs overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle flex items-center justify-between gap-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.tagFilter")}
@@ -486,7 +497,7 @@ function ExploreInner() {
             </div>
 
             {/* 原语言：document->>'original_language' 精确匹配，八层级通用。 */}
-            <Card padding="none" className="shadow-soft overflow-hidden">
+            <Card padding="none" className="order-3 shadow-xs overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.originalLanguageFilter")}
@@ -503,7 +514,7 @@ function ExploreInner() {
             </Card>
 
             {/* 封面：只留 pictures 非空数组的条目。 */}
-            <Card padding="none" className="shadow-soft overflow-hidden">
+            <Card padding="none" className="order-5 col-span-2 shadow-xs overflow-hidden">
               <button
                 type="button"
                 onClick={() => updateFilters({ has_pictures: currentHasPictures ? "" : "1" })}
@@ -522,6 +533,7 @@ function ExploreInner() {
               </button>
             </Card>
           </aside>
+          </div>
 
           <div className="min-w-0 space-y-5">
             {/* 搜索统一在顶栏；本栏只保留排序与视图切换。 */}
@@ -575,7 +587,7 @@ function ExploreInner() {
             </div>
 
             {loading ? (
-              <div className="py-24 text-center text-text-faint font-mono text-xs flex flex-col items-center justify-center gap-3">
+              <div className="py-8 text-center text-text-faint font-mono text-xs flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                 <span>{t("catalog.loading")}</span>
               </div>
@@ -584,7 +596,7 @@ function ExploreInner() {
               // 429 单独给限流文案（服务端 120/分钟全站共享预算，命中是常态）。
               <div
                 role="alert"
-                className="py-20 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center shadow-2xs"
+                className="p-5 rounded-card border border-amber-500/30 bg-amber-500/5 text-center shadow-2xs"
               >
                 <p className="text-amber-700 dark:text-warn-soft text-sm mb-3">
                   {loadError === "rate_limited"
@@ -617,7 +629,7 @@ function ExploreInner() {
               // 越界页与空结果是两件事：这里给出真实总数与页数，并提供回第一页的出口。
               <div
                 role="alert"
-                className="py-20 rounded-xl border border-dashed border-line text-center bg-surface/50 shadow-2xs"
+                className="p-5 rounded-card border border-dashed border-line text-center bg-surface/50 shadow-2xs"
               >
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
                   {t("catalog.pageOutOfRange", {
@@ -636,7 +648,7 @@ function ExploreInner() {
                 </button>
               </div>
             ) : items.length === 0 ? (
-              <div className="py-20 rounded-xl border border-dashed border-line text-center bg-surface/50 shadow-2xs">
+              <div className="p-5 rounded-card border border-dashed border-line text-center bg-surface/50 shadow-2xs">
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{t("catalog.emptyTitle")}</p>
                 <button
                   type="button"
@@ -647,7 +659,7 @@ function ExploreInner() {
                 </button>
               </div>
             ) : viewMode === "grid" ? (
-              <TabPanel activeKey={listKey} spacing="none" className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+              <TabPanel activeKey={listKey} spacing="none" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {items.map((item) => {
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
                   // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。

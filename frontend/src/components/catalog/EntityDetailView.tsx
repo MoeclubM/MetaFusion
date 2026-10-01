@@ -1041,7 +1041,7 @@ export function EntityDetailView({ id }: { id: string }) {
         )}
         {/* 页面级标题区：跨两栏放在封面列之上，左边界落在外壳内容基线上
             （与 /works、/releases、/mediums 等同一条左边线）；两栏结构保留在标题之下。 */}
-        <header className="space-y-4 pb-2">
+        <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold tracking-wider">
               {kindLabel(entity.kind)}
@@ -1121,13 +1121,13 @@ export function EntityDetailView({ id }: { id: string }) {
         </header>
 
         {/* Master 2-Column Wiki Layout (Inspired by 2cd76d44) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] gap-4 lg:gap-5 items-start">
           {/* ============================================================ */}
           {/* LEFT SIDEBAR: Cover + Facts + External Authority             */}
           {/* ============================================================ */}
-          <aside className="w-full space-y-4 shrink-0">
+          <aside className="min-w-0 grid grid-cols-[96px_minmax(0,1fr)] sm:grid-cols-[140px_minmax(0,1fr)] md:block gap-3 md:space-y-3">
             {/* 1. Cover Card */}
-            <Card padding="none" className="overflow-hidden shadow-md">
+            <Card padding="none" className="overflow-hidden self-start order-1 shadow-xs">
               {/* 详情页是单张展示：比例在允许区间内跟着图片走（见 AdaptiveCover），
                   这里给上下限兜底——窄屏侧栏也不至于把长图压成一条、或让大图撑满整屏。 */}
               <AdaptiveCover
@@ -1137,8 +1137,8 @@ export function EntityDetailView({ id }: { id: string }) {
                 originalTitle={entity.title}
                 id={entity.id}
                 tags={Array.isArray(entity.attributes?.tags) ? (entity.attributes.tags as string[]) : undefined}
-                minHeight={160}
-                maxHeight="60vh"
+                minHeight={96}
+                maxHeight="min(45vh, 320px)"
                 className="w-full h-auto"
               />
               <CoverOriginNote
@@ -1149,14 +1149,14 @@ export function EntityDetailView({ id }: { id: string }) {
             </Card>
 
             {/* 2. External Authority & Official Links (官网与各权威数据源同级一体化呈现) */}
-            <ExternalAuthorityLinks
+            <div className="order-2 min-w-0"><ExternalAuthorityLinks
               entity={entity}
               category={entity.kind}
               variant="list"
-            />
+            /></div>
 
             {/* 3. Basic Facts & Information Card */}
-            <Card padding="section" className="shadow-soft space-y-4">
+            <Card padding="section" className="order-3 col-span-2 min-w-0 shadow-xs space-y-3">
               <CardTitle icon={<Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                 {t("entity.page.basicInfo")}
               </CardTitle>
@@ -1245,7 +1245,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
             {/* 4. Decoupled Resource Station Quick Jump（资源站未接入时不显示） */}
             {hasResourceStation() && (
-              <Card padding="card" className="!border-sky-500/20 !bg-sky-500/[0.04] dark:!bg-sky-500/[0.08] space-y-2.5">
+              <Card padding="card" className="order-4 col-span-2 !border-sky-500/20 !bg-sky-500/[0.04] dark:!bg-sky-500/[0.08] space-y-2.5">
                 <div className="flex items-center gap-2 text-sky-600 dark:text-info font-semibold text-xs font-mono">
                   <HardDrive className="w-4 h-4" />
                   <span>{t("entity.page.resourceStation")}</span>

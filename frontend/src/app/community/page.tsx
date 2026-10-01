@@ -515,7 +515,7 @@ function CommunityContent() {
 	            </button>
 
 	            {boardDropdownOpen && (
-	              <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
+	              <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in duration-100">
 	                <div className="relative">
 	                  <Search className="w-3.5 h-3.5 text-text-faint absolute left-2.5 top-2.5" />
 	                  <input
@@ -607,7 +607,7 @@ function CommunityContent() {
 	            </button>
 
 	            {tagDropdownOpen && (
-	              <div className="absolute left-0 top-full mt-1.5 w-64 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
+	              <div className="absolute left-0 top-full mt-1.5 w-64 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in duration-100">
 	                <div className="relative">
 	                  <Search className="w-3.5 h-3.5 text-text-faint absolute left-2.5 top-2.5" />
 	                  <input
@@ -684,7 +684,7 @@ function CommunityContent() {
 
 	      {/* Active Tag Filter Chip */}
 	      {currentSelectedTagObj && (
-	        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono animate-in fade-in duration-100">
+	        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono animate-in duration-100">
 	          <span className="text-text-faint">{t("community.selectedTag", { name: "" })}</span>
 	          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-success-soft font-semibold">
 	            <TagIcon className="w-3 h-3" />
@@ -725,9 +725,9 @@ function CommunityContent() {
  </div>
 
  {loading ? (
- <div className="py-16 text-center text-text-faint font-mono text-sm">{t("common.loadingTopics")}</div>
+ <div className="py-8 text-center text-text-faint font-mono text-sm">{t("common.loadingTopics")}</div>
  ) : loadError ? (
- <div className="py-16 text-center space-y-3">
+ <div className="py-8 text-center space-y-3">
  <p className="text-sm text-danger-soft">{loadError}</p>
  <button
  onClick={loadTopics}
@@ -749,7 +749,7 @@ function CommunityContent() {
  )}
  </div>
  ) : pageOutOfRange ? (
- <div className="py-16 text-center space-y-3">
+ <div className="py-8 text-center space-y-3">
  <p className="text-sm text-text-muted">{t("community.pageOutOfRange", { page, totalPages })}</p>
  <button
  onClick={() => goToPage(totalPages)}

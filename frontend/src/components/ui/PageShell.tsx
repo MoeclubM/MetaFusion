@@ -38,7 +38,7 @@ export function PageContainer({
 
 const TITLE_SIZE: Record<string, string> = {
   md: "text-lg sm:text-xl",
-  lg: "text-2xl sm:text-3xl",
+  lg: "text-xl sm:text-2xl",
 };
 
 /**
@@ -92,7 +92,7 @@ export function PageHeader({
           </div>
         </div>
       ) : null}
-      {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2 min-w-0">{actions}</div> : null}
       {children}
     </header>
   );
@@ -157,12 +157,12 @@ export function PageShell({
     >
       <PageContainer
         width={width}
-        className={`${center ? "min-h-[50vh] grid place-items-center" : "py-6"} ${containerClassName}`}
+        className={`${center ? "py-8 grid place-items-center" : "py-4 sm:py-5"} ${containerClassName}`}
       >
         {/* 页头与正文同层：两者间距 = spacing（默认 16px，与区块间距同口径）。 */}
         <div
           className={`${
-            center ? "min-h-[50vh] w-full flex flex-col items-center justify-center gap-4 text-center" : "space-y-4"
+            center ? "w-full flex flex-col items-center justify-center gap-4 text-center" : "space-y-4"
           }`}
         >
           {head ? <div data-mf-pagehead="">{head}</div> : null}

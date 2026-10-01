@@ -184,7 +184,7 @@ function RevisionWorkbench({ refs }: { refs: RevRef[] }) {
 
   return (
     <div className="space-y-5">
-      <section className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+      <section className="bg-card border border-border rounded-card p-4 shadow-sm space-y-4">
         {!entityId && (
           <div>
             <h2 className="text-sm font-semibold text-foreground mb-2">{t("compare.revisions.pickEntity")}</h2>

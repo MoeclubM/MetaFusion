@@ -281,7 +281,7 @@ export const Navbar: React.FC<{
         />
 
         {/* Right Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
           {/* 新建：指向统一新建页 /new（层级在编辑器内切换，?kind= 只做预选）。
               标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
           {/* 站内通知：常驻铃铛入口（未登录不显示），未读 >0 才挂角标，>99 显示 99+。
@@ -316,7 +316,7 @@ export const Navbar: React.FC<{
           <Link
               href="/new"
             aria-label={t("catalog.create")}
-            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-2 sm:px-3 h-9 rounded-control bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">{t("catalog.create")}</span>
@@ -358,7 +358,7 @@ export const Navbar: React.FC<{
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="relative flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
+                className="relative flex items-center gap-1 sm:gap-2 px-1.5 sm:pr-2.5 h-9 rounded-control bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {/* 未读私信角标改挂在顶栏信封入口上（见上）：同一个计数在顶栏只出现一次，
                     头像按钮回归"纯菜单开关"，不再承担未读提示。 */}
@@ -367,7 +367,7 @@ export const Navbar: React.FC<{
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}
                 </span>
                 <ChevronDown
-                  className={`w-3 h-3 text-text-muted transition-transform duration-200 ${
+                  className={`hidden sm:block w-3 h-3 text-text-muted transition-transform duration-200 ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                   strokeWidth={1.5}
@@ -489,7 +489,7 @@ export const Navbar: React.FC<{
           )}
 
           {/* Controls: Theme & Locale */}
-          <div className="flex items-center border-l border-line pl-2 gap-1.5">
+          <div className="flex items-center border-l border-line pl-1 sm:pl-2 gap-1 sm:gap-1.5">
             <LocaleSwitcher compact />
             <ThemePicker />
           </div>

@@ -55,7 +55,7 @@ export const ThemeControls: React.FC<Props> = ({ layout = "full" }) => {
           <span>{t("theme.accentLabel")}</span>
           <span className="font-semibold text-text-strong">{accentLabel(accent, t)}</span>
         </div>
-        <div className={`grid gap-1 ${layout === "compact" ? "grid-cols-8" : "grid-cols-8 sm:grid-cols-16"}`}>
+        <div className={`grid gap-1 ${layout === "compact" ? "grid-cols-8" : "grid-cols-8 sm:grid-cols-[repeat(16,minmax(0,1fr))]"}`}>
           {accents.map((item) => {
             const active = accent === item.id;
             return (

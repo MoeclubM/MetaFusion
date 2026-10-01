@@ -1,14 +1,10 @@
 {
-  "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
-  "landing.heroSubtitle": "开放编目 · 严选典藏 · 社区共建的多媒体元数据平台",
+  "landing.heroSubtitle": "编目音乐、动画、影视与书籍，查看版本、曲目和参与者关系。",
   "landing.enter": "开始浏览",
   "landing.join": "加入我们",
   "landing.exploreArchive": "探索",
   "landing.docsTitle": "MetaFusion 完整文档",
   "landing.docsCenter": "文档中心",
-  "landing.featureGraph": "实体关联图谱",
-  "landing.featureCAS": "去重文件存储",
-  "landing.featureOpen": "开放插件生态",
   "auth.username": "用户名",
   "auth.password": "密码",
   "auth.requestFailed": "请求失败",
@@ -516,7 +512,6 @@
   "importer.optDownloadCover": "自动拉取高清封面/头像并存入 RustFS 对象存储",
   "importer.btnConfirmImport": "确认一键导入",
   "importer.importing": "正在导入持久化…",
-  "create.hub.cardImportBadge": "权威数据源解析套件",
   "create.hub.cardImportTitle": "权威数据源一键导入",
   "create.hub.importNoPermission": "你没有导入权限（catalog.import.submit）：请联系目录管理员分配权限组后再使用外部导入。",
   "create.hub.cardImportDesc": "从外部权威资料库解析作品、发行版、演职员与全部曲目，确认预览后一键入库。",
@@ -1583,7 +1578,6 @@
   "catalog.translationLocale": "编辑语种",
   "catalog.addLocale": "添加语种",
   "catalog.translationEmpty": "选择上方语种或添加新语种后，即可填写该语种的题名、简介与别名。",
-  "landing.pageControls": "页面控件",
   "entity.collection.communityCurator": "社区",
   "community.dmLoadFailed": "私信加载失败",
   "users.profile.banned": "账号已停用",
@@ -1964,5 +1958,7 @@
   "catalog.state.published": "已发布",
   "catalog.changeKind.title": "切换条目类型？",
   "catalog.changeKind.warning": "题名、原始语言、多语内容、标签、图片、外部标识和状态会保留。结构归属、收录、其他属性及待保存关系将清空。取消可保留当前内容。",
-  "catalog.changeKind.confirm": "确认切换"
+  "catalog.changeKind.confirm": "确认切换",
+  "catalog.filters": "筛选",
+  "catalog.activeFilters": "已选 {count} 项"
 }

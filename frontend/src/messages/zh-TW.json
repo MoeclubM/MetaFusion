@@ -1,14 +1,10 @@
 {
-  "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
-  "landing.heroSubtitle": "開放編目 · 嚴選典藏 · 社群共建的多媒體元資料平台",
+  "landing.heroSubtitle": "編目音樂、動畫、影視與書籍，查看版本、曲目及參與者關係。",
   "landing.enter": "開始瀏覽",
   "landing.join": "加入我們",
   "landing.exploreArchive": "探索",
   "landing.docsTitle": "MetaFusion 說明文件",
   "landing.docsCenter": "說明文件中心",
-  "landing.featureGraph": "實體關聯圖譜",
-  "landing.featureCAS": "去重複檔案儲存",
-  "landing.featureOpen": "開放外掛生態",
   "auth.username": "使用者名稱",
   "auth.password": "密碼",
   "auth.requestFailed": "請求失敗",
@@ -516,7 +512,6 @@
   "importer.optDownloadCover": "自動抓取高清封面/頭像並存入 RustFS 物件儲存",
   "importer.btnConfirmImport": "確認一鍵匯入",
   "importer.importing": "正在匯入保存中…",
-  "create.hub.cardImportBadge": "權威資料源解析套件",
   "create.hub.cardImportTitle": "權威資料源一鍵匯入",
   "create.hub.importNoPermission": "你沒有匯入權限（catalog.import.submit）：請聯繫目錄管理員分配權限組後再使用外部匯入。",
   "create.hub.cardImportDesc": "從外部權威資料庫解析作品、發行版、演職人員與全部曲目，確認預覽後一鍵入庫。",
@@ -1583,7 +1578,6 @@
   "catalog.translationLocale": "編輯語種",
   "catalog.addLocale": "新增語種",
   "catalog.translationEmpty": "從上方選擇語種或新增語種後，即可填寫該語種的題名、簡介與別名。",
-  "landing.pageControls": "頁面控制項",
   "entity.collection.communityCurator": "社群",
   "community.dmLoadFailed": "私訊載入失敗",
   "users.profile.banned": "帳號已停用",
@@ -1964,5 +1958,7 @@
   "catalog.state.published": "已發布",
   "catalog.changeKind.title": "切換條目類型？",
   "catalog.changeKind.warning": "題名、原始語言、多語內容、標籤、圖片、外部識別碼和狀態會保留。結構歸屬、收錄、其他屬性及待儲存關係將清空。取消可保留目前內容。",
-  "catalog.changeKind.confirm": "確認切換"
+  "catalog.changeKind.confirm": "確認切換",
+  "catalog.filters": "篩選",
+  "catalog.activeFilters": "已選 {count} 項"
 }

@@ -244,7 +244,7 @@ export function EntityRevisions({
       )}
 
       {/* Git Commit Tree & History List */}
-      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-2.5 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-linear-to-b before:from-primary before:via-primary/30 before:to-transparent">
+      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-2.5 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-primary before:via-primary/30 before:to-transparent">
         {sortedRevisions.map((rev, idx) => {
           const revKey = String(rev.id || idx);
           const author = rev.actor_name || anonymousName;

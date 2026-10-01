@@ -3,9 +3,7 @@ import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   darkMode: "class",
   theme: {
@@ -130,29 +128,23 @@ const config: Config = {
           "serif",
         ],
       },
-      // Landing-page-grade radii: inner pages share the hero's soft pill curvature.
-      // Small elements (chips, badges) clamp visually to near-pill since the radius
-      // dominates their height — matching the rounded-full signature of the landing page.
-      // 角色化圆角：同一个角色在任何页面必须是同一个值。
-      // 迁移目标是把 655 处 `rounded-sm/md/lg/xl` 的混用收敛到下面五个角色：
-      //   chip（标签/徽章）< control（输入框/按钮）< card（卡片/列表行）< panel（面板/弹窗）< hero（首屏大块）
-      // 数值按"角色"对齐：sm=标签 8 / md=控件 12 / lg=卡片 16 / xl=面板 20 / 2xl=大块 24。
-      // 本轮把混用的 rounded-sm/md/lg/xl 直接对齐到同一套角色值，组件侧再逐步换成语义名。
+      // 紧凑目录的圆角层级：标签 4 / 控件 6 / 卡片 8 / 面板 10。
+      // 旧的尺寸别名与语义名同值，避免不同页面的同类容器曲率不一致。
       borderRadius: {
         none: "0px",
-        xs: "6px",
-        sm: "8px",
-        DEFAULT: "12px",
-        md: "12px",
-        lg: "16px",
-        xl: "20px",
-        "2xl": "24px",
-        "3xl": "28px",
-        card: "16px",
-        panel: "20px",
-        control: "12px",
-        chip: "8px",
-        tech: "12px",
+        xs: "3px",
+        sm: "4px",
+        DEFAULT: "6px",
+        md: "6px",
+        lg: "8px",
+        xl: "10px",
+        "2xl": "12px",
+        "3xl": "16px",
+        card: "8px",
+        panel: "10px",
+        control: "6px",
+        chip: "4px",
+        tech: "6px",
         pill: "9999px",
         full: "9999px",
       },

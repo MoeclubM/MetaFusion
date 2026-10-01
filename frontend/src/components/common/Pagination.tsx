@@ -41,8 +41,8 @@ export function Pagination({ page, totalPages, onChange, className = "" }: Pagin
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label={t("pagination.label")} className={"flex items-center gap-1.5 " + className}>
-      <span className="mr-1 text-text-faint whitespace-nowrap">
+    <nav aria-label={t("pagination.label")} className={"flex flex-wrap items-center gap-1.5 min-w-0 " + className}>
+      <span className="w-full sm:w-auto mr-1 text-text-faint whitespace-nowrap">
         {t("pagination.totalPages", { total: totalPages.toString() })}
       </span>
       <button

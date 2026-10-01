@@ -143,7 +143,7 @@ export default function MyReportsPage() {
             </button>
           </div>
         ) : items.length === 0 ? (
-          <div className="p-10 rounded-card border border-dashed border-line bg-surface text-center text-sm text-text-faint">
+          <div className="p-5 rounded-card border border-dashed border-line bg-surface text-center text-sm text-text-faint">
             {t("reports.empty")}
           </div>
         ) : (

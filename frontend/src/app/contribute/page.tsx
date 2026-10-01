@@ -6,7 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
-import { Layers, Users, Disc, Network, ArrowRight, Sparkles, Zap } from "lucide-react";
+import { Layers, Users, Disc, Network, ArrowRight, Zap } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 import { PageShell } from "@/components/ui/PageShell";
 import { fetchImporterSources, ImporterSource } from "@/lib/api";
@@ -82,7 +82,7 @@ export default function ContributeHubPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
-      <PageShell width="narrow" spacing="none" contentClassName="space-y-5 sm:space-y-6">
+      <PageShell width="narrow" spacing="none" contentClassName="space-y-4">
         <div className="space-y-1">
           <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
             {t("create.hub.title")}
@@ -95,14 +95,10 @@ export default function ContributeHubPage() {
         {/* 未登录提示原来写在这里，但 AuthGate 对 /contribute 先 return null 并跳登录，
             那段横幅永远渲染不到；未登录的登录门槛统一由 AuthGate 负责。 */}
 
-        {/* Featured Hero Banner: OmniSource Fast Importer */}
-        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-linear-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6 shadow-sm group">
+        {/* 外部导入入口：与手工创建保持相同密度。 */}
+        <div className="relative overflow-hidden rounded-card border border-line bg-surface p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-[11px] font-mono font-bold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{t("create.hub.cardImportBadge")}</span>
-              </div>
               <h2 className="font-display text-lg sm:text-xl font-bold text-text-strong">
                 {t("create.hub.cardImportTitle")}
               </h2>
@@ -137,7 +133,7 @@ export default function ContributeHubPage() {
               disabled={!canImport}
               aria-disabled={!canImport}
               title={canImport ? undefined : t("create.hub.importNoPermission")}
-              className="px-5 h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-xs sm:text-sm font-mono inline-flex items-center justify-center gap-2 shrink-0 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:shadow-none"
+              className="px-3 h-10 rounded-control bg-primary hover:bg-primary/90 text-white font-semibold text-xs sm:text-sm font-mono inline-flex items-center justify-center gap-2 shrink-0 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:shadow-none"
             >
               <Zap className="w-4 h-4 fill-white" />
               <span>{t("nav.importExternal")}</span>
@@ -150,17 +146,17 @@ export default function ContributeHubPage() {
           <div className="text-xs font-mono text-text-muted uppercase tracking-wider font-semibold">
             {t("create.hub.manualSectionTitle")}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {cards.map((c) => {
               const Icon = c.icon;
               return (
                 <Link
                   key={c.href}
                   href={c.href}
-                  className={`group p-5 sm:p-6 rounded-2xl border border-line bg-surface hover:border-primary/40 transition-all space-y-3 shadow-xs hover:shadow-md ${c.border}`}
+                  className={`group p-3 sm:p-4 rounded-card border border-line bg-surface hover:border-primary/40 transition-all space-y-3 shadow-xs hover:shadow-md ${c.border}`}
                 >
                   <div className={`w-9 h-9 rounded-xl border border-line grid place-items-center ${c.bg}`}>
-                    <Icon className={`w-4.5 h-4.5 ${c.accent}`} />
+                    <Icon className={`w-4 h-4 ${c.accent}`} />
                   </div>
                   <div className="font-semibold text-text-strong text-base flex items-center gap-1.5 group-hover:text-primary transition-colors duration-fast ease-soft">
                     <span>{c.title}</span>

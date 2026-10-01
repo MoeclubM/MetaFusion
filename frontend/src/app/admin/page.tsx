@@ -1078,7 +1078,7 @@ function AdminInner() {
               )}
 
               {reviewLoading ? (
-                <div className="py-16 text-center text-xs text-text-faint flex items-center justify-center gap-2">
+                <div className="py-8 text-center text-xs text-text-faint flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin text-primary" />{t("catalog.loading")}
                 </div>
               ) : reviewListFailed ? (

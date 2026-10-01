@@ -316,7 +316,7 @@ export default function MessageThread({ peerUser, onRead, className = "" }: Mess
           <button
             type="submit"
             disabled={!inputContent.trim() || sending}
-            className="h-11 px-4.5 rounded-xl bg-primary hover:opacity-90 disabled:opacity-40 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-soft cursor-pointer"
+            className="h-11 px-4 rounded-xl bg-primary hover:opacity-90 disabled:opacity-40 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-soft cursor-pointer"
           >
             {sending ? (
               <Loader2 className="w-4 h-4 animate-spin" />

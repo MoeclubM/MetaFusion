@@ -366,7 +366,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
         <RevisionsCompare query={revisions || ""} />
       ) : (
       <>
-      <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+      <section className="bg-card border border-border rounded-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <span className="font-semibold text-sm text-foreground">
@@ -417,7 +417,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
               return (
                 <div
                   key={id}
-                  className="relative group rounded-xl p-3 bg-surface hover:bg-surface-hover/50 border border-border hover:border-primary/40 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+                  className="relative group rounded-xl p-3 bg-surface hover:bg-surfaceHover/50 border border-border hover:border-primary/40 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
                 >
                   <div className="flex items-center justify-between gap-1 mb-2">
                     <span className="text-[11px] font-mono font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">
@@ -481,7 +481,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                   }
                 }}
                 onClick={focusSearch}
-                className="border-2 border-dashed border-border/70 hover:border-primary/60 hover:bg-primary/5 rounded-xl p-3 flex flex-col items-center justify-center min-h-[160px] text-center transition-all cursor-pointer group"
+                className="border-2 border-dashed border-border/70 hover:border-primary/60 hover:bg-primary/5 rounded-xl p-3 flex flex-col items-center justify-center min-h-[96px] text-center transition-all cursor-pointer group"
               >
                 <div className="w-9 h-9 rounded-full bg-muted/50 group-hover:bg-primary/10 text-muted-foreground group-hover:text-primary flex items-center justify-center mb-2 transition-all duration-base ease-soft group-hover:scale-110">
                   <Plus className="w-4 h-4" />
@@ -499,7 +499,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
       </section>
 
       {selectedIds.length < maxSlots && (
-        <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+        <section className="bg-card border border-border rounded-card p-4 shadow-sm">
           <h2 className="text-base sm:text-lg font-bold text-foreground mb-4 flex items-center gap-2">
             <Plus className="w-4 h-4 text-primary" />
             {t("catalog.compareSelectEntity")}
@@ -613,7 +613,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                       className={`group rounded-xl p-3 border transition-all flex items-center justify-between gap-3 ${
                         isSelected
                           ? "bg-surface/50 border-border opacity-70 cursor-default"
-                          : "bg-surface hover:bg-surface-hover/60 border-border hover:border-primary/50 shadow-xs hover:shadow-sm cursor-pointer"
+                          : "bg-surface hover:bg-surfaceHover/60 border-border hover:border-primary/50 shadow-xs hover:shadow-sm cursor-pointer"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -684,7 +684,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                       className={`group rounded-xl p-3 border transition-all duration-base ease-soft flex items-center justify-between gap-3 ${
                         isSelected
                           ? "bg-surface/50 border-border/70 opacity-60 cursor-default"
-                          : "bg-surface hover:bg-surface-hover/70 border-border hover:border-primary/50 shadow-2xs hover:shadow-md cursor-pointer"
+                          : "bg-surface hover:bg-surfaceHover/70 border-border hover:border-primary/50 shadow-2xs hover:shadow-md cursor-pointer"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -733,14 +733,14 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
 
       <ErrorMessage error={error} />
       {loading && (
-        <div className="flex items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-3 py-8 text-sm text-muted-foreground">
           <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span>{t("catalog.loading")}</span>
         </div>
       )}
 
       {items.length >= COMPARE_MIN_SLOTS && !loading && hasStructure && (
-        <section className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm mt-8 space-y-4">
+        <section className="bg-card border border-border rounded-card p-4 shadow-sm mt-4 space-y-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             <h2 className="text-base sm:text-lg font-bold text-foreground m-0">
@@ -910,8 +910,8 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
       )}
 
       {items.length >= COMPARE_MIN_SLOTS && !loading && (
-        <section className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm mt-8">
-          <div className="p-4 sm:p-5 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-muted/20">
+        <section className="bg-card border border-border rounded-card overflow-hidden shadow-sm mt-4">
+          <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-muted/20">
             <div className="flex items-center gap-2">
               <Columns className="w-5 h-5 text-primary" />
               <h2 className="text-base sm:text-lg font-bold text-foreground m-0">

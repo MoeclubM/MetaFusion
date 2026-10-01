@@ -486,7 +486,7 @@ export default function UserDetailPage() {
               </button>
             </div>
           ) : tab === "favorites" && !favVisible ? (
-            <div className="p-10 text-center space-y-2">
+            <div className="p-5 text-center space-y-2">
               <Lock className="w-6 h-6 text-text-muted mx-auto" strokeWidth={1.5} />
               <div className="text-sm text-text-body font-medium">{t("users.profile.favoritesPrivate")}</div>
               <div className="text-xs text-text-faint font-mono">{t("users.profile.favoritesPrivateHint")}</div>

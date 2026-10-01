@@ -1,14 +1,10 @@
 {
-  "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
-  "landing.heroSubtitle": "Open cataloging · Curated archive · Community-built multimedia metadata platform",
+  "landing.heroSubtitle": "Catalog music, animation, film and books. Explore editions, tracks and contributor relationships.",
   "landing.enter": "Start browsing",
   "landing.join": "Join Us",
   "landing.exploreArchive": "Explore",
   "landing.docsTitle": "MetaFusion Documentation",
   "landing.docsCenter": "Documentation",
-  "landing.featureGraph": "Entity Relation Graph",
-  "landing.featureCAS": "Deduplicated File Storage",
-  "landing.featureOpen": "Open Plugin Ecosystem",
   "auth.username": "Username",
   "auth.password": "Password",
   "auth.requestFailed": "Request failed",
@@ -516,7 +512,6 @@
   "importer.optDownloadCover": "Automatically download HD cover/avatar into RustFS object storage",
   "importer.btnConfirmImport": "Confirm Import Work",
   "importer.importing": "Persisting to archive…",
-  "create.hub.cardImportBadge": "OmniSource Importer Suite",
   "create.hub.cardImportTitle": "OmniSource Catalog Importer",
   "create.hub.importNoPermission": "Importing requires catalog.import.submit; ask a catalog administrator to grant it before using the external importer.",
   "create.hub.cardImportDesc": "Parse works, releases, credits and tracklists from external authority databases, then confirm the preview and import in one click.",
@@ -1583,7 +1578,6 @@
   "catalog.translationLocale": "Locale to edit",
   "catalog.addLocale": "Add language",
   "catalog.translationEmpty": "Pick a locale above (or add one) to edit its title, summary and aliases.",
-  "landing.pageControls": "Page controls",
   "entity.collection.communityCurator": "Community",
   "community.dmLoadFailed": "Failed to load messages",
   "users.profile.banned": "Account disabled",
@@ -1964,5 +1958,7 @@
   "catalog.state.published": "Published",
   "catalog.changeKind.title": "Change entity type?",
   "catalog.changeKind.warning": "Title, original language, translations, tags, pictures, external IDs and status will be kept. Parent links, inclusions, other attributes and queued relations will be cleared. Cancel to keep the current draft.",
-  "catalog.changeKind.confirm": "Change type"
+  "catalog.changeKind.confirm": "Change type",
+  "catalog.filters": "Filters",
+  "catalog.activeFilters": "{count} active"
 }

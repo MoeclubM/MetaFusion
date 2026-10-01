@@ -3,7 +3,7 @@ import React from "react";
 /**
  * 卡片：统一的边框 / 圆角 / 背景 / 内边距口径。
  * 页面里不要再手写 rounded-* + border + bg-surface + p-* 这套组合（密度口径见组件默认值）。
- * 圆角取 rounded-xl（= 面板档 20px），与迁移前的卡片一致，不引入视觉改动。
+ * 圆角取 rounded-card（8px），卡片与更大的弹窗面板保持层级。
  */
 const TONE: Record<string, string> = {
   surface: "border-line bg-surface",
@@ -13,9 +13,9 @@ const TONE: Record<string, string> = {
 
 const PADDING: Record<string, string> = {
   /** 管理台/列表卡片。 */
-  card: "p-4",
+  card: "p-3 sm:p-4",
   /** 页面区块。 */
-  section: "p-4 sm:p-5",
+  section: "p-3 sm:p-4",
   none: "",
 };
 
@@ -34,7 +34,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className={`rounded-xl border ${TONE[tone]} ${PADDING[padding]} ${className}`}>{children}</div>
+    <div id={id} className={`rounded-card border ${TONE[tone]} ${PADDING[padding]} ${className}`}>{children}</div>
   );
 }
 

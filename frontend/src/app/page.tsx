@@ -152,8 +152,8 @@ export default function HomePage() {
 
       <Navbar />
 
-      {/* 首页区块间距保持 40px：首屏块与列表差异大，收紧会挤在一起。 */}
-      <PageShell width="page" spacing="none" contentClassName="space-y-10" className="relative z-10">
+      {/* 分区维持紧凑节奏，标题与列表之间仍保留清晰层级。 */}
+      <PageShell width="page" spacing="none" contentClassName="space-y-5" className="relative z-10">
         {user && (
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-lg font-bold tracking-tight text-emphasis">
@@ -177,20 +177,20 @@ export default function HomePage() {
         )}
 
         {showSkeleton ? (
-          <div className="space-y-10">
+          <div className="space-y-5">
             {[1, 2].map((i) => (
               <div key={i} className="space-y-4">
                 <div className="h-5 w-40 bg-emphasis/[0.04] rounded-md animate-pulse" />
-                <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
                   {Array.from({ length: 6 }).map((_, j) => (
-                    <div key={j} className="aspect-[3/4] rounded-xl bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
+                    <div key={j} className="aspect-square rounded-card bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
                   ))}
                 </div>
               </div>
             ))}
           </div>
         ) : visibleSections.length === 0 && !failed ? (
-          <div className="p-10 rounded-xl border border-dashed border-line bg-emphasis/[0.01] text-center space-y-3">
+          <div className="p-5 rounded-card border border-dashed border-line bg-emphasis/[0.01] text-center space-y-3">
             <Sparkles className="w-7 h-7 text-gray-600 mx-auto" />
             <p className="text-sm text-text-muted">{t("home.recommendEmpty")}</p>
             <Link
@@ -227,7 +227,7 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
                   {items.map((item) => {
                     const displayTitle = pickRecordTitle(locale, item.translations, item.title, {
                       order: titleOrder,
@@ -273,10 +273,10 @@ export default function HomePage() {
         onReset={() => void resetPrefs()}
       />
 
-      <footer className="border-t border-line-subtle py-6 bg-surface/30 backdrop-blur-md">
+      <footer className="border-t border-line-subtle py-4 bg-surface/30 backdrop-blur-md">
         <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-text-muted">
           <div>
-            <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
+            <span>© 2026 MetaFusion</span>
           </div>
           {/* 这里只留顶栏没有的入口：/landing 与 /explore、/community、/docs/catalog
               都已由顶栏 Logo 与主导航覆盖，不再重复。 */}

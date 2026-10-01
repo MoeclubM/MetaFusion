@@ -1148,7 +1148,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       {/* 图谱主体 SVG 交互画布 */}
       <div
         ref={canvasContainerRef}
-        className="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing overflow-hidden bg-dot-grid touch-none select-none"
+        className="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing overflow-hidden touch-none select-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -1614,7 +1614,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       {/* 侧边节点详细信息检查器 (Property Inspector Popover) */}
       {showInspector && selectedNode && (
-        <div className="absolute top-14 right-4 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card/98 backdrop-blur-xl p-4 shadow-2xl z-20 space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-200">
+        <div className="absolute top-14 right-4 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card/98 backdrop-blur-xl p-4 shadow-2xl z-20 space-y-3.5 animate-in duration-200">
           <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-border/60">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 mb-1">

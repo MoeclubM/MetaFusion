@@ -20,7 +20,7 @@ interface AdaptiveCardCoverProps {
  * 网格/卡片封面：**统一容器比例 + object-fit: contain**。
  *
  * 网格里每张卡各用图片自身比例会让同一排参差不齐，统一比例才能保证对齐；
- * 默认取 GRID_COVER_ASPECT（3:4，维持目录竖版视觉）。图片完整放入容器，
+ * 默认取 1:1，控制目录网格高度。图片完整放入容器，
  * 比例不合的部分留衬底（像相框卡纸），不裁切主体；取图期间显示脉冲衬底，
  * 避免懒加载未返回时卡片看起来是一块黑洞。
  */
@@ -32,7 +32,7 @@ export function AdaptiveCardCover({
   fallbackIcon,
   fallbackTitle,
   fallbackSubtitle,
-  aspectClassName = "aspect-[3/4]",
+  aspectClassName = "aspect-square",
   className = "",
   imgClassName = "",
 }: AdaptiveCardCoverProps) {

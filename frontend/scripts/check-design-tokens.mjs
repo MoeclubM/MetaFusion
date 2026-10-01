@@ -10,7 +10,7 @@
  *   这两件事只有"编译 + 查选择器"能守住，所以本脚本把上轮临时工具固化成 CI 步骤。
  *
  * 四项检查：
- *   ① 生成：源码里出现的每个语义令牌 utility（含 hover:/dark:/placeholder: 等变体与 /NN、
+ *   ① 生成：源码里出现的语义令牌与静态布局、控件、动效 utility（含 hover:/dark:/placeholder: 等变体与 /NN、
  *      /[0.0x] 透明度档）都必须在产出 CSS 里有选择器；
  *   ② 令牌清单：config 仍注册这些语义色，且注册值支持 <alpha-value>；
  *   ③ 变量定义：这些令牌的三通道变量在 globals.css 的深浅两套模式块里都定义了
@@ -28,6 +28,7 @@ const require = createRequire(import.meta.url);
 const { loadConfig } = require("tailwindcss/lib/lib/load-config.js");
 const postcss = require("postcss");
 const tailwindcss = require("tailwindcss");
+const ts = require("typescript");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = path.join(root, "src");
@@ -63,14 +64,12 @@ const css = (await postcss([tailwindcss({ ...config, content })])
   .process("@tailwind base;\n@tailwind components;\n@tailwind utilities;\n", { from: undefined })).css;
 
 const escapeClass = (cls) => "." + cls.replace(/[^a-zA-Z0-9-]/g, (c) => "\\" + c);
-const isBoundary = (ch) => ch === undefined || (!/[a-zA-Z0-9_-]/.test(ch) && ch !== "\\");
-const hasSelector = (cls) => {
-  const needle = escapeClass(cls);
-  for (let i = css.indexOf(needle); i !== -1; i = css.indexOf(needle, i + needle.length)) {
-    if (isBoundary(css[i + needle.length])) return true;
-  }
-  return false;
-};
+const selectorParser = require("postcss-selector-parser");
+const generatedClasses = new Set();
+postcss.parse(css).walkRules((rule) => {
+  selectorParser((selectors) => selectors.walkClasses((node) => generatedClasses.add(node.value))).processSync(rule.selector);
+});
+const hasSelector = (cls) => generatedClasses.has(cls);
 
 // —— 收集源码里的候选 token（含变体前缀；逐文件行号便于定位）——
 const files = [];
@@ -133,6 +132,32 @@ for (const file of files) {
 }
 note(true, "① 生成：源码语义令牌 utility " + tokensOk + "/" + tokensSeen + " 有产出 CSS");
 
+// 尺寸、布局、圆角与动效同样会因版本差异静默失效。用 TS AST 读静态类名片段，
+// 排除注释；项目 CSS 自定义的类也算有效。模板边界中的半个类名交给调用方补全。
+const globals = readFileSync(path.join(srcDir, "app", "globals.css"), "utf8");
+const utilityPattern = /^(?:(?:[\w/-]+|\[[^\]]+\]):)*!?-?(?:size|fade|zoom-in|slide-in-from|w|h|min-w|min-h|max-w|max-h|p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|rounded(?:-[trblse]{1,2})?|animate|duration|ease|opacity|z|grid-cols|grid-rows|col-span|row-span|bg|text|border(?:-[trblsexy])?|shadow|from|via|to|ring|outline|divide-[xy]|translate-[xy]|scale|transition|font|tracking|leading|blur|backdrop-blur)-[^\s{}]+$/;
+const checked = new Set();
+for (const file of files) {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const visit = (node) => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      const templatePart = ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
+      const parts = node.text.split(/\s+/);
+      parts.forEach((token, index) => {
+        if (templatePart && ((index === 0 && !/^\s/.test(node.text)) || (index === parts.length - 1 && !/\s$/.test(node.text)))) return;
+        if (!utilityPattern.test(token) || checked.has(token)) return;
+        checked.add(token);
+        if (hasSelector(token) || globals.includes(escapeClass(token))) return;
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        bad("布局/控件类名没有产出 CSS：" + token + " (" + path.relative(root, file).replace(/\\/g, "/") + ":" + line + ")");
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+}
+note(true, "① 生成：另核验 " + checked.size + " 个静态布局/控件/动效类名");
+
 // —— ② 令牌清单 ——
 const colors = (config.theme && config.theme.extend && config.theme.extend.colors) || {};
 const valueOf = (v) => (v && typeof v === "object" ? Object.entries(v).map(([k, x]) => k + "=" + x).join(" ") : String(v));
@@ -149,7 +174,6 @@ for (const s of softs) {
 note(true, "② 令牌清单：" + ALPHA_REQUIRED.length + " 个语义色 + 5 组状态色 base/soft 已注册且支持透明度变体");
 
 // —— ③ 变量定义（两套模式都要有）——
-const globals = readFileSync(path.join(srcDir, "app", "globals.css"), "utf8");
 for (const v of REQUIRED_VARS) {
   const n = globals.split(new RegExp(v + ":", "g")).length - 1;
   if (n < 2) bad("③ 变量定义：" + v + " 在 globals.css 里只出现 " + n + " 次（深/浅两套模式块各要一次）");

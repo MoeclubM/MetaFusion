@@ -544,7 +544,7 @@ export default function TopicDetailPage() {
 
  {/* Right: Discourse Signature Timeline Navigator (Desktop) */}
  <div className="hidden lg:block w-64 sticky top-[calc(var(--mf-header-h)+1.25rem)] space-y-3.5 flex-shrink-0">
- <div className="border border-line rounded-lg bg-surface p-4.5 space-y-3 font-mono text-sm shadow-2xs">
+ <div className="border border-line rounded-lg bg-surface p-4 space-y-3 font-mono text-sm shadow-2xs">
  <div className="flex items-center justify-between text-text-faint border-b border-line pb-2">
  <span className="font-bold text-text-strong">{t("community.timelineNav")}</span>
  <span>{t("community.floors", { count: totalPostsCount })}</span>

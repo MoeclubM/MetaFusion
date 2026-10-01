@@ -68,7 +68,7 @@ export function EntityCard({
           ) : undefined
         }
         fallbackIcon={<KindIcon className="w-6 h-6" />}
-        fallbackTitle={title}
+        fallbackTitle={badgeLabel}
         fallbackSubtitle={fallbackSubtitle}
         className="border-b border-line-subtle"
       />

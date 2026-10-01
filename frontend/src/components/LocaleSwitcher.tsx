@@ -42,8 +42,8 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
         aria-label={t("locale.switchTitle")}
  className={
  compact
- ? "w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-text-body transition-colors duration-fast ease-soft"
- : "inline-flex items-center gap-2 h-10 max-sm:min-h-[44px] px-3 rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-sm font-mono text-text-body transition-colors duration-fast ease-soft"
+ ? "w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-control bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-text-body transition-colors duration-fast ease-soft"
+ : "inline-flex items-center gap-2 h-10 max-sm:min-h-[44px] px-3 rounded-control bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-sm font-mono text-text-body transition-colors duration-fast ease-soft"
  }
  >
  <Languages className="w-4 h-4" strokeWidth={1.6} />

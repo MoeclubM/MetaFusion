@@ -222,7 +222,7 @@ export default function DeveloperPage() {
         ) : null}
 
         {loading && !config ? (
-          <div className="py-16 text-center text-xs text-text-faint font-mono flex items-center justify-center gap-2">
+          <div className="py-8 text-center text-xs text-text-faint font-mono flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             <span>{t("developer.loading")}</span>
           </div>

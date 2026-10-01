@@ -130,7 +130,7 @@ export default function MarkdownRenderer({
           li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
           blockquote: ({ ...props }) => (
             <blockquote
-              className="border-l-3 border-emerald-500/70 dark:border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 px-3.5 py-1.5 my-2 rounded-r text-text-body italic"
+              className="border-l-2 border-emerald-500/70 dark:border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 px-3.5 py-1.5 my-2 rounded-r text-text-body italic"
               {...props}
             />
           ),

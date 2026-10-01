@@ -117,7 +117,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in">
       <div className="w-full max-w-2xl flex flex-col rounded-lg border border-line bg-surface shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-emphasis/[0.08] bg-background/50">

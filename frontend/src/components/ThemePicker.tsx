@@ -42,7 +42,7 @@ export const ThemePicker: React.FC = () => {
         aria-label={t("settings.appearanceTitle")}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        className="mf-focus w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body transition-colors duration-fast ease-soft cursor-pointer"
+        className="mf-focus w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-control bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body transition-colors duration-fast ease-soft cursor-pointer"
       >
         {resolvedMode === "dark" ? (
           <Moon className="w-4 h-4 text-primary" strokeWidth={1.7} />
@@ -56,7 +56,7 @@ export const ThemePicker: React.FC = () => {
           role="dialog"
           aria-label={t("settings.appearanceTitle")}
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-1.5 w-[19rem] rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3"
+          className="absolute right-0 mt-1.5 w-[19rem] max-w-[calc(100vw-2rem)] rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3"
         >
           <div className="flex items-center justify-between border-b border-line-subtle pb-2">
             <span className="flex items-center gap-2 text-xs font-semibold text-text-strong">

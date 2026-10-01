@@ -4,6 +4,7 @@ import React, { useId, useState, useMemo } from "react";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { EntityCover } from "@/components/common/EntityCover";
+import { Select } from "@/components/ui/Select";
 import { useI18n } from "@/i18n/I18nProvider";
 import { relationParticipantSlot, useDefinitions, type ParticipantSlot } from "@/lib/definitions";
 import type { StaffCredit } from "./staffCredits";
@@ -48,37 +49,31 @@ function ParticipantPortrait({ name, src, compact = false }: { name: string; src
 function CharacterCard({ item }: { item: CharacterCardItem }) {
   const characterContent = (
     <>
-      <ParticipantPortrait name={item.character.name} src={item.character.avatar_url} />
-      <div className="min-w-0">
+      {item.character.id ? <Link href={`/catalog/${item.character.id}`} className="shrink-0" aria-label={item.character.name}><ParticipantPortrait name={item.character.name} src={item.character.avatar_url} /></Link> : <ParticipantPortrait name={item.character.name} src={item.character.avatar_url} />}
+      <div className="min-w-0 flex-1 space-y-2">
         <div className="text-sm font-semibold text-text-strong break-words group-hover:text-primary transition-colors duration-fast ease-soft">
-          {item.character.name}
+          {item.character.id ? <Link href={`/catalog/${item.character.id}`} className="hover:text-primary">{item.character.name}</Link> : item.character.name}
         </div>
         <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${MAIN_CHARACTER_RANKS.has(item.character.rankCode || "") ? "bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium" : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint"}`}>
           {item.character.roleBadge}
         </span>
-      </div>
-    </>
-  );
-  return (
-    <div className="h-full min-w-0 p-3 rounded-md border border-line bg-background/80 hover:border-primary/40 transition-colors shadow-xs space-y-2.5">
-      {item.character.id ? (
-        <Link href={`/catalog/${item.character.id}`} className="flex items-center gap-3 min-w-0 group">{characterContent}</Link>
-      ) : (
-        <div className="flex items-center gap-3 min-w-0">{characterContent}</div>
-      )}
-      {item.voices.length > 0 && (
-        <div className="space-y-1.5 border-t border-line-subtle pt-2.5">
+        {item.voices.length > 0 && <div className="space-y-1.5">
           {item.voices.map((voice) => (
-            <Link key={`${voice.id}-${voice.role}-${voice.context || ""}`} href={`/catalog/${voice.id}`} className="flex items-center gap-2 min-w-0 group">
+            <Link key={`${voice.id}-${voice.role}-${voice.context || ""}`} href={`/catalog/${voice.id}`} className="flex items-center gap-2 min-w-0 group/voice">
               <ParticipantPortrait name={voice.name} src={voice.avatar_url} compact />
               <div className="min-w-0">
-                <div className="text-xs text-text-strong break-words group-hover:text-primary">{voice.name}</div>
+                <div className="text-xs text-text-strong break-words group-hover/voice:text-primary">{voice.name}</div>
                 <div className="text-[10px] text-text-muted break-words">{[voice.role, voice.context].filter(Boolean).join(" · ")}</div>
               </div>
             </Link>
           ))}
-        </div>
-      )}
+        </div>}
+      </div>
+    </>
+  );
+  return (
+    <div className="min-w-0 p-2.5 rounded-card border border-line bg-background/80 hover:border-primary/40 transition-colors shadow-xs">
+      <div className="flex items-start gap-2.5 min-w-0 group">{characterContent}</div>
     </div>
   );
 }
@@ -102,9 +97,9 @@ function StaffRow({ credit, role }: { credit: StaffCredit; role: string }) {
   return (
     <Link
       href={`/catalog/${credit.agent.id}`}
-      className="flex items-start gap-3 min-w-0 h-full p-3 rounded-md border border-line bg-background/80 hover:border-primary/40 hover:bg-background transition-colors group shadow-xs"
+      className="flex items-start gap-2.5 min-w-0 p-2.5 rounded-card border border-line bg-background/80 hover:border-primary/40 hover:bg-background transition-colors group shadow-xs"
     >
-      <ParticipantPortrait name={credit.agent.name} src={credit.agent.avatarUrl} />
+      <ParticipantPortrait name={credit.agent.name} src={credit.agent.avatarUrl} compact />
       <div className="min-w-0 flex-1 py-1">
         <div className="text-sm font-medium text-text-strong break-words group-hover:text-primary transition-colors duration-fast ease-soft">
           {credit.agent.name}
@@ -233,7 +228,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   if (credits.length === 0) return null;
 
   return (
-    <div className="p-3.5 sm:p-4 rounded-md border border-line bg-surfaceSubtle space-y-3 mt-2 animate-fadeIn">
+    <div className="p-3 rounded-card border border-line bg-surfaceSubtle space-y-3 mt-2 animate-fade-in">
       <div className="flex items-center justify-between border-b border-line-subtle pb-2">
         <div className="flex items-center gap-1.5 text-xs font-mono flex-wrap">
           <button
@@ -250,22 +245,19 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
           {relationFilters.length > 0 && (
             <>
               <label className="sr-only" htmlFor={relationFilterId}>{t("work.detail.filterRelation")}</label>
-              <select
+              <Select
                 id={relationFilterId}
                 value={activeRelation}
-                onChange={(event) => setActiveTab(event.target.value ? `rel:${event.target.value}` : "all")}
-                className={`min-h-8 rounded-sm border border-line px-2 text-xs font-mono ${activeRelation ? "border-primary text-primary bg-primary/10" : "bg-surface text-text-body"}`}
-              >
-                <option value="">{t("work.detail.filterRelation")}</option>
-                {relationFilters.map((filter) => (
-                  <option key={filter.key} value={filter.key.slice(4)}>{filter.label} ({filter.count})</option>
-                ))}
-              </select>
+                onChange={(value) => setActiveTab(value ? `rel:${value}` : "all")}
+                fullWidth={false}
+                className={`!h-8 max-w-[220px] text-xs font-mono ${activeRelation ? "border-primary text-primary bg-primary/10" : "bg-surface text-text-body"}`}
+                options={[{ value: "", label: t("work.detail.filterRelation") }, ...relationFilters.map((filter) => ({ value: filter.key.slice(4), label: `${filter.label} (${filter.count})` }))]}
+              />
             </>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
         {visibleItems.map((entry) => entry.kind === "character" ? (
           <CharacterCard key={entry.key} item={entry.item} />
         ) : (
