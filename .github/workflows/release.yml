@@ -256,7 +256,7 @@ jobs:
           printf '%s' '${{ steps.build.outputs.digest }}' > "/tmp/digests/${{ matrix.image_name }}.digest"
           printf '%s' '${{ steps.meta.outputs.tags }}' > "/tmp/digests/${{ matrix.image_name }}.tags"
       - name: Upload image digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digest-${{ matrix.image_name }}
           path: /tmp/digests/
@@ -292,7 +292,7 @@ jobs:
       # 第二道门在 deploy.sh pull（部署机按 IMAGE_TAG 再验一次）。
       - name: Reject incomplete manifest
         run: python3 scripts/check_release_manifest.py --strict release-manifest.yaml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-manifest
           path: release-manifest.yaml
