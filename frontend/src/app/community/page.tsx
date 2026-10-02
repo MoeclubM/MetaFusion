@@ -46,6 +46,10 @@ import { PageContainer } from "@/components/ui/PageShell";
 // 显式传窗口取代「缺省 = 第一页」的假设，第 31 条起才取得到（后端上限 100）。
 const PAGE_SIZE = 30;
 
+// 表头与主题行共用列宽，为英文参与者标题和相对时间保留空间。
+const TOPIC_COLUMNS =
+ "sm:grid-cols-[minmax(0,1fr)_7rem_3.5rem_8.5rem] md:grid-cols-[minmax(0,1fr)_7rem_3.5rem_3.5rem_8.5rem]";
+
 function formatTimeAgo(dateStr: string, locale?: string, t?: (k: string, v?: Record<string,string|number>)=>string) {
  const diff = Date.now() - new Date(dateStr).getTime();
  const mins = Math.floor(diff / (1000 * 60));
@@ -710,12 +714,12 @@ function CommunityContent() {
  <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
  <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
- <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-text-faint">
- <span className="flex-1">{t("community.topic")}</span>
- <span className="w-20 text-center">{t("community.participants")}</span>
- <span className="w-14 text-center">{t("community.replies")}</span>
- <span className="w-14 text-center hidden md:inline">{t("community.views")}</span>
- <span className="w-24 text-right">{t("community.activity")}</span>
+ <div className={`hidden sm:grid ${TOPIC_COLUMNS} items-center py-2.5 bg-background/60 border-b border-line text-xs font-medium text-text-muted`}>
+ <span className="min-w-0 px-4">{t("community.topic")}</span>
+ <span className="min-w-0 px-1 text-center">{t("community.participants")}</span>
+ <span className="min-w-0 px-1 text-center">{t("community.replies")}</span>
+ <span className="min-w-0 px-1 text-center hidden md:inline">{t("community.views")}</span>
+ <span className="min-w-0 pr-4 text-right">{t("community.activity")}</span>
  </div>
 
  {/* mobile header */}
@@ -765,7 +769,7 @@ function CommunityContent() {
  const Icon = resolveBoardIcon(board);
  const authorId = topic.user_id || topic.user?.id;
  return (
- <div key={topic.id} className="group flex items-stretch hover:bg-emphasis/[0.02] transition-colors duration-fast ease-soft">
+ <div key={topic.id} className={`group flex sm:grid ${TOPIC_COLUMNS} items-stretch hover:bg-emphasis/[0.02] transition-colors duration-fast ease-soft`}>
  {/* main col */}
  <div className="flex-1 min-w-0 py-3 px-4 space-y-1.5">
  <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-emphasis group-hover:text-success transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
@@ -831,7 +835,7 @@ function CommunityContent() {
  </div>
 
  {/* avatars */}
- <div className="hidden sm:flex w-20 items-center justify-center">
+ <div className="hidden sm:flex min-w-0 items-center justify-center">
  <div className="flex items-center -space-x-1.5">
  {authorId ? (
  <Link
@@ -855,11 +859,11 @@ function CommunityContent() {
  </div>
  </div>
 
- <div className="hidden sm:flex w-14 items-center justify-center">
+ <div className="hidden sm:flex min-w-0 items-center justify-center">
  <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-emphasis/[0.05] text-emphasis" : "text-text-faint"}`}>{topic.reply_count}</span>
  </div>
- <div className="hidden md:flex w-14 items-center justify-center text-text-muted font-mono text-sm">{topic.view_count}</div>
- <div className="hidden sm:flex w-24 items-center justify-end pr-4 text-text-muted font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>
+ <div className="hidden md:flex min-w-0 items-center justify-center text-text-muted font-mono text-sm">{topic.view_count}</div>
+ <div className="hidden sm:flex min-w-0 items-center justify-end pr-4 text-text-muted font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>
  </div>
  );
  })}

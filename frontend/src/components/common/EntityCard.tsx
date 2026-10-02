@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { AdaptiveCardCover } from "./AdaptiveCardCover";
-import { kindIcon } from "@/lib/kindIcons";
+import { ProceduralCover } from "./ProceduralCover";
 
 export interface EntityCardProps {
   id: string;
@@ -30,7 +30,6 @@ export interface EntityCardProps {
  */
 export function EntityCard({
   id,
-  kind,
   badgeLabel,
   title,
   baseTitle,
@@ -40,7 +39,6 @@ export function EntityCard({
   statusLabel,
   pictureUrl,
 }: EntityCardProps) {
-  const KindIcon = kindIcon(kind);
   // 题名下第二行只放有区分度的事实：原文题名优先，否则退到标签。
   // 与展示题名同文的原题名不渲染——复读一遍只添噪音。
   const showBaseTitle = !!baseTitle && baseTitle !== title;
@@ -49,7 +47,9 @@ export function EntityCard({
   return (
     <Link
       href={"/catalog/" + id}
-      className="group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-line hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden transition-all duration-base ease-soft"
+      aria-label={title}
+      title={showBaseTitle ? `${title}\n${baseTitle}` : title}
+      className="mf-focus group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-line hover:border-primary/50 overflow-hidden transition-colors duration-base ease-soft"
     >
       <AdaptiveCardCover
         src={pictureUrl}
@@ -67,18 +67,21 @@ export function EntityCard({
             </span>
           ) : undefined
         }
-        fallbackIcon={<KindIcon className="w-6 h-6" />}
-        fallbackTitle={badgeLabel}
-        fallbackSubtitle={fallbackSubtitle}
+        fallbackContent={
+          <div className="w-full h-full" aria-hidden>
+            <ProceduralCover id={id} title={title} originalTitle={baseTitle} compact />
+            {fallbackSubtitle && <span className="absolute bottom-3 inset-x-3 text-center text-xs text-text-muted line-clamp-1">{fallbackSubtitle}</span>}
+          </div>
+        }
         className="border-b border-line-subtle"
       />
 
       <div className="p-3 flex-1">
-        <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
+        <h3 className="min-h-10 font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm line-clamp-2 leading-snug mb-1">
           {title}
         </h3>
         {metaLine && (
-          <p className="text-[10px] text-text-faint font-mono line-clamp-1">{metaLine}</p>
+          <p className="text-[11px] leading-5 text-text-muted line-clamp-1">{metaLine}</p>
         )}
       </div>
     </Link>

@@ -69,14 +69,16 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
             : "relative z-10 w-full h-full p-4 sm:p-5 flex flex-col justify-between text-left"
         }
       >
-        {/* Top Header */}
-        <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider min-w-0">
-          <span className="flex items-center gap-1 font-bold truncate" style={{ color: p.accent }}>
-            <span className="w-1.5 h-1.5 rounded-xs inline-block shrink-0" style={{ backgroundColor: p.accent }} />
-            <span className="truncate">METAFUSION</span>
-          </span>
-          {!compact && <span className="text-text-faint shrink-0">{refCode}</span>}
-        </div>
+        {/* 小缩略图只保留几何图形，给叠加的实体类型角标留出空间。 */}
+        {!compact && (
+          <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider min-w-0">
+            <span className="flex items-center gap-1 font-bold truncate" style={{ color: p.accent }}>
+              <span className="w-1.5 h-1.5 rounded-xs inline-block shrink-0" style={{ backgroundColor: p.accent }} />
+              <span className="truncate">METAFUSION</span>
+            </span>
+            <span className="text-text-faint shrink-0">{refCode}</span>
+          </div>
+        )}
 
         {/* Central Geometric Totem */}
         <div className="my-auto py-2 flex items-center justify-center">

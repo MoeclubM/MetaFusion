@@ -121,16 +121,16 @@ export function TabBar({
             aria-controls={`panel-${tb.id}`}
             tabIndex={on ? 0 : -1}
             onClick={() => onSelect(tb.id)}
-            className={`shrink-0 px-3 h-8 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors duration-fast ease-soft ${
+            className={`mf-focus shrink-0 px-3 h-9 max-sm:min-h-[44px] rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors duration-fast ease-soft ${
               on
-                ? "bg-primary text-white keep-white border-primary shadow-xs"
-                : "bg-black/[0.03] dark:bg-white/[0.04] border-line text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                : "bg-surfaceSubtle border-line text-text-muted hover:text-text-strong hover:bg-surfaceHover"
             }`}
           >
             {tb.icon}
             <span>{tb.label}</span>
             {tb.badge != null && (
-              <span className={`text-[10px] font-mono ${on ? "text-text-strong" : "text-text-muted"}`}>
+              <span className={`text-[10px] font-mono ${on ? "text-primary-foreground/80" : "text-text-muted"}`}>
                 {tb.badge}
               </span>
             )}

@@ -319,7 +319,10 @@ export function EntityEditor({
   const setPictures = (list: PictureDraft[]) => patch({ pictures: list });
   // 只改传入的键：删某一张走下面的 filter，绝不连带重写其它图的字段。
   const patchPicture = (i: number, v: Partial<PictureDraft>) =>
-    setPictures(e.pictures.map((p, j) => (i === j ? { ...p, ...v } : p)));
+    setE((current) => ({
+      ...current,
+      pictures: current.pictures.map((p, j) => (i === j ? { ...p, ...v } : p)),
+    }));
   const swapPictures = (from: number, to: number) => {
     if (to < 0 || to >= e.pictures.length) return;
     const next = e.pictures.slice();

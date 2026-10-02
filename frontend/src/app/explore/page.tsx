@@ -23,10 +23,10 @@ import {
   ArrowRight,
   ChevronLeft,
   RefreshCw,
-  GitCompare,
   Check,
   SlidersHorizontal,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Select } from "@/components/ui/Select";
@@ -255,6 +255,37 @@ function ExploreInner() {
   // 左栏筛选与卡片角标都用它——"分类"不在这里，分类由货架承担。
   const kindLabel = (id: string) => getKindName(kinds, id, locale, tr("catalog.kind." + id, id));
 
+  // 已选条件在结果上方始终可见；手机端收起面板后仍能逐项撤销。
+  const appliedFilters: { id: string; label: string; remove: () => void }[] = [];
+  if (currentQ) {
+    appliedFilters.push({ id: "q", label: `${t("search.submit")}: ${currentQ}`, remove: () => updateFilters({ q: "" }) });
+  }
+  if (currentKind !== "all") {
+    appliedFilters.push({ id: "kind", label: kindLabel(currentKind), remove: () => updateFilters({ kind: "" }) });
+  }
+  if (currentStatus !== "published") {
+    appliedFilters.push({ id: "status", label: tr("catalog.status." + currentStatus, currentStatus), remove: () => updateFilters({ status: "" }) });
+  }
+  for (const tag of Array.from(new Set(currentTags))) {
+    appliedFilters.push({ id: `tag:${tag}`, label: getTagName(definitions, tag, locale), remove: () => toggleTag(tag) });
+  }
+  if (currentOriginalLanguage) {
+    appliedFilters.push({
+      id: "original_language",
+      label: `${t("catalog.originalLanguageFilter")}: ${languageLabel(currentOriginalLanguage)}`,
+      remove: () => updateFilters({ original_language: "" }),
+    });
+  }
+  if (currentHasPictures) {
+    appliedFilters.push({ id: "has_pictures", label: t("catalog.hasPicturesFilter"), remove: () => updateFilters({ has_pictures: "" }) });
+  }
+
+  const clearFilters = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const key of ["q", "kind", "status", "tags", "original_language", "has_pictures", "page"]) next.delete(key);
+    router.push(next.size ? "/explore?" + next.toString() : "/explore");
+  };
+
   // 「实体种类」面板的可选项 = 服务端 definitions.kinds 里未停用的种类。
   // 前端不维护任何种类清单：后台增删 kind、改多语言名，这里自动跟着变；排序按当前语种的名称。
   const kindOptions = useMemo(
@@ -326,15 +357,6 @@ function ExploreInner() {
           bordered
           icon={<Layers className="w-7 h-7 text-primary" />}
           title={t("navigation.explore")}
-          actions={
-            <Link
-              href="/compare"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-line text-xs font-mono text-text-body transition-colors duration-fast ease-soft shadow-2xs"
-            >
-              <GitCompare className="w-4 h-4 text-amber-500 dark:text-warn" />
-              <span>{t("catalog.compare")}</span>
-            </Link>
-          }
         />
         }
       >
@@ -344,7 +366,7 @@ function ExploreInner() {
             <button type="button" aria-expanded={filtersExpanded} aria-controls={filterPanelId} onClick={() => setFiltersExpanded((value) => !value)} className="lg:hidden w-full flex items-center gap-2 p-3 rounded-control border border-line bg-surface text-sm text-text-body">
               <SlidersHorizontal className="w-4 h-4" />
               <span>{t("catalog.filters")}</span>
-              <span className="text-xs text-text-muted">{t("catalog.activeFilters", { count: Number(currentKind !== "all") + Number(currentStatus !== "published") + currentTags.length + Number(!!currentOriginalLanguage) + Number(currentHasPictures) })}</span>
+              <span className="text-xs text-text-muted">{t("catalog.activeFilters", { count: appliedFilters.length })}</span>
               <ChevronDown className={`ml-auto w-4 h-4 transition-transform ${filtersExpanded ? "rotate-180" : ""}`} />
             </button>
           <aside id={filterPanelId} className={`min-w-0 grid-cols-2 gap-3 lg:block lg:space-y-3 ${filtersExpanded ? "grid" : "hidden"}`}>
@@ -466,6 +488,7 @@ function ExploreInner() {
                         <button
                           key={tag.name}
                           type="button"
+                          aria-pressed={on}
                           onClick={() => toggleTag(tag.name)}
                           className={
                             "px-2 py-1 rounded-md text-[11px] border transition-colors duration-150 flex items-center gap-1.5 " +
@@ -537,54 +560,83 @@ function ExploreInner() {
 
           <div className="min-w-0 space-y-5">
             {/* 搜索统一在顶栏；本栏只保留排序与视图切换。 */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
-              {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
-              <div className="w-full sm:w-48">
-                <Select
-                  value={sortValue}
-                  aria-label={t("catalog.sort")}
-                  onChange={(v) => {
-                    const [sort, order] = v.split(":");
-                    updateFilters({ sort: sort || "", order: sort ? order || "" : "" });
-                  }}
-                  options={[
-                    { value: "", label: t("catalog.sortUpdated") },
-                    { value: "created_at:desc", label: t("catalog.sortCreated") },
-                    { value: "title:asc", label: t("catalog.sortTitleAsc") },
-                    { value: "title:desc", label: t("catalog.sortTitleDesc") },
-                  ]}
-                />
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-line shadow-xs">
+              <p role="status" className="w-full sm:w-auto sm:mr-auto text-sm font-medium text-text-body">
+                {loading ? t("catalog.loading") : loadError ? t("catalog.loadFailed") : t("pagination.totalItems", { total })}
+              </p>
+              <div className="flex w-full sm:w-auto items-center gap-2">
+                {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
+                <div className="min-w-0 flex-1 sm:w-48">
+                  <Select
+                    value={sortValue}
+                    aria-label={t("catalog.sort")}
+                    onChange={(v) => {
+                      const [sort, order] = v.split(":");
+                      updateFilters({ sort: sort || "", order: sort ? order || "" : "" });
+                    }}
+                    options={[
+                      { value: "", label: t("catalog.sortUpdated") },
+                      { value: "created_at:desc", label: t("catalog.sortCreated") },
+                      { value: "title:asc", label: t("catalog.sortTitleAsc") },
+                      { value: "title:desc", label: t("catalog.sortTitleDesc") },
+                    ]}
+                  />
+                </div>
 
-              <div className="flex items-center justify-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className={
-                    "p-2 rounded-lg border text-xs transition-colors duration-fast ease-soft shadow-2xs cursor-pointer " +
-                    (viewMode === "grid"
-                      ? "bg-primary/15 border-primary/40 text-primary font-bold"
-                      : "bg-surface border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
-                  }
-                  title={t("catalog.gridView")}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  className={
-                    "p-2 rounded-lg border text-xs transition-colors duration-fast ease-soft shadow-2xs cursor-pointer " +
-                    (viewMode === "list"
-                      ? "bg-primary/15 border-primary/40 text-primary font-bold"
-                      : "bg-surface border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
-                  }
-                  title={t("catalog.listView")}
-                >
-                  <ListIcon className="w-4 h-4" />
-                </button>
+                <div className="flex shrink-0 items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    aria-label={t("catalog.gridView")}
+                    aria-pressed={viewMode === "grid"}
+                    className={
+                      "mf-focus p-2.5 min-h-10 max-sm:min-h-[44px] rounded-lg border text-xs transition-colors duration-fast ease-soft cursor-pointer " +
+                      (viewMode === "grid"
+                        ? "bg-primary/15 border-primary/40 text-primary font-bold"
+                        : "bg-surface border-line text-text-muted hover:text-text-strong")
+                    }
+                    title={t("catalog.gridView")}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    aria-label={t("catalog.listView")}
+                    aria-pressed={viewMode === "list"}
+                    className={
+                      "mf-focus p-2.5 min-h-10 max-sm:min-h-[44px] rounded-lg border text-xs transition-colors duration-fast ease-soft cursor-pointer " +
+                      (viewMode === "list"
+                        ? "bg-primary/15 border-primary/40 text-primary font-bold"
+                        : "bg-surface border-line text-text-muted hover:text-text-strong")
+                    }
+                    title={t("catalog.listView")}
+                  >
+                    <ListIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
+
+            {appliedFilters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="sr-only">{t("catalog.activeFilters", { count: appliedFilters.length })}</span>
+                {appliedFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={filter.remove}
+                    aria-label={t("catalog.removeFilter", { filter: filter.label })}
+                    title={filter.label}
+                    className="mf-focus inline-flex min-w-0 max-w-full items-center gap-1.5 min-h-9 max-sm:min-h-[44px] rounded-full border border-primary/25 bg-primary/10 px-3 text-xs text-primary hover:bg-primary/20 transition-colors duration-fast ease-soft"
+                  >
+                    <span className="truncate">{filter.label}</span>
+                    <X className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                  </button>
+                ))}
+                <button type="button" onClick={clearFilters} className="mf-focus min-h-9 max-sm:min-h-[44px] px-2 text-xs text-text-muted hover:text-primary hover:underline">{t("catalog.clearFilters")}</button>
+              </div>
+            )}
 
             {loading ? (
               <div className="py-8 text-center text-text-faint font-mono text-xs flex flex-col items-center justify-center gap-3">
@@ -609,7 +661,7 @@ function ExploreInner() {
                   // 参数非法时给"清除筛选"而不是"重试"：同样的参数再发一次还是 400。
                   <button
                     type="button"
-                    onClick={() => updateFilters({ q: "", kind: "", tags: "", original_language: "", has_pictures: "" })}
+                    onClick={() => router.push("/explore")}
                     className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
                   >
                     {t("catalog.emptyAction")}
@@ -652,7 +704,7 @@ function ExploreInner() {
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{t("catalog.emptyTitle")}</p>
                 <button
                   type="button"
-                  onClick={() => updateFilters({ q: "", kind: "" })}
+                  onClick={clearFilters}
                   className="text-xs font-mono text-primary hover:underline cursor-pointer"
                 >
                   {t("catalog.emptyAction")}
@@ -697,7 +749,7 @@ function ExploreInner() {
                     <Link
                       key={item.id}
                       href={"/catalog/" + item.id}
-                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft group"
+                      className="mf-focus p-3.5 flex items-center justify-between gap-3 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-11 h-11 rounded-lg bg-black/[0.03] dark:bg-black/40 border border-line shrink-0 overflow-hidden flex items-center justify-center">
@@ -708,11 +760,11 @@ function ExploreInner() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-body font-medium">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-0.5">
+                            <span className="shrink-0 px-2 py-0.5 rounded bg-emphasis/[0.04] text-[10px] text-text-body font-medium">
                               {badgeLabel}
                             </span>
-                            <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm truncate">
+                            <h3 className="w-full sm:w-auto min-w-0 font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm line-clamp-2 break-words">
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
@@ -728,13 +780,13 @@ function ExploreInner() {
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
                             {/* 列表行标签同样是本地化展示名；筛选值仍在 URL 的 tags 参数里。 */}
-                            <span>{getTagNames(definitions, item.attributes?.tags, locale).slice(0, 3).join(" · ")}</span>
+                            <span className="line-clamp-1">{getTagNames(definitions, item.attributes?.tags, locale).slice(0, 3).join(" · ")}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-4 shrink-0 text-xs font-mono text-text-muted">
-                        <span>rev {item.version || 1}</span>
+                        <span className="hidden sm:inline">rev {item.version || 1}</span>
                         <ArrowRight className="w-4 h-4 text-text-faint group-hover:text-primary transition-colors duration-fast ease-soft" />
                       </div>
                     </Link>

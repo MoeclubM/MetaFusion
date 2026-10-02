@@ -22,7 +22,7 @@ import {
   type HomePreferences,
   type ShelfLike,
 } from "@/lib/homeSections";
-import { Sparkles, Sliders } from "lucide-react";
+import { ArrowRight, Sparkles, Sliders } from "lucide-react";
 
 /** 首页分区条目：图片结构复用 lib/cover 的 CoverBearing（首张即封面只在那一处定义）。 */
 type EntityItem = CoverBearing & {
@@ -154,25 +154,43 @@ export default function HomePage() {
 
       {/* 分区维持紧凑节奏，标题与列表之间仍保留清晰层级。 */}
       <PageShell width="page" spacing="none" contentClassName="space-y-5" className="relative z-10">
-        {user && (
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-display text-lg font-bold tracking-tight text-emphasis">
-              {t("home.recommended")}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-xl font-bold tracking-tight text-text-strong">
+              {t(user ? "home.recommended" : "navigation.home")}
             </h1>
+            <p className="hidden sm:block mt-1 text-xs leading-relaxed text-text-muted">{t("home.browseHint")}</p>
+          </div>
+          {user && (
             <button
               type="button"
               onClick={() => void openCustomize()}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
+              className="mf-focus inline-flex items-center gap-1.5 px-3.5 h-9 max-sm:min-h-[44px] rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>{t("home.customize")}</span>
             </button>
-          </div>
+          )}
+        </div>
+
+        {!showSkeleton && visibleSections.length > 1 && (
+          <nav aria-label={t("home.sections")} className="flex flex-wrap items-center gap-2">
+            {visibleSections.map(({ shelf }) => {
+              const Icon = iconFor(shelf);
+              return (
+                <a key={shelf.slug} href={`#shelf-${shelf.slug}`} className="mf-focus inline-flex items-center gap-1.5 min-h-9 max-sm:min-h-[44px] rounded-full border border-line bg-surface px-3 text-xs font-medium text-text-body hover:border-primary/40 hover:text-primary transition-colors duration-fast ease-soft">
+                  <Icon className="hidden sm:block w-3.5 h-3.5" aria-hidden />
+                  <span>{shelfTitle(shelf, locale)}</span>
+                </a>
+              );
+            })}
+          </nav>
         )}
 
         {failed && (
-          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-warn-soft text-xs font-mono">
-            {t("catalog.connectionError")}
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-warn-soft text-xs">
+            <span>{t("catalog.connectionError")}</span>
+            <button type="button" onClick={() => void loadFeed()} className="mf-focus min-h-9 px-2 text-primary hover:underline">{t("catalog.retry")}</button>
           </div>
         )}
 
@@ -181,7 +199,7 @@ export default function HomePage() {
             {[1, 2].map((i) => (
               <div key={i} className="space-y-4">
                 <div className="h-5 w-40 bg-emphasis/[0.04] rounded-md animate-pulse" />
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
                   {Array.from({ length: 6 }).map((_, j) => (
                     <div key={j} className="aspect-square rounded-card bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
                   ))}
@@ -206,28 +224,29 @@ export default function HomePage() {
             const Icon = iconFor(shelf);
             const title = shelfTitle(shelf, locale);
             return (
-              <section key={shelf.slug} className="space-y-4">
-                <div className="flex items-center justify-between border-b border-emphasis/[0.08] pb-3">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary">
+              <section key={shelf.slug} id={`shelf-${shelf.slug}`} aria-labelledby={`shelf-title-${shelf.slug}`} className="scroll-mt-[calc(var(--mf-header-h)+1rem)] space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="w-9 h-9 shrink-0 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary">
                       <Icon className="w-5 h-5" />
                     </div>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="font-bold text-emphasis text-base sm:text-lg tracking-tight">{title}</h2>
-                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-xs font-mono">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h2 id={`shelf-title-${shelf.slug}`} className="break-words font-bold text-text-strong text-base sm:text-lg tracking-tight">{title}</h2>
+                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-xs font-mono">
                         {t("home.itemCount", { count: (total ?? items.length).toString() })}
                       </span>
                     </div>
                   </div>
                   <Link
                     href={"/explore?" + shelfExploreParam(shelf)}
-                    className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:underline"
+                    className="mf-focus shrink-0 inline-flex items-center gap-1 min-h-9 text-xs text-primary hover:underline"
                   >
                     <span>{t("home.viewAll")}</span>
+                    <ArrowRight className="w-3.5 h-3.5" aria-hidden />
                   </Link>
                 </div>
 
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
                   {items.map((item) => {
                     const displayTitle = pickRecordTitle(locale, item.translations, item.title, {
                       order: titleOrder,
