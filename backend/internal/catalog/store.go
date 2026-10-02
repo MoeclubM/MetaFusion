@@ -332,7 +332,7 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 			return e, err
 		}
 		var rows *sql.Rows
-		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator,attributes FROM catalog.track_contents WHERE track_id=$1 ORDER BY position", id)
+		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator,attributes,sources FROM catalog.track_contents WHERE track_id=$1 ORDER BY position", id)
 		if err != nil {
 			return e, err
 		}
@@ -340,8 +340,11 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 		e.Contents = []Inclusion{}
 		for rows.Next() {
 			var c Inclusion
-			var loc, attrs []byte
-			if err = rows.Scan(&c.ExpressionID, &c.Position, &loc, &attrs); err != nil {
+			var loc, attrs, sources []byte
+			if err = rows.Scan(&c.ExpressionID, &c.Position, &loc, &attrs, &sources); err != nil {
+				return e, err
+			}
+			if err = json.Unmarshal(sources, &c.Sources); err != nil {
 				return e, err
 			}
 			if len(loc) > 0 {
@@ -518,6 +521,15 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			if old.Version != input.ExpectedVersion {
 				return errVersionConflict
 			}
+			if input.contentPatch != nil {
+				e, err = applyTrackContentPatch(ctx, tx, old, input.contentPatch, u)
+				if err != nil {
+					return err
+				}
+				if err = lockReleaseScope(ctx, tx, e); err != nil {
+					return err
+				}
+			}
 			if old.Kind != e.Kind || old.WorkID != e.WorkID || old.ReleaseID != e.ReleaseID || old.MediumID != e.MediumID {
 				return fmt.Errorf("immutable_scope")
 			}
@@ -549,6 +561,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if old.Status == "published" && e.Status != "published" {
 			return fmt.Errorf("use_lifecycle_endpoint")
 		}
+		retainInclusionSources(old, &e, input.Sources)
 		if err = preserveHiddenTrackContents(ctx, tx, old, e, u); err != nil {
 			return err
 		}
@@ -572,7 +585,16 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			}
 			mediumFormat, _ = medium.Attributes["format"].(string)
 		}
-		if err = v.Document.validateEntity(e, ref, historical, mediumFormat); err != nil {
+		toValidate := e
+		if input.contentPatch != nil {
+			// Preserve opaque, unchanged records in storage without revalidating
+			// their visibility or returning them to the editor.
+			toValidate, err = visibleEntityContents(ctx, tx, e, &u)
+			if err != nil {
+				return err
+			}
+		}
+		if err = v.Document.validateEntity(toValidate, ref, historical, mediumFormat); err != nil {
 			return err
 		}
 		if err = validateMediumSchemeChange(ctx, tx, v.Document, old, e); err != nil {
@@ -665,7 +687,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 				return err
 			}
 			for _, c := range e.Contents {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator,attributes) VALUES($1,$2,$3,$4,$5)", e.ID, c.ExpressionID, c.Position, encode(c.Locator), encode(c.Attributes)); err != nil {
+				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator,attributes,sources) VALUES($1,$2,$3,$4,$5,$6)", e.ID, c.ExpressionID, c.Position, encode(c.Locator), encode(c.Attributes), encode(inclusionSources(c.Sources))); err != nil {
 					return err
 				}
 			}

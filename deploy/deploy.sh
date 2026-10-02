@@ -358,15 +358,16 @@ print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核�
 # ENTRYPOINT，少了 --entrypoint 参数会被交给 /app/server，一条迁移都不会执行
 # （backend/Dockerfile 的 server 阶段是 ENTRYPOINT ["/app/server"]）。
 function migrate_up_checked() {
-    # 000014 removes the table consumed by the old catalog process. Quiesce
-    # its writers before applying it; the new process starts after seed.
+    # 000014 removes an old table; 000019 adds evidence old writers would erase
+    # when replacing track contents. Quiesce before either upgrade and only
+    # resume with the new catalog/frontend after the explicit seed job.
     local before
     if ! before=$(run_migrate status "$@"); then
         echo "❌ 无法读取迁移前状态，停止部署" >&2
         exit 1
     fi
-    if printf '%s\n' "$before" | grep -Eq '^000014[[:space:]]*\|.*\|[[:space:]]*PENDING'; then
-        echo "⏸️  单份定义迁移待执行，先停止旧目录服务与前端..."
+    if printf '%s\n' "$before" | grep -Eq '^0000(14|19)[[:space:]]*\|.*\|[[:space:]]*PENDING'; then
+        echo "⏸️  目录契约迁移待执行，先停止旧目录服务与前端..."
         docker compose $COMPOSE_ENV -f docker-compose.yml "$@" stop backend frontend
     fi
     echo "🗄️  执行目录库版本化迁移..."
@@ -393,10 +394,8 @@ function migrate_up_checked() {
     echo "✅ 迁移已确认：账本无 PENDING / DIRTY"
 }
 
-# 迁移落地后显式合并种子定义：与服务启动时的隐式合并是同一份逻辑
-# （EnsureSeedDefinitions，只增不改），但这里失败即非零退出——启动路径是降级继续
-# （记日志后照常服务），不能当验收依据。部署后模板是否更新以这次为准，
-# 不再靠“重启过 = 种子合过”推测（S1 方向：运维任务显式化）。
+# 迁移落地后显式合并种子定义（EnsureSeedDefinitions，保留人工配置）。
+# HTTP 启动只读检查，不执行种子；这里失败即非零退出，不启动新服务。
 function seed_checked() {
     echo "🌱 显式合并种子定义（只增不改）..."
     run_migrate seed "$@"
@@ -579,7 +578,7 @@ case "$ACTION" in
 
     seed)
         # 显式入口：与 cutover/prod/pull 里自动跑的是同一个 seed_checked，
-        # 部署后想单独确认模板状态时用它（失败即非零；启动时的隐式合并只降级）。
+        # 部署后想单独确认模板状态时用它（失败即非零；HTTP 启动不合并种子）。
         seed_checked
         echo "✅ 种子定义已显式合并"
         ;;

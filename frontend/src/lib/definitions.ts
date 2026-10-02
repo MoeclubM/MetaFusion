@@ -49,7 +49,18 @@ export interface TemplateDef {
   badge_fields?: string[];
   /** 列表页可用于筛选的字段码（通常是枚举字段）；顺序即展示顺序。 */
   facet_fields?: string[];
+  match?: TemplateCondition[];
+  priority?: number;
+  blocks?: string[];
 }
+
+export interface TemplateCondition {
+  field: string;
+  operator: "exists" | "equals" | "contains";
+  value?: string | number | boolean;
+}
+
+export const TEMPLATE_BLOCKS = ["editions", "directory", "composition", "occurrences", "credits", "relations", "resources"] as const;
 
 export interface VocabularyDef {
   names: Record<string, string>;
@@ -74,6 +85,11 @@ export interface RelationDef {
   acyclic?: boolean;
   max_outgoing?: number;
   max_incoming?: number;
+  scope?: string;
+  cycle_group?: string;
+  unique_position?: boolean;
+  usage?: string;
+  reference_scopes?: Record<string, string>;
   /** 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）：页面据此算组成列表，不写死关系码。 */
   aggregate?: boolean;
   /** 这条关系的对端在署名里扮演什么（见 ParticipantSlot）：署名区块与人物网格按它收录。 */
@@ -381,14 +397,28 @@ export function templatesForEntity(
   const candidates = Object.values(defs.templates || {}).filter((template) =>
     !template.kinds?.length || template.kinds.includes(kind)
   );
+  const explicit = candidates.filter((template) => template.match !== undefined &&
+    template.match.every((condition) => {
+      const value = attributes?.[condition.field];
+      if (condition.operator === "exists") return present.has(condition.field) &&
+        (!Array.isArray(value) || value.length > 0);
+      if (condition.operator === "equals") return value === condition.value;
+      return Array.isArray(value) && value.includes(condition.value);
+    })
+  ).sort((a,b) => (b.priority || 0) - (a.priority || 0));
+  if (explicit.length) {
+    return explicit.length > 1 && (explicit[0].priority || 0) === (explicit[1].priority || 0) ? [] : [explicit[0]];
+  }
+  // Only legacy templates without selectors participate in legacy scoring.
+  const legacy = candidates.filter((template) => template.match === undefined);
   const counts = new Map<string, number>();
-  for (const template of candidates) {
+  for (const template of legacy) {
     const fields = new Set(template.sections?.flatMap((section) => section.fields || []) || []);
     for (const code of Array.from(fields)) if (defs.fields?.[code]?.applicable_kinds?.includes(kind)) {
       counts.set(code, (counts.get(code) || 0) + 1);
     }
   }
-  const ranked = candidates.map((template) => ({
+  const ranked = legacy.map((template) => ({
     template,
     score: Array.from(new Set(template.sections?.flatMap((section) => section.fields || []) || []))
       .filter((code) => present.has(code) && defs.fields?.[code]?.applicable_kinds?.includes(kind))
@@ -397,6 +427,10 @@ export function templatesForEntity(
   // 同分意味着字段组合不足以判定布局；保留通用事实展示，不猜媒介类别。
   if (!ranked[0]?.score || (ranked[1] && Math.abs(ranked[0].score - ranked[1].score) < 1e-9)) return [];
   return [ranked[0].template];
+}
+
+export function blocksForEntity(defs: DynamicDefinitions | null | undefined, kind: string, attributes?: Record<string, unknown>): readonly string[] {
+  return templatesForEntity(defs, kind, attributes)[0]?.blocks ?? TEMPLATE_BLOCKS;
 }
 
 export function getRelationName(

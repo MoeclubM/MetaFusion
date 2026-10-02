@@ -345,6 +345,9 @@ func (d Definitions) Validate() error {
 		if r.MaxIncoming < 0 || r.MaxOutgoing < 0 {
 			return fmt.Errorf("invalid_cardinality")
 		}
+		if e := d.validateRelationConstraints(code, r); e != nil {
+			return e
+		}
 		if e := fields(r.Fields); e != nil {
 			return e
 		}
@@ -450,6 +453,9 @@ func (d Definitions) Validate() error {
 			return fmt.Errorf("invalid_code")
 		}
 		if e := validateNames(t.Names); e != nil {
+			return e
+		}
+		if e := d.validateTemplateRules(code, t); e != nil {
 			return e
 		}
 		if !contains([]string{"tree", "list", "discs"}, t.Directory) {
@@ -1130,6 +1136,11 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 	// 仅当 ExpressionID 与 Locator 定位切片完全相同时，才判定为无意义的重复收录报 duplicate_content。
 	seenExprLoc := map[string]bool{}
 	for _, c := range e.Contents {
+		if len(c.Sources) > 0 {
+			if err := validateSources("inclusion", c.Sources); err != nil {
+				return err
+			}
+		}
 		if c.Position < 0 || positions[c.Position] {
 			return fmt.Errorf("duplicate_position")
 		}

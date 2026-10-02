@@ -353,7 +353,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 				return err
 			}
 			for _, c := range e.Contents {
-				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator,attributes) VALUES($1,$2,$3,$4,$5)", e.ID, c.ExpressionID, c.Position, encode(c.Locator), encode(c.Attributes))
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator,attributes,sources) VALUES($1,$2,$3,$4,$5,$6)", e.ID, c.ExpressionID, c.Position, encode(c.Locator), encode(c.Attributes), encode(inclusionSources(c.Sources)))
 				if err != nil {
 					return err
 				}
@@ -452,7 +452,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			continue
 		}
 		seenType[r.Type] = true
-		same, err := relationsByType(ctx, tx, r.Type)
+		same, err := relationsForRule(ctx, tx, v.Document, r.Type)
 		if err != nil {
 			return err
 		}
@@ -465,7 +465,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			if err != nil {
 				return err
 			}
-			if err = validateRelation(v.Document, x, src, tgt, same, reference(ctx, tx, &u), true); err != nil {
+			if err = validateRelation(v.Document, x, src, tgt, same, reference(ctx, tx, &u), true, func(id string) (Entity, error) { return get(ctx, tx, id) }); err != nil {
 				return fmt.Errorf("merge_relation_conflict: %w", err)
 			}
 		}

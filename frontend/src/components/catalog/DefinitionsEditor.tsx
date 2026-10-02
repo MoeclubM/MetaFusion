@@ -21,6 +21,8 @@ import {
 } from "@/lib/definitions";
 import type { DynamicDefinitions } from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
+import { TemplateRulesEditor } from "./TemplateRulesEditor";
+import { RelationRulesEditor } from "./RelationRulesEditor";
 
 // 同一份服务端定义文档在前端有两个方向不同的类型：lib/definitions.ts 的 DynamicDefinitions
 // 是只读消费视图，./api 的 Definitions 是写入视图。
@@ -611,6 +613,7 @@ export function DefinitionsEditor() {
                   {tr("catalog.countsAsCredit", "Count as credit")}
                 </label>
               </div>
+              <RelationRulesEditor value={v} onChange={set} definitions={d} />
               <label>
                 {tr("catalog.participantSlot", "Participant slot")}
                 <select
@@ -637,12 +640,14 @@ export function DefinitionsEditor() {
                   "Credit display follows these two declarations, not the display group: moving a relation to another group never changes who counts as a credit."
                 )}
               </p>
-              <p className="cv-hint">{t("catalog.aggregateHint")}</p>
+              {!v.usage && <p className="cv-hint">{t("catalog.aggregateHint")}</p>}
               {/* F04 样例预览：aggregate 开关的目录效果就地可见，与 WorkContentDirectory
                   的 componentEntries(isAggregate) 同口径（aggregate 才收进组成/所属区块）。
                   文案走字典插值，不硬编码关系码与区块名。 */}
               <p className="cv-hint" aria-live="polite">
-                {v.aggregate === true
+                {v.usage === "expression_composition" ? t("catalog.compositionPreview")
+                  : v.usage === "release_group" ? t("catalog.editionGroupPreview")
+                  : v.aggregate === true
                   ? t("catalog.aggregatePreviewOn", {
                       type: relCode,
                       forward: local(v.names, locale, "", relCode),
@@ -751,6 +756,7 @@ export function DefinitionsEditor() {
                 selected={v.kinds || []}
                 onChange={(kinds) => set({ ...v, kinds })}
               />
+              <TemplateRulesEditor value={v} onChange={set} definitions={d} />
               {v.sections.map((s, i) => (
                 <fieldset key={i}>
                   <legend>

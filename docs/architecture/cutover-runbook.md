@@ -52,37 +52,37 @@ python scripts/check_versions.py --siblings-root services   # 或在环境里设
 # 人读：逐条列出实体/关系、字段与悬挂取值，以及判定所用的定义基准
 cd deploy && ./deploy.sh migrate check-refs
 
-# 机读：definition_id / seed_added / references[]（scope/id/kind/field/value/reason）
-docker compose -f deploy/docker-compose.yml run --rm --no-deps --entrypoint /app/migrate backend check-refs -json
+# 机读（在 deploy/ 下）：definition_etag / seed_added / references[]（scope/id/kind/field/value/reason）
+docker compose -f docker-compose.yml run --rm --no-deps backend-migrate check-refs -json
 ```
 
 - **退出码**：0 = 没有悬挂引用（可继续部署）；非 0 = 有。因此这条命令可以直接挂进 CI 或发布
   流水线的前置步骤，让"下次部署先发现"替代"崩在现场"。
-- **判定基准**是"当前已发布定义 + 本次种子新增项"合并后的文档，也就是下一次启动会发布的定义：
+- **判定基准**是"当前生效定义 + 本次种子新增项"合并后的文档，也就是显式 seed 任务将保存的定义：
   只按旧文档扫描会漏掉这次新增的 entity 型字段。
 - **覆盖范围**：attributes 里声明为 entity 型的字段（含组/列表嵌套）、结构归属与记录级引用
   （`work_id` / `subjects[].work_id` / `contents[].expression_id`）、关系端点与关系属性。
 - **怎么修**：把悬挂取值改到正确的行，或确认无用后清掉该属性键。根因是那次删除目标行的操作，
   体检只负责把它照亮；悬挂引用**不阻断**定义发布，但不清掉就会一直跟着每次升级。
-- 库还没有已发布定义（刚 `migrate up`、服务从未启动过）时，它退回内置种子判定并打印提示，
+- 库还没有生效定义（刚 `migrate up`、尚未执行 seed）时，它退回内置种子判定并打印提示，
   不会把"未初始化的库"判成故障。
 
-## 定义没更新但站点可用：怎么看出来
+## 目录升级：只读启动与显式种子
 
 `000014_single_definition_config` 会将当前生效文档搬到单行配置，再删除旧定义版本表与定义文档快照。此迁移不可逆；执行前保存数据库备份。`deploy.sh prod/pull` 在检测到该迁移待执行时先停止旧目录服务和前端，迁移与种子完成后再启动新镜像。
 
-定义合并（`EnsureSeedDefinitions`）失败不再让服务起不来：定义**非法**时它零写入失败，
-保留当前生效文档并降级继续服务；悬挂引用这类**数据欠账**只警告，不阻断保存。
+HTTP 服务启动仅执行 `CheckCompatibleVersion`，不做 DDL、种子合并或全表回放。结构缺失、没有生效定义或运行契约不兼容时拒绝启动。使用同批新版迁移器显式执行 `up` 与 `seed`；定义非法时 seed 零写入失败并返回非零，保留当前配置。不要用重启或健康响应推断种子已保存，应回读迁移账本和 definitions。
 
-- 启动日志：`ERROR startup degraded: ...`，含 `definition_impact: [...]` 的具体条目。
-- `GET /health` 的 `definitions` 块（网关的 `/health` 已指向目录服务）：
-  `etag` 是当前生效文档的并发校验标记；`degraded: true` 且 `pending_error` 非空表示
-  "站点可用但定义没更新"，`pending_items` 是没生效的种子项数，`dangling_references` 是本次回放
-  看到的悬挂引用条数。
-- 状态码**刻意保持 200**：降级可用不是"不健康"，回 503 会把编排器拉回"重启到好为止"的循环，
-  那正是这次 CrashLoop（整站 502）的成因。监控要区分它请用 `definitions.degraded == true`，
-  不要用 HTTP 状态码。
-- 修完数据后重新执行内容种子即可补入缺失定义项；失败不会留下草稿或改变 `catalog.definition_config`。
+### 000019 媒体模型升级
+
+该迁移增加收录直接来源列和关系索引，不改实体 ID、已有收录定位/顺序或历史修订，不猜测版本组与整体表达关系。新关系与模板规则由 seed 补齐；人工配置、停用状态、显式 match/blocks 和优先级保持。
+
+1. 停止旧目录服务及其他旧版写入进程，备份数据库并确认恢复路径。
+2. 用同批新版 `backend-migrate` 执行 `up`，回读账本，确认 `000019_catalog_composition_rules` 已应用且无 DIRTY/PENDING。
+3. 显式执行 `seed`，回读 definitions；执行 `check-refs` 并处理或记录已有悬挂引用。
+4. 同批启动新后端/前端。检查既有 Release 的目录、Track 收录和历史修订，再验证单条收录编辑、表达组合及显式版本组。
+
+`deploy.sh prod/pull` 在 000019 待执行时会先停止旧目录与前端；手工执行 `migrate up` 之后仍需 seed 与新版服务启动。旧写入端可能在整表替换时清掉新增来源，升级后不能允许旧程序继续写。down 明确拒绝删除来源证据；需退回时停止写入并使用已验证备份恢复，不做自动降级。018→019 的真实 PostgreSQL 回归覆盖了数据/人工定义保留、重复 up/seed 与升级后编辑，见 `backend/internal/catalog/media_upgrade_test.go`。
 
 ## 一次性切流（已脚本化）
 

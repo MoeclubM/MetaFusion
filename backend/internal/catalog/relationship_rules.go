@@ -90,7 +90,7 @@ func RelationshipRules(d Definitions) []RelationshipRule {
 		out = append(out, RelationshipRule{
 			Code: "relation:" + code, Class: "semantic", Names: r.Names, ReverseNames: r.ReverseNames,
 			SourceKinds: r.SourceKinds, TargetKinds: r.TargetKinds,
-			MaxIncoming: r.MaxIncoming, MaxOutgoing: r.MaxOutgoing, Ordered: true, Enabled: r.Enabled,
+			MaxIncoming: r.MaxIncoming, MaxOutgoing: r.MaxOutgoing, Ordered: true, Scope: r.Scope, Enabled: r.Enabled,
 		})
 	}
 	return out

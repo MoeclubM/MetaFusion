@@ -73,6 +73,7 @@ type Inclusion struct {
 	Position     int            `json:"position"`
 	Locator      Locator        `json:"locator"`
 	Attributes   map[string]any `json:"attributes,omitempty"`
+	Sources      []Source       `json:"sources,omitempty"`
 }
 type Subject struct {
 	WorkID     string         `json:"work_id"`
@@ -116,7 +117,8 @@ type Edit struct {
 	// idempotency 是 HTTP 创建端点（POST /entities）的幂等声明：HTTP 层在 body 解码后
 	// 按 Idempotency-Key 头填充（见 IdempotencyClaim），Save 在业务事务内声明/回填。
 	// PUT 更新不带（键只覆盖创建），导入链路走自己的 metafusion_import 键。
-	idempotency *IdempotencyClaim
+	idempotency  *IdempotencyClaim
+	contentPatch *trackContentPatch
 }
 type Relation struct {
 	ID         string         `json:"id"`
@@ -193,6 +195,14 @@ type RelationDefinition struct {
 	Acyclic      bool     `json:"acyclic"`
 	MaxOutgoing  int      `json:"max_outgoing"`
 	MaxIncoming  int      `json:"max_incoming"`
+	// Scope compares fixed ownership, never titles or arbitrary attributes.
+	Scope          string `json:"scope,omitempty"`
+	CycleGroup     string `json:"cycle_group,omitempty"`
+	UniquePosition bool   `json:"unique_position,omitempty"`
+	// Usage selects a supported projection; relation codes and names remain editable.
+	Usage string `json:"usage,omitempty"`
+	// ReferenceScopes maps entity fields to source_work / target_release etc.
+	ReferenceScopes map[string]string `json:"reference_scopes,omitempty"`
 	// Aggregate 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）。
 	// 客户端据此区分"结构聚合"与"内容关系"，从而不必写死关系码：新增聚合类关系时
 	// 只要在定义里声明它，页面会自动把它算进组成列表。
@@ -233,6 +243,18 @@ type Template struct {
 	// Kinds 声明该模板适用的实体 kind 白名单（如 work / release / agent），
 	// 前端据此过滤"新建实体时可选哪些模板"。为空表示不限 kind。
 	Kinds []string `json:"kinds,omitempty"`
+	// Match is an AND of finite predicates. nil keeps legacy field scoring;
+	// an explicit empty array is a kind-wide fallback. Equal priorities are ambiguous.
+	Match    *[]TemplateCondition `json:"match,omitempty"`
+	Priority int                  `json:"priority,omitempty"`
+	// nil keeps the kind layout; [] hides optional blocks.
+	Blocks *[]string `json:"blocks,omitempty"`
+}
+
+type TemplateCondition struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    any    `json:"value,omitempty"`
 }
 
 // Scheme 是"按使用场景配置"的有限声明式规则：locator / inclusion_attributes /

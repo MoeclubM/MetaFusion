@@ -58,11 +58,13 @@ import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { WorkContentDirectory, hasWorkDirectoryContent, useWorkDirectoryData } from "@/components/work/WorkContentDirectory";
 import { WorkReleasesSection } from "@/components/entity/WorkReleasesSection";
 import { InclusionContents } from "./InclusionContents";
+import { ExpressionCompositionPanel } from "./ExpressionCompositionPanel";
+import { TrackContentEditor } from "./TrackContentEditor";
 import { TrackDirectory } from "./TrackDirectory";
 import { GroupAttributeInline, LocatorInline } from "./TemplateAttributeSections";
 import { EntityLink } from "./Fields";
 import { useInclusionExpressions } from "./useInclusionExpressions";
-import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity } from "@/lib/definitions";
+import { useDefinitions, getKindName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName, templatesForEntity, blocksForEntity } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -799,18 +801,24 @@ export function EntityDetailView({ id }: { id: string }) {
     Array.isArray(modules) && modules.some((m) => m.id === "community" && m.enabled);
 
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
+  const templateBlocks = blocksForEntity(defs,entity?.kind || "",entity?.attributes);
+  const tabBlocks: Record<string,string> = {staff:"credits",contents:entity?.kind === "expression" ? "composition" : "directory",releases:"occurrences",relations:"relations",resources:"resources"};
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "staff", label: t("entity.page.navStaff"), badge: sectionFailures.relations ? undefined : staffCredits.length + staffRelations.length, visible: sectionFailures.relations || staffCredits.length + staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // 作品的内容目录覆盖篇目/表达/聚合组成项，比"子实体列表"更准（子实体查询会连发行版一起带回），
     // 因此目录在场时以目录计数，且不再重复渲染子实体网格。
-    { id: "contents", label: t("entity.page.navContents"), badge: sectionFailures.children ? undefined : directoryVisible ? directoryData.items.length : children.length + (entity?.contents?.length || 0), visible: directoryVisible || sectionFailures.children || children.length > 0 || (entity?.contents?.length || 0) > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "contents", label: t("entity.page.navContents"), badge: entity?.kind === "expression" || sectionFailures.children ? undefined : directoryVisible ? directoryData.items.length : children.length + (entity?.contents?.length || 0), visible: entity?.kind === "expression" || entity?.kind === "track" || directoryVisible || sectionFailures.children || children.length > 0 || (entity?.contents?.length || 0) > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: entity?.kind === "work" || sectionFailures.occurrences ? undefined : occurrences.length, visible: entity?.kind === "work" || sectionFailures.occurrences || occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: sectionFailures.relations ? undefined : mediaRelations.length, visible: sectionFailures.relations || mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
     { id: "resources", label: t("entity.detail.resourcesTitle"), visible: defs?.structure?.[String(entity?.kind || "")]?.resources === true, icon: <HardDrive className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: sectionFailures.revisions ? undefined : revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-  ];
+  ].map((tab) => ({...tab,visible:tab.visible !== false && (!tabBlocks[tab.id] || templateBlocks.includes(tabBlocks[tab.id]))}))
+    .sort((a,b) => {
+      const rank = (id: string) => id === "overview" ? -1 : id === "revisions" ? templateBlocks.length+1 : templateBlocks.indexOf(tabBlocks[id]);
+      return rank(a.id)-rank(b.id);
+    });
   const { active, select } = useHashTab(tabs);
 
   // 讨论分节已不在标签栏（id="community" 现在是普通锚点）。客户端渲染下浏览器
@@ -1513,7 +1521,8 @@ export function EntityDetailView({ id }: { id: string }) {
               </Card>
             )}
 
-            {active === "contents" && !directoryVisible && (children.length > 0 || entity.contents?.length > 0) && (
+            {active === "contents" && entity.kind === "expression" && <Card padding="section"><ExpressionCompositionPanel expression={entity}/></Card>}
+            {active === "contents" && !directoryVisible && (entity.kind === "track" || children.length > 0 || entity.contents?.length > 0) && (
               <Card id="contents" padding="section" className="space-y-4 shadow-soft">
                 <SectionTitle icon={<List className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
                   {t("entity.page.contentsTitle")}
@@ -1529,6 +1538,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   </div>
                 )}
                 <InclusionContents contents={entity.contents} expressions={inclusionExpressions.expressions} loading={inclusionExpressions.loading} />
+                {entity.kind === "track" && <TrackContentEditor track={entity} onSaved={(updated) => {setEntity(updated);void load()}}/>}
                 {directTracks.length > 0 && <TrackDirectory tracks={directTracks} expressions={inclusionExpressions.expressions} loading={inclusionExpressions.loading} titleOrder={titleOrder} />}
                 {mediums.length > 0 && (
                   <div className="space-y-4">

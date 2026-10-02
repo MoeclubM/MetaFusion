@@ -659,5 +659,45 @@ func Defaults() Definitions {
 			Enabled:       false,
 		},
 	}
+	d.Relations["expression_part"] = RelationDefinition{
+		Names:        names4("表达包含", "表達包含", "表現の構成", "Expression contains"),
+		ReverseNames: names4("所属整体表达", "所屬整體表達", "全体の表現", "Part of expression"),
+		SourceKinds:  []string{"expression"}, TargetKinds: []string{"expression"}, Fields: []string{},
+		Scope: "work", Acyclic: true, CycleGroup: "expression_composition", UniquePosition: true,
+		Usage: "expression_composition", Aggregate: true, ParticipantSlot: "peer",
+		Group: "membership", GroupNames: groupNames["membership"], Enabled: true,
+	}
+	d.Relations["edition_of"] = RelationDefinition{
+		Names:        names4("发行组归属", "發行組歸屬", "リリースグループ", "Edition of"),
+		ReverseNames: names4("发行版本", "發行版本", "リリース版", "Editions"),
+		SourceKinds:  []string{"release"}, TargetKinds: []string{"work", "collection"}, Fields: []string{},
+		Usage: "release_group", MaxOutgoing: 1, ParticipantSlot: "peer",
+		Group: "membership", GroupNames: groupNames["membership"], Enabled: true,
+	}
+	forms := Vocabulary{Names: names4("创作形态", "創作形態", "作品の形式", "Creation form"), Terms: map[string]Term{}}
+	for code, template := range d.Templates {
+		if code == "generic" || code == "release" {
+			continue
+		}
+		forms.Terms[code] = Term{Names: template.Names, Enabled: true}
+		match := []TemplateCondition{{Field: "creation_form", Operator: "equals", Value: code}}
+		template.Match, template.Priority = &match, 10
+		d.Templates[code] = template
+	}
+	song := d.Templates["single"]
+	song.Names = names4("歌曲", "歌曲", "楽曲", "Song")
+	songMatch := []TemplateCondition{{Field: "creation_form", Operator: "equals", Value: "song"}}
+	song.Match = &songMatch
+	d.Templates["song"] = song
+	forms.Terms["song"] = Term{Names: song.Names, Enabled: true}
+	d.Vocabularies["creation_form"] = forms
+	d.Fields["creation_form"] = Field{Names: forms.Names, Type: "enum", Vocabulary: "creation_form", ApplicableKinds: []string{"work"}, Enabled: true, Searchable: true}
+	emptyMatch := []TemplateCondition{}
+	generic := d.Templates["generic"]
+	generic.Match = &emptyMatch
+	d.Templates["generic"] = generic
+	releaseTemplate := d.Templates["release"]
+	releaseTemplate.Match = &emptyMatch
+	d.Templates["release"] = releaseTemplate
 	return d
 }

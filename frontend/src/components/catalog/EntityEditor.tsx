@@ -181,8 +181,13 @@ export function EntityEditor({
     const template = d.templates[tplCode];
     if (!template) return;
     setSelectedTemplate(tplCode);
+    const preset = Object.fromEntries((template.match || []).filter((condition) =>
+      condition.operator === "equals" && d.fields[condition.field]?.applicable_kinds?.includes(kindKey)
+    ).map((condition) => [condition.field,condition.value]));
+    setE((current) => ({...current,attributes:{...current.attributes,...preset}}));
     setSelectedFields((current) => Array.from(new Set([
       ...current,
+      ...Object.keys(preset),
       ...template.sections.flatMap((sec) => sec.fields).filter((code) => d.fields[code]?.applicable_kinds?.includes(kindKey)),
     ])));
   };

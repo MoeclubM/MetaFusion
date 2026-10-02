@@ -68,7 +68,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, EntityLinksPage{}, ReleaseTOC{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, UnpublishEdit{}, DefinitionConfig{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, UserContributions{}, ContributionItem{}, UserContributionStats{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}, ImporterSource{}, VersionInfo{}, DefinitionImpact{}, Notification{}, RateLimitConfig{}, RateLimitSave{}} {
+	for _, v := range []any{Entity{}, EntityLinksPage{}, ReleaseTOC{}, ExpressionComposition{}, ReleaseEditions{}, TrackContentEdit{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, UnpublishEdit{}, DefinitionConfig{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, UserContributions{}, ContributionItem{}, UserContributionStats{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}, ImporterSource{}, VersionInfo{}, DefinitionImpact{}, Notification{}, RateLimitConfig{}, RateLimitSave{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["DefinitionSave"] = map[string]any{"type": "object", "required": []string{"document", "expected_etag", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "expected_etag": map[string]any{"type": "string"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
@@ -115,7 +115,11 @@ func OpenAPI() map[string]any {
 		if names := pathTemplateParams(path); len(names) > 0 {
 			list := make([]any, 0, len(names))
 			for _, name := range names {
-				list = append(list, map[string]any{"name": name, "in": "path", "required": true, "schema": map[string]any{"type": "string"}})
+				paramSchema := map[string]any{"type": "string"}
+				if name == "position" {
+					paramSchema = map[string]any{"type": "integer", "minimum": 0}
+				}
+				list = append(list, map[string]any{"name": name, "in": "path", "required": true, "schema": paramSchema})
 			}
 			op["parameters"] = list
 		}
@@ -174,6 +178,11 @@ func OpenAPI() map[string]any {
 		"relationship_rules": schema(reflect.TypeOf([]RelationshipRule{})),
 	}}
 	for _, r := range [][6]string{
+		{"/catalog/releases/{id}/editions", "get", "Read explicitly grouped editions in one visible snapshot. Shared release subjects do not imply a group; ungrouped releases return group=null and editions=[].", "", "ReleaseEditions", ""},
+		{"/catalog/expressions/{id}/composition", "get", "Read ordered direct parts and containing expressions from relations declaring expression_composition usage. Hidden or retired peers are omitted.", "", "ExpressionComposition", ""},
+		{"/catalog/tracks/{id}/contents", "post", "Add one inclusion with Track expected_version and edit evidence; returns the visible updated Track. No other inclusion is replaced.", "TrackContentEdit", "Entity", "auth"},
+		{"/catalog/tracks/{id}/contents/{position}", "put", "Replace one inclusion identified by its previous position; inclusion.position may reorder it. Track expected_version prevents stale edits.", "TrackContentEdit", "Entity", "auth"},
+		{"/catalog/tracks/{id}/contents/{position}", "delete", "Delete one visible inclusion with Track expected_version and edit evidence in the request body. Hidden records are preserved.", "TrackContentEdit", "Entity", "auth"},
 		{"/version", "get", "Build identity of the running catalog process: the version and git SHA injected at build time, the build timestamp, and when this process started (all UTC, RFC 3339). Anonymous and read-only — it exists so that a deploy, a cutover or a rollback can be answered with 'which commit is actually running' instead of guessing from behaviour. Deliberately free of configuration, credentials, host names and database or object-storage details; anything the build did not inject comes back as the literal string unknown (an empty field would be indistinguishable from a broken build)", "", "VersionInfo", ""},
 		{"/catalog/definitions", "get", "Published dynamic definitions, fixed entity-skeleton names, and a relationship registry. Structural endpoints are database-constrained; their forward and reverse display names are editable in definitions.structure", "", "PublishedDefinitions", ""}, {"/catalog/developer/request-logs", "get", "Own API request log, newest first (authenticated calls only; route is the gin template path without entity ids or query strings; 30-day retention)", "", "Result", ""},
 		{"/catalog/entities", "get", "Entity search (kind/kinds/q/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags/original_language/has_pictures; field takes a published field code; a dotted path works only when every level is searchable and enabled, so the seed definitions expose top-level codes such as tags, duration, edition_date and barcode; items + real COUNT total, plus 400 invalid_sort / invalid_order for a sort key or direction outside the whitelist, and 400 invalid_query_param / query_too_long / invalid_limit / invalid_offset / invalid_page / pagination_conflict for parameters that cannot be sent as given (see each parameter). Throttled to a 120-request-per-minute default budget, counted per account for a signed-in caller and per client IP otherwise; the live policy (group presets and per-account overrides, including unlimited) is readable at GET /admin/rate-limits. Every throttled response carries X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset (seconds until the window resets), and an exhausted budget answers 429 rate_limited with Retry-After; a subject marked unlimited is not counted at all and therefore carries none of those headers, because there is no window to report)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},

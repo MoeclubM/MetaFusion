@@ -78,6 +78,11 @@ export type Definitions = {
       fields: string[];
       symmetric: boolean;
       acyclic: boolean;
+      scope?: string;
+      cycle_group?: string;
+      unique_position?: boolean;
+      usage?: string;
+      reference_scopes?: Record<string, string>;
       /** 聚合/组成关系：内容目录按它收录组成员（见 lib/definitions.ts RelationDef）。 */
       aggregate?: boolean;
       /** 署名槽位 person/character/peer，空=未声明（老文档）：展示端据此判定署名/角色。 */
@@ -104,6 +109,9 @@ export type Definitions = {
       primary_date_field?: string;
       badge_fields?: string[];
       facet_fields?: string[];
+      match?: import("@/lib/definitions").TemplateCondition[];
+      priority?: number;
+      blocks?: string[];
     }
   >;
 };
@@ -151,6 +159,7 @@ export type Entity = {
     position: number;
     locator: Record<string, any>;
     attributes?: Record<string, any>;
+    sources?: Source[];
   }[];
   subjects: {
     work_id: string;

@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions } from "@/lib/definitions";
-import { Entity, title } from "./api";
+import { Entity, type Source, title } from "./api";
+
+export function InclusionSources({sources}: {sources: Source[] | undefined}) {
+  return <>{(sources || []).map((source,i) => source.url ?
+    <a key={i} className="block text-[11px] text-text-faint hover:text-primary" href={source.url} target="_blank" rel="noreferrer">{source.citation}</a> :
+    <span key={i} className="block text-[11px] text-text-faint">{source.citation}</span>
+  )}</>;
+}
 import { GroupAttributeInline, LocatorInline } from "./TemplateAttributeSections";
 
 /** 载体与轨道详情统一展示收录表达、选段与本版定位。 */
@@ -36,6 +43,7 @@ export function InclusionContents({
               <LocatorInline defs={definitions} value={content.locator} locale={locale} />
               <GroupAttributeInline defs={definitions} code="inclusion_attributes" value={content.attributes} locale={locale} />
             </div>
+            <InclusionSources sources={content.sources}/>
           </li>
         );
       })}

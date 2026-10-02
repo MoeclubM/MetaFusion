@@ -121,6 +121,16 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 	for _, e := range ents {
 		byID[e.ID] = e
 	}
+	liveRelations := []Relation{}
+	for _, r := range rels {
+		if _, ok := byID[r.SourceID]; !ok {
+			continue
+		}
+		if _, ok := byID[r.TargetID]; !ok {
+			continue
+		}
+		liveRelations = append(liveRelations, r)
+	}
 	for _, e := range ents {
 		mediumFormat := ""
 		if e.Kind == "track" {
@@ -147,7 +157,12 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 		if _, ok := d.Relations[r.Type]; !ok {
 			continue
 		}
-		if err = validateRelation(d, r, src, tgt, rels, tolerant(r.ID), true); err != nil {
+		if err = validateRelation(d, r, src, tgt, liveRelations, tolerant(r.ID), true, func(id string) (Entity, error) {
+			if e, ok := byID[id]; ok {
+				return e, nil
+			}
+			return get(ctx, q, id)
+		}); err != nil {
 			out.Issues = append(out.Issues, r.ID+": "+err.Error())
 		}
 	}

@@ -11,6 +11,7 @@ import {
   getKindName,
   getTermName,
   resolveLocalizedName,
+  blocksForEntity,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { COMPARE_MAX_SLOTS, compareHref, useCompareBasket } from "@/lib/compareBasket";
@@ -28,6 +29,9 @@ import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
 import { resolveCover } from "@/lib/cover";
 import ReportButton from "@/components/report/ReportButton";
+import { ErrorMessage } from "@/components/catalog/Fields";
+import { ConfiguredBlock, ConfiguredBlocks } from "@/components/catalog/ConfiguredBlocks";
+import { InclusionSources } from "@/components/catalog/InclusionContents";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -167,6 +171,8 @@ export default function ReleaseDetailLayout() {
     setReleaseStaffLoaded(true);
   }, []);
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
+  const [editionGroup,setEditionGroup] = useState<Entity | null>(null);
+  const [editionsError,setEditionsError] = useState("");
   // 批量数据的加载缺口按来源细分：实体查询与批量详情是两条路径，任一部分未恢复都要
   // 保留重试提示。旧实现只在逐条实体也失败时计数，批量失败但实体补回时计数为 0，
   // 提示不出现，用户看到的是"暂无反向收录数据"。署名与收录、兄弟收录同属批量详情响应。
@@ -230,29 +236,26 @@ export default function ReleaseDetailLayout() {
     };
   }, [releaseId, reloadKey]);
 
-  // 同 Work 其他版本：用主 subject work_id 查 release 列表，供版本横 rail 切换。
+  // 版本组由显式关系声明；共同收录一个 Work 只说明相关收录。
   useEffect(() => {
-    const workId =
-      release?.subjects?.find((s) => s.role === "primary")?.work_id || release?.subjects?.[0]?.work_id;
-    if (!workId) {
+    if (!release?.id) {
       setSiblingReleases([]);
       return;
     }
+    setSiblingReleases([]); setEditionGroup(null); setEditionsError("");
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetchAllPages<Entity>(
-          `/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`
-        );
-        if (!cancelled) setSiblingReleases(r);
-      } catch {
-        if (!cancelled) setSiblingReleases([]);
+        const r = await api<{group:Entity | null;editions:Entity[]}>(`/catalog/releases/${release.id}/editions`);
+        if (!cancelled) { setSiblingReleases(r.editions); setEditionGroup(r.group); }
+      } catch (e) {
+        if (!cancelled) setEditionsError((e as Error).message);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [release?.id]);
+  }, [release?.id,release?.version,dynamicDefs,reloadKey]);
 
   const expressionIds = useMemo(() => {
     const ids = new Set<string>();
@@ -621,6 +624,7 @@ export default function ReleaseDetailLayout() {
                                   </Link>
                                   <LocatorInline defs={dynamicDefs} value={c.locator} locale={locale} className="font-mono text-[10px]" />
                                   <GroupAttributeInline defs={dynamicDefs} code="inclusion_attributes" value={c.attributes} locale={locale} className="font-mono text-[10px]" />
+                                  <InclusionSources sources={c.sources}/>
                                 </span>
                               );
                             })}
@@ -809,11 +813,15 @@ export default function ReleaseDetailLayout() {
         }
       >
 
-        {siblingReleases.length > 1 && (
+        <ConfiguredBlocks blocks={blocksForEntity(dynamicDefs,"release",release.attributes)}>
+        <ConfiguredBlock code="editions">
+        {editionsError && <div className="space-y-2"><ErrorMessage error={editionsError}/><button type="button" onClick={() => setReloadKey((key) => key+1)}>{t("catalog.retry")}</button></div>}
+        {blocksForEntity(dynamicDefs,"release",release.attributes).includes("editions") && siblingReleases.length > 1 && (
           <Card padding="none">
           <nav aria-label={t("release.detail.siblingVersions")} className="px-3.5 sm:px-4 py-3 space-y-2">
             <p className="font-mono text-[11px] text-text-faint">
               {t("release.detail.siblingVersions")} · {siblingReleases.length}
+              {editionGroup && <> · <Link className="text-primary hover:underline" href={`/catalog/${editionGroup.id}`}>{entityTitle(editionGroup,locale)}</Link></>}
             </p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
               {siblingReleases.map((sib) => {
@@ -847,6 +855,8 @@ export default function ReleaseDetailLayout() {
           </Card>
         )}
 
+        </ConfiguredBlock>
+        <ConfiguredBlock code="directory">
         {formatGroups.length > 1 && (
           <nav aria-label={t("release.detail.formatTabs")} className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
             <button
@@ -957,6 +967,8 @@ export default function ReleaseDetailLayout() {
           </div>
         )}
 
+        </ConfiguredBlock>
+        <ConfiguredBlock code="occurrences">
         {expressionIds.length > 0 && (
           <Collapsible title={t("release.detail.sameRecordingTitle")} count={expressionIds.length}>
             {/* 批量加载不完整时给出可重试提示，不静默留空表：实体与收录/署名分别统计，
@@ -1087,8 +1099,9 @@ export default function ReleaseDetailLayout() {
           </Collapsible>
         )}
 
+        </ConfiguredBlock>
         <div className="space-y-3">
-          {attachments.length > 0 && (
+        {attachments.length > 0 && (
             <Collapsible title={t("release.detail.attachments")} count={attachments.length}>
               <RecordList
                 items={attachments}
@@ -1150,6 +1163,7 @@ export default function ReleaseDetailLayout() {
           </Card>
         )}
 
+        <ConfiguredBlock code="credits">
         {(releaseStaffLoaded ? releaseStaffCount > 0 : true) && (
           <section className="space-y-3" aria-label={t("work.detail.staffAndCharacters")}>
             {releaseStaffCount > 0 && (
@@ -1161,7 +1175,9 @@ export default function ReleaseDetailLayout() {
           </section>
         )}
 
-        <AggregateRelationList entityId={releaseId} />
+        </ConfiguredBlock>
+        <ConfiguredBlock code="relations"><AggregateRelationList entityId={releaseId} /></ConfiguredBlock>
+        </ConfiguredBlocks>
 
       </PageShell>
     </div>

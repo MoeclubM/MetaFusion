@@ -466,6 +466,37 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ReleaseTableOfContents(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, v, err)
 	})
+	cat.GET("/releases/:id/editions", routeLimiter(120), func(c *gin.Context) {
+		v, err := s.ReleaseEditions(c.Request.Context(), c.Param("id"), user(c))
+		respond(c, v, err)
+	})
+	cat.GET("/expressions/:id/composition", routeLimiter(120), func(c *gin.Context) {
+		v, err := s.ExpressionComposition(c.Request.Context(), c.Param("id"), user(c))
+		respond(c, v, err)
+	})
+	contentEdit := func(action string) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			var in TrackContentEdit
+			if !body(c, &in) {
+				return
+			}
+			position := 0
+			if action != "add" {
+				var err error
+				position, err = strconv.Atoi(c.Param("position"))
+				if err != nil || position < 0 {
+					respond(c, nil, fmt.Errorf("invalid_position"))
+					return
+				}
+			}
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: c.Param("id")})
+			v, err := s.EditTrackContent(c.Request.Context(), c.Param("id"), action, position, in, *user(c))
+			respond(c, v, err)
+		}
+	}
+	cat.POST("/tracks/:id/contents", required(""), contentEdit("add"))
+	cat.PUT("/tracks/:id/contents/:position", required(""), contentEdit("replace"))
+	cat.DELETE("/tracks/:id/contents/:position", required(""), contentEdit("delete"))
 	cat.GET("/entities/:id/resolve", func(c *gin.Context) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, e, err)

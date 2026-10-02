@@ -98,6 +98,20 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "templates."+k)
 		}
 	}
+	// New selector properties were never editable in the old contract. Fill
+	// only absent selectors; an explicit [] and custom priority are preserved.
+	for code, seedTemplate := range seed.Templates {
+		cur := out.Templates[code]
+		if cur.Match != nil || seedTemplate.Match == nil {
+			continue
+		}
+		cur.Match = seedTemplate.Match
+		if cur.Priority == 0 {
+			cur.Priority = seedTemplate.Priority
+		}
+		out.Templates[code] = cur
+		added = append(added, "templates."+code+".match")
+	}
 	for k, v := range seed.Schemes {
 		if _, ok := out.Schemes[k]; !ok {
 			out.Schemes[k] = v

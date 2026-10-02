@@ -28,6 +28,7 @@ func TestOpenAPIRouteCoverage(t *testing.T) {
 		clean = strings.TrimPrefix(clean, "/api")
 		path := strings.ReplaceAll(clean, ":id", "{id}")
 		path = strings.ReplaceAll(path, ":code", "{code}")
+		path = strings.ReplaceAll(path, ":position", "{position}")
 		p, ok := paths[path].(map[string]any)
 		if !ok || p[strings.ToLower(route.Method)] == nil {
 			t.Fatalf("undocumented endpoint: %s %s", route.Method, path)
@@ -52,6 +53,7 @@ func TestOpenAPIReverseCoverage(t *testing.T) {
 		clean = strings.TrimPrefix(clean, "/api")
 		path := strings.ReplaceAll(clean, ":id", "{id}")
 		path = strings.ReplaceAll(path, ":code", "{code}")
+		path = strings.ReplaceAll(path, ":position", "{position}")
 		registered[strings.ToLower(route.Method)+" "+path] = true
 	}
 	paths := doc["paths"].(map[string]any)

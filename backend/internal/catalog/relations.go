@@ -173,15 +173,19 @@ func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[
 		return nil, err
 	}
 	if len(byKind["track"]) > 0 {
-		r, err := q.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		r, err := q.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes,sources FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
 		if err != nil {
 			return nil, err
 		}
 		for r.Next() {
 			var tid string
 			var c Inclusion
-			var loc, attrs []byte
-			if err = r.Scan(&tid, &c.ExpressionID, &c.Position, &loc, &attrs); err != nil {
+			var loc, attrs, sources []byte
+			if err = r.Scan(&tid, &c.ExpressionID, &c.Position, &loc, &attrs, &sources); err != nil {
+				r.Close()
+				return nil, err
+			}
+			if err = json.Unmarshal(sources, &c.Sources); err != nil {
 				r.Close()
 				return nil, err
 			}
@@ -460,7 +464,7 @@ func validateRelationAttributes(d Definitions, code string, attrs map[string]any
 	return d.attributes(rt.Fields, attrs, ref, historical)
 }
 
-func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
+func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool, lookups ...entityLookup) error {
 	rt, ok := d.Relations[r.Type]
 	if !ok || !historical && !rt.Enabled {
 		return fmt.Errorf("invalid_relation_type")
@@ -474,23 +478,40 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	if err := validateRelationAttributes(d, r.Type, r.Attributes, ref, historical); err != nil {
 		return err
 	}
+	var lookup entityLookup
+	if len(lookups) > 0 {
+		lookup = lookups[0]
+	}
+	if err := validateRelationScopes(rt, r, src, tgt, lookup); err != nil {
+		return err
+	}
 	incoming, outgoing := 0, 0
 	// position 只决定展示顺序，不属于关系身份；同端点、类型和属性的边
 	// 即使 position 不同也要按 relations_no_exact_dup 的数据库口径判重。
 	// 同一演员的不同角色应写进 character 等属性，而非只改 position。
 	graph := map[string][]string{}
 	for _, x := range existing {
-		if x.ID == r.ID || x.Type != r.Type {
+		if x.ID == r.ID {
 			continue
 		}
-		graph[x.SourceID] = append(graph[x.SourceID], x.TargetID)
+		if sharesCycleGroup(d, r.Type, x.Type) {
+			graph[x.SourceID] = append(graph[x.SourceID], x.TargetID)
+		}
+		sameUsage := rt.Usage != "" && rt.Usage == d.Relations[x.Type].Usage
+		if x.Type != r.Type && !sameUsage {
+			continue
+		}
+		if rt.UniquePosition && x.SourceID == r.SourceID && x.Position == r.Position {
+			return fmt.Errorf("duplicate_relation_position")
+		}
 		if x.SourceID == r.SourceID {
 			outgoing++
 		}
 		if x.TargetID == r.TargetID {
 			incoming++
 		}
-		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes)) {
+		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) &&
+			(rt.Usage == "expression_composition" || x.Type == r.Type && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes))) {
 			return fmt.Errorf("duplicate_relation")
 		}
 	}
@@ -499,11 +520,8 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	if rt.MaxOutgoing > 0 && outgoing >= rt.MaxOutgoing || rt.MaxIncoming > 0 && incoming >= rt.MaxIncoming {
 		return fmt.Errorf("cardinality_exceeded")
 	}
-	// 无环检查：existing 是同 Type 全集（SaveRelation 按 relationsByType 取），
-	// 本函数只看同类边。deleted/merged 实体的历史边由调用方在取 existing 前排除
-	// （SaveRelation 拒绝端点已删除/已合并；impact 只看存活实体），不混入构图。
-	// 跨码循环（如 sequel_of/adaptation_of 互指）在单类型构图下不可见：
-	// 需要跨码语义时调用方应显式传入多类型边集，本函数不静默放过。
+	// 同码或共同 cycle_group 的存活边构图；不同关系的基数仍分别计算，
+	// 专用 usage 的组成顺序和发行组基数则在全部同用途关系间共用。
 	if rt.Acyclic {
 		stack := []string{r.TargetID}
 		seen := map[string]bool{}
@@ -548,7 +566,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err != nil {
 			return err
 		}
-		all, err := relationsByType(ctx, tx, r.Type)
+		all, err := relationsForRule(ctx, tx, v.Document, r.Type)
 		if err != nil {
 			return err
 		}
@@ -608,7 +626,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if !canAttachToTarget(u, tgt) {
 			return errForbidden
 		}
-		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
+		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true, func(id string) (Entity, error) { return get(ctx, tx, id) }); err != nil {
 			return err
 		}
 		if !v.Document.Relations[r.Type].Enabled && old == nil {
@@ -706,7 +724,7 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 type occurrenceRow struct {
 	track, medium, release, expr string
 	pos                          int
-	loc, attrs                   json.RawMessage
+	loc, attrs, sources          json.RawMessage
 }
 
 // occurrenceScopeExpressionIDs 按实体 kind 求值"该实体自身收录"指向的表达集合：
@@ -870,7 +888,7 @@ func (s *Store) fetchOccurrenceRows(ctx context.Context, expressionIDs []string)
 	if len(uniq) == 0 {
 		return nil, nil
 	}
-	q, err := s.DB.QueryContext(ctx, `SELECT c.track_id::text,m.id::text,m.release_id::text,c.expression_id::text,c.position,c.locator,c.attributes FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id WHERE c.expression_id IN (`+entityPlaceholders(uniq, 1)+`) ORDER BY m.release_id,c.position`, entityArgs(uniq)...)
+	q, err := s.DB.QueryContext(ctx, `SELECT c.track_id::text,m.id::text,m.release_id::text,c.expression_id::text,c.position,c.locator,c.attributes,c.sources FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id WHERE c.expression_id IN (`+entityPlaceholders(uniq, 1)+`) ORDER BY m.release_id,c.position`, entityArgs(uniq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -878,7 +896,7 @@ func (s *Store) fetchOccurrenceRows(ctx context.Context, expressionIDs []string)
 	rows := []occurrenceRow{}
 	for q.Next() {
 		var r occurrenceRow
-		if err = q.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs); err != nil {
+		if err = q.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs, &r.sources); err != nil {
 			return nil, err
 		}
 		rows = append(rows, r)
@@ -895,7 +913,7 @@ func occurrenceEntry(r occurrenceRow, got map[string]Entity) (map[string]any, bo
 	if !ok1 || !ok2 || !ok3 || !ok4 {
 		return nil, false
 	}
-	return map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs}, true
+	return map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs, "sources": r.sources}, true
 }
 
 func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[string]any, error) {

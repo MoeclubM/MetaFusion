@@ -16,6 +16,9 @@
      - 与元数据主系统共用同一 PostgreSQL 数据库（`catalog` schema）。
      - 支持在后台 GUI 中管理动态字段（Fields）、图谱关系（Relations）、受控词表（Vocabularies）、场景方案（Schemes）、展示模板（Templates）与固定结构显示名；字段 `applicable_kinds` 声明可写层级，实体不再保存业务 Types。
      - 动态定义保存在 `catalog.definition_config` 的单份生效文档中。编辑器直接预检并保存完整文档，以 `etag` 防止并发覆盖；不保留定义版本、草稿、差异或回滚入口。
+     - 语义关系支持 GUI 配置 `scope`（同 Work/Release/Medium）、`cycle_group`（跨码共同无环）、`unique_position` 和 `reference_scopes`（实体属性相对某端点的归属范围）。保存、定义影响检查、合并回放共用校验；只允许受支持的声明，不执行 SQL/脚本。
+     - `usage=expression_composition` 表示整体 Expression 包含同 Work 内的部分 Expression，全部同用途关系共用顺序及去重约束，并纳入共同无环组。`usage=release_group` 表示 Release 明确属于一个 Work/Collection 版本组；共同 subjects 只表示相关收录，不能据此推断版本。
+     - 模板的 `match` 是有限条件的 AND，`priority` 决定匹配优先级，同最高优先级冲突回退通用事实布局；`blocks` 控制受支持区块的显示与顺序。可选 `creation_form` 属性用于描述和选模板，可在 GUI 扩展，字段可写性仍只由 `applicable_kinds` 决定。
      - 支持全量实体的内容元数据编辑与状态流转（`draft` / `pending_review` / `published` / `deleted` / `merged` 五档）、实体合并（Merge）与修订历史（Revisions）审计。
        状态口径：发布 = PUT 实体写 `status: "published"`；`/api/catalog/entities/:id/lifecycle` 只做合并与停用（请求体无 `action` 字段）。
    - **无多余 Slogan**：全站禁止添加各类夸张、冗余的营销 Slogan，保持国家图书馆级别的严谨、纯净与高效。
