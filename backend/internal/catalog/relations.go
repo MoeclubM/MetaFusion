@@ -268,33 +268,8 @@ func relationByID(ctx context.Context, q queryer, id string) (Relation, error) {
 	return r, err
 }
 
-// relationsByType 只取同类边：validateRelation 的构图/计数/判重只看同 type
-// （异类直接跳过），Save 时全表加载在关系量大时会退化为全表扫描+全量反序列化。
-// 更新时的旧版本按 ID 单行取（relationByID），不混在集合里。
-func relationsByType(ctx context.Context, q queryer, typ string) ([]Relation, error) {
-	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE type=$1 ORDER BY id", typ)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Relation{}
-	for rows.Next() {
-		var b []byte
-		var r Relation
-		if err = rows.Scan(&b); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(b, &r); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
 // relationsWithEndpoint 取以某实体为任一端点的全部边：合并改写引用时用，
-// 命中 relations_endpoints 索引前两列。校验阶段仍需同类全集（构图/计数），
-// 由调用方在改写后按涉及类型取 relationsByType。
+// 校验阶段由调用方按涉及的关系规则读取受影响集合。
 func relationsWithEndpoint(ctx context.Context, q queryer, id string) ([]Relation, error) {
 	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE source_id=$1 OR target_id=$1 ORDER BY id", id)
 	if err != nil {
@@ -760,38 +735,6 @@ func (s *Store) occurrenceScopeExpressionIDs(ctx context.Context, e Entity) ([]s
 		return ids, rows.Err()
 	}
 	return []string{}, nil
-}
-
-// siblingExpressionIDs 返回"同篇目兄弟表达"集合：仅当实体是归属于某 ContentUnit 的
-// 表达时，取该篇目下其它表达；否则空。用于把"本条收录"与"同篇目其它版本"分开，
-// 不再用整 Work 兜底（那会把同歌不同录音、同作品不同分集混在一起）。
-// 注意 content_unit_id 的权威在 catalog.expressions 侧表：document 落库时清空了
-// 结构字段（store.go Save），GetManyVisible 反序列化出的 Entity 带不上它。
-func (s *Store) siblingExpressionIDs(ctx context.Context, e Entity) ([]string, error) {
-	if e.Kind != "expression" {
-		return []string{}, nil
-	}
-	var unitID string
-	if err := s.DB.QueryRowContext(ctx, "SELECT coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id=$1", e.ID).Scan(&unitID); err != nil {
-		if err == sql.ErrNoRows {
-			return []string{}, nil
-		}
-		return nil, err
-	}
-	if strings.TrimSpace(unitID) == "" {
-		return []string{}, nil
-	}
-	byUnit, err := s.expressionIDsByContentUnit(ctx, []string{unitID})
-	if err != nil {
-		return nil, err
-	}
-	ids := []string{}
-	for _, id := range byUnit[unitID] {
-		if id != e.ID {
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
 }
 
 // expressionIDsByContentUnit 一次批量解析若干篇目下的全部表达，供批量端点求兄弟集合。

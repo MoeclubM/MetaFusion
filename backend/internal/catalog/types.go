@@ -243,7 +243,7 @@ type Template struct {
 	// Kinds 声明该模板适用的实体 kind 白名单（如 work / release / agent），
 	// 前端据此过滤"新建实体时可选哪些模板"。为空表示不限 kind。
 	Kinds []string `json:"kinds,omitempty"`
-	// Match is an AND of finite predicates. nil keeps legacy field scoring;
+	// Match is an AND of finite predicates. nil disables automatic selection;
 	// an explicit empty array is a kind-wide fallback. Equal priorities are ambiguous.
 	Match    *[]TemplateCondition `json:"match,omitempty"`
 	Priority int                  `json:"priority,omitempty"`

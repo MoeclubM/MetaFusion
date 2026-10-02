@@ -25,8 +25,8 @@ test("ties use generic facts and explicit blocks preserve order including empty 
   copy.templates.song.blocks=[];
   assert.deepEqual(blocksForEntity(copy,"work",{form:"song"}),[]);
 });
-test("unconfigured old templates keep existing behavior",()=>{
+test("unconfigured templates do not guess content type from filled fields",()=>{
   const copy=structuredClone(definitions);delete copy.templates.generic;delete copy.templates.song;delete copy.templates.live;
-  assert.equal(templatesForEntity(copy,"work",{duration:180})[0],copy.templates.legacy);
+  assert.deepEqual(templatesForEntity(copy,"work",{duration:180}),[]);
   assert.deepEqual(templatesForEntity(copy,"work",{}),[]);
 });

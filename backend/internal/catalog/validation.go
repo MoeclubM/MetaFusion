@@ -60,9 +60,6 @@ func toFloat(v any) (float64, bool) {
 	return 0, false
 }
 
-// numericField 判断字段是否数值型（无词表、无枚举约束也可比较大小）。
-func numericField(f Field) bool { return f.Type == "number" }
-
 // sortedFieldKeys 返回组内子字段码的字典序，用于让校验报错稳定可复现。
 func sortedFieldKeys(f Field) []string {
 	keys := make([]string, 0, len(f.Fields))

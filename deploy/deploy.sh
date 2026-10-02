@@ -137,7 +137,7 @@ function export_version_identity() {
 # （metafusion-*:local 与编排生成的 deploy-<svc>:latest），下一次部署直接覆盖它们，
 # 上一版镜像随即变成无主镜像被 prune 掉 —— v0.3.0 之前就是这样，回退只剩「按 tag 重建」（10-20 分钟）。
 # 口径与 /api/version 的版本身份一致：METAFUSION_VERSION（git describe 的精确 tag），
-# 没有 tag 时退回短 sha，保证每批都有锚点。回退命令见 docs/architecture/cutover-runbook.md。
+# 没有 tag 时退回短 sha，保证每批都有锚点。回退命令见 docs/architecture/deployment-runbook.md。
 function tag_release_images() {
     local ver="${METAFUSION_VERSION:-}"
     if [ -z "$ver" ] || [ "$ver" = "unknown" ]; then
@@ -241,7 +241,7 @@ function _env_val() {
     sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" | head -n1 | tr -d '"' | sed -e "s/^'//" -e "s/'\$//"
 }
 
-# 生产 DSN 门禁（审计 O01）：prod/cutover/pull 面向线上，四个本域 DSN 缺一不可。
+# 生产 DSN 门禁（审计 O01）：prod/pull 面向线上，四个本域 DSN 缺一不可。
 # 缺失即非零退出，不静默回退共用身份。只判空、不打印值（验收口径：只查有无）。
 function require_prod_dsns() {
     local missing=0 v val
@@ -306,7 +306,7 @@ function warn_if_dsns_missing() {
         [ -n "$val" ] || n=$((n + 1))
     done
     if [ "$n" != 0 ]; then
-        echo "⚠️  有 $n/4 个业务 DSN 为空：当前回退到默认连接（容器内连不上库即启动失败）；生产请逐个填入，prod/cutover/pull 会直接拒绝"
+        echo "⚠️  有 $n/4 个业务 DSN 为空：当前回退到默认连接（容器内连不上库即启动失败）；生产请逐个填入，prod/pull 会直接拒绝"
     fi
 }
 
@@ -419,13 +419,11 @@ function print_usage() {
     echo ""
     echo "操作模式 (Actions):"
     echo "  fast [service]  - 增量极速更新指定服务 (默认)，自动复用构建缓存 (几秒内完成)"
-    echo "  cutover         - 首次从单体切到拆分后的服务 (搬数据 → 换网关，只走一次)"
-    echo "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
     echo "  pull            - 按清单 digest 拉取 backend/frontend/migrator；兄弟服务就地构建后启动"
     echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
-    echo "  seed            - 显式合并种子定义（只增不改；cutover/prod/pull 在迁移后自动跑）"
+    echo "  seed            - 显式合并种子定义（只增不改；prod/pull 在迁移后自动跑）"
     echo "  check-refs      - 悬挂引用体检（部署前置检查；非零=先修数据或显式确认）"
     echo "  restart [svc]   - 快速重启容器 (不重编镜像)"
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
@@ -474,45 +472,6 @@ case "$ACTION" in
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 极速部署完成！"
-        ;;
-
-    cutover)
-        check_version_lock
-        export_version_identity
-        require_prod_dsns
-        assert_compose_credential_isolation
-        # 首次把实例从单体切到拆分后的服务：搬数据在前、换网关在后，顺序不可颠倒
-        # （搬运必须在单体仍是唯一写入方时完成，见 docs/architecture/cutover-runbook.md）。
-        # 日常迭代仍用 ./deploy.sh fast；本动作只走一次，回滚见手册第 1 章。
-        export DOCKER_BUILDKIT=1
-        echo "🏗️  构建全部服务镜像..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml build
-        echo "🚀 启动基础设施 (Postgres / RustFS + 桶初始化)..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres rustfs
-        echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
-        migrate_up_checked
-        seed_checked
-        check_refs_report
-        echo "📦 把主仓库旧表搬进 community schema（幂等，可重复运行补增量）..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
-        echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
-        check_gateway_candidate
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d --remove-orphans
-        reload_gateway
-        echo "🧹 自动清理悬空层..."
-        docker image prune -f >/dev/null 2>&1 || true
-        echo "✅ 切流完成；自检：GATEWAY=https://<host> ../metafusion-api-gateway/scripts/cutover-check.sh"
-        ;;
-
-    retire)
-        # 切流稳定后执行一次：清掉拆分前的遗留 schema 与手工迁移的临时表。
-        # 删除前由 SQL 自身核对"目标行数不少于源表行数"，搬不全就中止并回滚整个事务。
-        echo "🧹 清理拆分前的遗留结构 (modules / media / catalog.favorites / 临时备份表)..."
-        docker compose $COMPOSE_ENV exec -T postgres sh -c \
-            'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -f -' \
-            < sql/retire-legacy-schemas.sql
-        echo "✅ 清理完成（剩余 schema 见上面的核对输出）"
         ;;
 
     prod)
@@ -577,7 +536,7 @@ case "$ACTION" in
         ;;
 
     seed)
-        # 显式入口：与 cutover/prod/pull 里自动跑的是同一个 seed_checked，
+        # 显式入口：与 prod/pull 里自动跑的是同一个 seed_checked，
         # 部署后想单独确认模板状态时用它（失败即非零；HTTP 启动不合并种子）。
         seed_checked
         echo "✅ 种子定义已显式合并"

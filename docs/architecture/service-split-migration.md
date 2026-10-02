@@ -25,7 +25,7 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 ## 2. 路由归属（现状）
 
 唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **45 条 `location`**（以 `python scripts/check_gateway_matrix.py` 输出为准；2026-09 起陆续接入三个服务管理台、账号自助应用及其静态资源、举报/申诉与私信路径后增长，删掉 `/api/records/` 后），账号前缀用精确匹配与正则逐条分流。
-下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
+下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./service-decoupling-roadmap.md) §6。
 
 | 归属 | 路径 | 现状 |
 | --- | --- | --- |
@@ -61,10 +61,10 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 
 ### 2.1 网关矩阵、密钥与 UI 的归属
 
-- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`，网关仓只提供验收脚本，旧矩阵样例已删除。`cutover-check.sh` 断言服务标记头并提供离线 `--self-check`。矩阵的自动校验在主仓：`scripts/check_gateway_matrix.py`（限流覆盖、路径登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。迁移矩阵权威来源仍是后续选项，见 [服务解耦路线](./decoupling-audit-2026-09.md) §6。
-- **密钥边界**：签发私钥只在账号服务。目录侧按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，不再从 `AUTH_JWT_PRIVATE_KEY` 派生公钥。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
+- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`，网关仓只提供验收脚本，旧矩阵样例已删除。`cutover-check.sh` 断言服务标记头并提供离线 `--self-check`。矩阵的自动校验在主仓：`scripts/check_gateway_matrix.py`（限流覆盖、路径登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。迁移矩阵权威来源仍是后续选项，见 [服务解耦路线](./service-decoupling-roadmap.md) §6。
+- **密钥边界**：签发私钥只在账号服务。目录侧按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，不再从 `AUTH_JWT_PRIVATE_KEY` 派生公钥。证据与判据见 [审计文档](./service-decoupling-roadmap.md) §2。
 - **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；接入前需核对各服务现行的分页语义。
-- **UI 归属**：三个服务各自的管理台（账号 / 互动 / 存储，各自仓库的 `admin/` 目录）已由网关与主编排接入。普通用户页面仍跨主仓库 `frontend/` 与账号服务的 `user/` 应用；社区与资源区块仍耦合在目录详情页。逐域独立发布、共享 UI 层与嵌入契约仍是目标，见 [审计文档](./decoupling-audit-2026-09.md) §7。
+- **UI 归属**：三个服务各自的管理台（账号 / 互动 / 存储，各自仓库的 `admin/` 目录）已由网关与主编排接入。普通用户页面仍跨主仓库 `frontend/` 与账号服务的 `user/` 应用；社区与资源区块仍耦合在目录详情页。逐域独立发布、共享 UI 层与嵌入契约仍是目标，见 [审计文档](./service-decoupling-roadmap.md) §7。
 
 ## 3. 数据归属与边界
 
@@ -72,10 +72,10 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 - 服务间只通过 HTTP 契约与事件交互：
   - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
   - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
-    `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
+    `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./service-decoupling-roadmap.md) §5。
 - 结构来源：目录迁移由 `backend/migrations/*.sql` + `mf-migrate up` 执行，空库内容种子由 `mf-migrate seed` 显式发布；目录 HTTP 进程启动只做 `CheckCompatibleVersion` 只读检查，不再执行 DDL 或种子。互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行尚未记账的迁移并写入 `<schema>.schema_migrations`。账号服务仍在启动路径执行自身 DDL。四服务的迁移职责尚未完全统一。
   迁移锁须按实际路径区分：目录 `mf-migrate` 用会话级锁 `88481001`；存储迁移用事务级锁 `740204`，互动迁移用事务级锁 `740205`。目录运行写入的 `740202` 与账号写入的 `740203` 不是迁移锁；共享审计表 DDL 另用 `740205` 跨服务串行化。新增迁移入口时先核对现有锁的作用域与顺序，不能直接套用旧键位表。
-  “启动只校验、迁移由 owner 单独跑”已在目录服务实现；账号、互动、存储仍需分离启动与迁移（受限角色下 DDL 会遇到权限问题），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
+  “启动只校验、迁移由 owner 单独跑”已在目录服务实现；账号、互动、存储仍需分离启动与迁移（受限角色下 DDL 会遇到权限问题），见 [审计文档](./service-decoupling-roadmap.md) §4.3。
 - **库侧权限边界（2026-09 落地）**：四个服务各有自己的库角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），
   只对本域 schema 有权限，越权读写由库直接拒绝；仅有的跨域例外是共享审计表 `audit.audit_log`
   （四个服务只追加）与切流的 community-migrate 工具。授权脚本 `deploy/sql/roles-least-privilege.sql`、
@@ -118,4 +118,4 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 
 网关按前缀切换，但回滚不等于只改一张 nginx 表：主仓库已移除部分旧业务处理器，旧版服务也未必理解新 schema 或新数据。
 回滚前须核对目标镜像是否仍提供该路径、数据库迁移的向后兼容性、以及切流后该域的新写入；
-不能简单把前缀指回主仓库。实际操作按 [切流手册](./cutover-runbook.md) 的版本与数据检查执行。
+不能简单把前缀指回主仓库。实际操作按 [部署与恢复手册](./deployment-runbook.md) 的版本与数据检查执行。

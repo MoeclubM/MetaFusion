@@ -12,7 +12,7 @@
 
 `track_contents.sources` 保存收录的直接证据。POST `/api/catalog/tracks/:id/contents` 增加一条，PUT/DELETE `/api/catalog/tracks/:id/contents/:position` 替换/删除已读位置；请求必须携带 Track 的 expected_version、edit_note、sources，替换可用 inclusion.position 重排。一次修改仍产生 Track 修订与 outbox，旧版本并发写返回 409。旧整实体 PUT 省略来源时保留未改变收录的证据；新/改变的收录用本次编辑证据。单条编辑保留其余不可见历史收录，并裁剪响应。
 
-模板 `match` 支持 exists/equals/contains 的 AND，priority 决定顺序，相同最高优先级回退通用布局；未配置的旧模板才参与原字段评分，显式空数组是该 kind 的兜底模板。`blocks` 是受支持区块的有序列表，缺省继承布局、[] 隐藏可选区块。通用详情据此组织目录/组合/收录/署名/关系/资源页签，发行页支持版本组/目录/相关收录/署名/关系的 DOM 顺序；固定事实与修订入口保持可读。creation_form 仅为可选属性与模板选择条件，不决定可写字段或实体身份。
+模板 `match` 支持 exists/equals/contains 的 AND，priority 决定顺序，相同最高优先级回退通用布局；缺少 match 的模板不参与自动选择，仍可在编辑器中手工选用，显式空数组是该 kind 的兜底模板。`blocks` 是受支持区块的有序列表，缺省继承布局、[] 隐藏可选区块。通用详情据此组织目录/组合/收录/署名/关系/资源页签，发行页支持版本组/目录/相关收录/署名/关系的 DOM 顺序；固定事实与修订入口保持可读。creation_form 仅为可选属性与模板选择条件，不决定可写字段或实体身份。
 
 升级顺序：停旧写入 → 备份并确认可恢复 → 新版 mf-migrate up（000019）→ mf-migrate seed → mf-migrate check-refs → 新后端/前端一起恢复写入。新列与索引是增量增加；身份、定位、次序和历史快照不变。种子只补缺失定义与尚未配置的内置模板 match，保留自定义字段、停用状态、已有 match/blocks 和优先级。HTTP 启动只读检查来源列，缺迁移拒绝启动。down 拒绝删除来源证据；旧程序会覆盖来源，不能作为允许写入的回退版本。真实库回归见 `media_upgrade_test.go`（018→019、重复 up/seed、保留配置/历史、升级后编辑）。
 
@@ -22,7 +22,7 @@
 
 关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。固定规则码以 `structure:` 开头，动态语义码以 `relation:` 开头；返回方向、类别、端点、位置、角色、定位、属性及本次读取的 definitions 版本，limit 默认 50、最大 100。
 
-归属与位置的权威来源是结构侧表的 `work_id`、`release_id`、`medium_id`、`parent_id` 和 `content_unit_id`；发行收录来自 `release_subjects`，轨位收录来自 `track_contents`，署名、改编、聚合等语义来自 `catalog.relations`。固定边须在所属实体或收录写入口编辑。当前 links 不提供逐边证据或历史规则版本；旧外键没有保存这些信息，未来须先在权威写入处设计来源记录与迁移。新增结构写入仍须有现有骨架无法表达的带来源样本，见[演进方案](./metadata-structure-evolution-plan.md)。媒体样本与身份判断见[媒体编目与前端复核](./media-catalog-frontend-review-2026-09.md)。
+归属与位置的权威来源是结构侧表的 `work_id`、`release_id`、`medium_id`、`parent_id` 和 `content_unit_id`；发行收录来自 `release_subjects`，轨位收录来自 `track_contents`，署名、改编、聚合等语义来自 `catalog.relations`。固定边须在所属实体或收录写入口编辑。当前 links 不提供逐边证据或历史规则版本；旧外键没有保存这些信息，未来须先在权威写入处设计来源记录与迁移。新增结构写入仍须有现有骨架无法表达的带来源样本，见[演进方案](./metadata-structure-evolution-plan.md)。媒体样本与身份判断见[媒体编目与前端复核](./media-catalog.md)。
 
 作品目录共用 ContentUnit、Expression 与聚合关系读取结果；没有可见内容时隐藏，失败时显示重试，同题名 Expression 标为“内容表达”。通用游戏不推断为独立游戏；Bangumi 来源类型映射为 `game` 预览标记，不在实体上虚构业务类型。旧误分类须有来源再更正，定义种子须按部署流程显式执行。
 

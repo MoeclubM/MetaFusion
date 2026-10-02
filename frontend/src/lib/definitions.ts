@@ -337,7 +337,7 @@ export function useDefinitions() {
  *
  * 取服务端 kinds 的多语言名，缺失时回退调用方给的兜底文案（通常是前端字典的同名键）。
  * 卡片角标、筛选器、详情页类型徽标都应走这里——不允许各处自己维护一份 kind 名称表，
- * 更不允许把"业务分类"当成类型展示（分类由货架/类型承担，不是 kind）。
+ * 更不允许把"业务分类"当成类型展示（分类由货架/标签承担，不是 kind）。
  */
 export function getKindName(
   kinds: KindMap | null | undefined,
@@ -409,24 +409,7 @@ export function templatesForEntity(
   if (explicit.length) {
     return explicit.length > 1 && (explicit[0].priority || 0) === (explicit[1].priority || 0) ? [] : [explicit[0]];
   }
-  // Only legacy templates without selectors participate in legacy scoring.
-  const legacy = candidates.filter((template) => template.match === undefined);
-  const counts = new Map<string, number>();
-  for (const template of legacy) {
-    const fields = new Set(template.sections?.flatMap((section) => section.fields || []) || []);
-    for (const code of Array.from(fields)) if (defs.fields?.[code]?.applicable_kinds?.includes(kind)) {
-      counts.set(code, (counts.get(code) || 0) + 1);
-    }
-  }
-  const ranked = legacy.map((template) => ({
-    template,
-    score: Array.from(new Set(template.sections?.flatMap((section) => section.fields || []) || []))
-      .filter((code) => present.has(code) && defs.fields?.[code]?.applicable_kinds?.includes(kind))
-      .reduce((score, code) => score + 1 / (counts.get(code) || 1), 0),
-  })).sort((a, b) => b.score - a.score);
-  // 同分意味着字段组合不足以判定布局；保留通用事实展示，不猜媒介类别。
-  if (!ranked[0]?.score || (ranked[1] && Math.abs(ranked[0].score - ranked[1].score) < 1e-9)) return [];
-  return [ranked[0].template];
+  return [];
 }
 
 export function blocksForEntity(defs: DynamicDefinitions | null | undefined, kind: string, attributes?: Record<string, unknown>): readonly string[] {

@@ -35,10 +35,9 @@
 --
 -- 跨域例外（不在本脚本的按服务授权里，见 docs/architecture/database-roles.md 第 4 节）：
 --   1) 互动服务的 community-migrate（切流窗口一次性搬运，要读 modules.* 与 catalog.favorites）；
---   2) deploy/sql/retire-legacy-schemas.sql（一次性 DROP 遗留 schema 的对象）。
---   两者都由**库 owner 身份**执行；本脚本第 3 节把四个 owner 角色授给库 owner，
---   使这两条运维路径在原身份下保持 DDL 能力（deploy.sh 用的就是库 owner 凭据）。
---   3) 共享审计表 audit.audit_log：四个服务都要写它（契约见 docs/architecture/audit-log.md）。
+--   历史搬运由**库 owner 身份**执行；本脚本第 3 节把四个 owner 角色授给库 owner，
+--   使运维迁移路径在原身份下保持 DDL 能力（deploy.sh 用的就是库 owner 凭据）。
+--   2) 共享审计表 audit.audit_log：四个服务都要写它（契约见 docs/architecture/audit-log.md）。
 --      schema 与表由第 3b 节**预建**、owner 固定为 mf_audit_owner（运行角色不能是 owner，
 --      owner 隐式持有全部权限且 REVOKE 不掉）；第 4b 节只给 USAGE/CREATE 与 SELECT/INSERT。
 --      DDL 与四份服务副本逐字一致，由 scripts/check_audit_schema.py 自动比对（CI）。
@@ -183,9 +182,7 @@ END
 $ownership$;
 
 -- ------------------------------------------------------------------------------
--- 3. 运维身份保留 DDL：库 owner（deploy.sh 的 POSTGRES_USER / mf-migrate 之外的
---    运维入口）仍是 retire-legacy-schemas.sql、备份恢复、手工迁移的凭据，
---    因此把四个 owner 角色授给它——否则接管归属后它会连 catalog.favorites 都 DROP 不掉。
+-- 3. 运维身份保留 DDL：将四个 owner 角色授予库 owner，供显式迁移与备份恢复使用。
 --    库 owner 名字从 pg_database 动态取，不写死；换库名/换 owner 都不用改这里。
 -- ------------------------------------------------------------------------------
 DO $ops$

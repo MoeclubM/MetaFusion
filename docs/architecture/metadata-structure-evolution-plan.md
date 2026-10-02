@@ -1,12 +1,12 @@
 # 元数据身份与层级关系演进方案（提案）
 
-> 状态：已实现 A/B、C 的只读登记/读取，以及普通语义关系上的表达组合、显式发行组、声明式作用域/共同无环/顺序约束、模板选择与单条收录编辑；不新增 structure_links，不改变核心归属外键。现行读取边界与尚未实现的逐边溯源见[核心实现](./catalog-core-implementation.md)，媒体样本见[媒体编目与前端复核](./media-catalog-frontend-review-2026-09.md)。本文仅维护后续演进约束。
+> 状态：已实现 A/B、C 的只读登记/读取，以及普通语义关系上的表达组合、显式发行组、声明式作用域/共同无环/顺序约束、模板选择与单条收录编辑；不新增 structure_links，不改变核心归属外键。现行读取边界与尚未实现的逐边溯源见[核心实现](./catalog-core-implementation.md)，媒体样本见[媒体编目与前端复核](./media-catalog.md)。本文仅维护后续演进约束。
 
 ## 1. 要解决的问题
 
 MetaFusion 要记录作品、内容、表达、发行及其关系，同时避免三类失真：同一事物因平台或版本不同而重复建实体；把发行收录误当成父子归属；在没有数据时展示空目录，或把取数失败说成没有内容。
 
-当前八种 kind 是有约束的身份骨架。字段的 `applicable_kinds` 声明实体适用层级，词表、普通关系、场景方案和展示模板来自 definitions；实体不再保存业务 `types`。开放标签记录描述性分类与主题，不决定结构归属或可写字段。`definitions.structure` 对现有结构只作描述，发布校验要求它与固定外键一致。实际归属由 `content_units`、`expressions`、`mediums`、`tracks` 的侧表和外键保存；`release_subjects` 与 `track_contents` 是多对多收录引用；`catalog.relations` 保存署名、创作、聚合等语义关系。现状详见[媒体编目复核](./media-catalog-frontend-review-2026-09.md)和[目录核心实现](./catalog-core-implementation.md)。
+当前八种 kind 是有约束的身份骨架。字段的 `applicable_kinds` 声明实体适用层级，词表、普通关系、场景方案和展示模板来自 definitions；实体不再保存业务 `types`。开放标签记录描述性分类与主题，不决定结构归属或可写字段。`definitions.structure` 对现有结构只作描述，发布校验要求它与固定外键一致。实际归属由 `content_units`、`expressions`、`mediums`、`tracks` 的侧表和外键保存；`release_subjects` 与 `track_contents` 是多对多收录引用；`catalog.relations` 保存署名、创作、聚合等语义关系。现状详见[媒体编目复核](./media-catalog.md)和[目录核心实现](./catalog-core-implementation.md)。
 
 本方案的目标是让**新业务层级的关系规则可声明、可校验、可查询**，保留已有结构的完整性。它不把八种身份随意改名，也不把目录变成无类型的通用知识图谱。
 

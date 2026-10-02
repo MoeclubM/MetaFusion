@@ -45,7 +45,6 @@
 
 ## 变更纪律
 
-- 存储服务自带**版本化迁移**：DDL 在 `internal/store/migrations/000001_init.up.sql`（`go:embed`），启动执行同一份**幂等**基线并记账到 `storage.schema_migrations`，迁移期取事务级 advisory lock **740204**（目录侧是 `backend/migrations` + 740202）。
-- 存储侧与目录侧的接口只有一条：实体可见性查询（`GET /api/catalog/entities/{id}`，实体已合并时再取
-  `/api/catalog/entities/{id}/resolve` 跟随重定向）。任何"直接读对方表"的做法都应被拒绝。
-- 身份解析不走目录服务：会话 JWT 在存储服务本地验签，PAT 通过账号服务（`AUTH_URL`）内省；JWKS 由账号服务提供。
+- 存储结构由 `internal/store/migrations/*.sql` 的版本化迁移负责，记账到 `storage.schema_migrations`，迁移期取事务级 advisory lock **740204**。目录迁移在 `backend/migrations`，使用锁 **88481001**；目录结构写入锁 **740202** 是不同职责。
+- 存储统一调用 `GET /api/catalog/entities/{id}/identity`，获取当前可见实体的 canonical、kind 与完整别名。`404 not_found` 是不可见，缺接口与上游故障不能折为空列表；不再回退旧实体/resolve 组合，也不直接读目录库。
+- 用户会话 JWT 在存储服务本地验签，PAT 通过账号服务（`AUTH_URL`）内省；JWKS 由账号服务提供。目录身份与账号身份分别由对应服务解析。

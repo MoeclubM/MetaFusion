@@ -179,15 +179,6 @@ export type Relation = {
   position: number;
   attributes: Record<string, any>;
 };
-// 会话用户类型只有一份：lib/api/client.ts 的 User（原始响应 → User 的唯一映射是
-// lib/api/auth.ts 的 normalizeSessionUser）。这里 re-export 只为兼容既有调用点，
-// 不再另立一份同名字段更少的类型——两份类型会让"登录路径少带 groups/permissions"
-// 这类缺口在类型层面看不出来。
-export type { User } from "@/lib/api/client";
-// 社区短评（modules.posts）：按实体聚合，不是独立主题模型。
-// 它就是 /community/entities/:id/posts 的响应形状，类型只在 lib/api/community.ts 声明一处，
-// 这里 re-export 以保住既有调用点（同一份契约不要在前端留两份类型）。
-export type { EntityComment as CommunityPost } from "@/lib/api/community";
 // 能力清单是部署态声明，只有两态：id 是前端契约键，enabled 表示该子系统是否在场。
 // 没有 healthy/version/dependencies——目录不探测上游，健康由网关/运维面各自读 /health。
 export type Capability = {

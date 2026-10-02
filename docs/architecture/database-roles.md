@@ -2,7 +2,7 @@
 
 本文是**数据层隔离**的口径与落地说明：四个服务（目录 / 账号 / 互动 / 存储）共用同一个 PostgreSQL
 实例与同一个库，但**不再共用同一个库用户**。剩余迁移职责分离见
-[服务解耦路线](./decoupling-audit-2026-09.md) §4.3。
+[服务解耦路线](./service-decoupling-roadmap.md) §4.3。
 
 授权脚本（幂等，唯一授权来源）：
 
@@ -69,7 +69,6 @@
 | --- | --- | --- | --- |
 | 共享审计表 `audit.audit_log` | 四个运行角色：`USAGE, CREATE ON SCHEMA audit` + `SELECT, INSERT ON audit.audit_log` | 审计事件按"谁做的"分散在各服务，表却必须集中。刻意**不授** UPDATE/DELETE/TRUNCATE：审计只可追加，清理走运维身份 | 脚本第 4b 节（表存在才授表权限）；**归属**必须一次钉死为 `mf_audit_owner`，见下面 4.1 |
 | `community-migrate`（互动的一次性搬运工具） | 读 `modules.*` 与 `catalog.favorites`，写 `community.*` | 切流窗口把单体时代的数据搬进 `community.*` 的**唯一**用途；常驻服务不需要这些权限 | 用它自己的管理身份 `COMMUNITY_MIGRATE_DATABASE_URL`（compose 已留键）；不并入任何运行角色 |
-| `deploy/sql/retire-legacy-schemas.sql` | `DROP` 各域遗留对象 | 一次性退役脚本，由运维执行 | 库 owner 身份（脚本第 3 节把四个 owner 角色授给库 owner，否则接管归属后它连 catalog.favorites 都删不掉） |
 | 目录迁移账本 `public.schema_migrations` | 表在 `public` | `backend/internal/migrator` 用的是**不带 schema** 的 `schema_migrations`（按 search_path 落 public） | 迁移工具只读 `DB_*`、不读 `DATABASE_URL`，因此它天然以库 owner 身份运行——账本留在运维身份下，这里不给服务角色任何 public 权限 |
 
 > 最后一条是本轮实测发现的边界：把 `mf-migrate` 直接指向运行角色（`DB_USER=mf_catalog`）会得到

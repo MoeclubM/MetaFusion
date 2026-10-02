@@ -61,7 +61,7 @@
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **数据库最小权限角色**：主仓 Compose 支持四个服务使用不同连接身份（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`）；只有目标实例已按 [数据层角色与最小权限](docs/architecture/database-roles.md) 执行授权脚本并验证，才能断言越权跨 schema 会被拒绝。授权与校验脚本为 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；各部署的实际启用状态需核实配置与目标库，不能从 compose 变量存在推断已启用。
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 数据库迁移工具，使用 PostgreSQL Advisory Lock 协调迁移进程的执行；多副本部署仍需使用同一数据库/锁键并遵循部署手册的迁移顺序。
-- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。`down` 的数据影响由对应迁移 SQL 决定；当前基线 `backend/migrations/000001_catalog_core.down.sql` 会执行 `DROP SCHEMA catalog CASCADE`，属于破坏性目录库重置，不是无损数据回滚。执行任何迁移前须核对目标、脚本与备份，并按切流手册确认回滚边界。
+- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。`down` 的数据影响由对应迁移 SQL 决定；当前基线 `backend/migrations/000001_catalog_core.down.sql` 会执行 `DROP SCHEMA catalog CASCADE`，属于破坏性目录库重置，不是无损数据回滚。执行任何迁移前须核对目标、脚本与备份，并按部署与恢复手册确认回滚边界。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
 
 ---
@@ -83,7 +83,7 @@
 | **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-docs` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、文档站；`../metafusion-api-gateway` 现在只留切流自检脚本，生效的路由矩阵是本仓库 `deploy/nginx.conf` |
 
 > **解耦保障**：目录不持有文件路径或社区帖子；服务只按实体 UUID 经 HTTP 交互。边界与迁移顺序见
-> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，切流与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
+> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，切流与回滚见 [部署与恢复手册](docs/architecture/deployment-runbook.md)。
 
 ### 2. 请求拓扑
 
@@ -187,22 +187,13 @@ bash deploy/deploy.sh pull
 bash deploy/deploy.sh migrate status
 
 # 结构升级。回滚前必须检查该迁移对应的 down SQL 与备份；尤其当前 000001_catalog_core.down.sql 会 DROP SCHEMA catalog CASCADE，
-# 回滚到该基线会删除目录 schema 数据，不是无损回到上一版。常规发布回退按切流手册处理。
+# 回滚到该基线会删除目录 schema 数据，不是无损回到上一版。常规发布回退按部署与恢复手册处理。
 bash deploy/deploy.sh migrate up
 # 仅在核实该版本 down SQL 及目标数据风险、并获准后执行：
 # bash deploy/deploy.sh migrate down
 ```
 
-#### 选项 E：首次从单体切到拆分后的服务 (只走一次)
-```bash
-# 构建全部镜像 → 起基础设施与各子系统 → 目录库迁移 → 搬运旧表数据 → 最后拉起网关
-bash deploy/deploy.sh cutover
-
-# 切流验证通过后，清掉拆分前的遗留 schema 与临时表（不可逆，先自动核对搬运行数）
-bash deploy/deploy.sh retire
-```
-
-两者都在部署机（开发服务器）上执行，不在本机跑；步骤、判据与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
+旧单体尚未完成拆分的实例，应使用对应历史发布的搬运工具完成升级；现行部署不再提供一次性 `cutover/retire` 入口。备份、验收与回退见[部署与恢复手册](docs/architecture/deployment-runbook.md)。
 
 ### 4. 访问服务与初始开箱 (OOBE)
 
