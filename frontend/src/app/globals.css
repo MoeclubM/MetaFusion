@@ -470,6 +470,38 @@ img, video { max-width: 100%; }
   letter-spacing: -0.02em;
   color: var(--foreground, currentColor);
 }
+.cv-editor-panel { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+.cv-entity-editor { scroll-margin-top: var(--cv-editor-top, var(--mf-header-h)); }
+.cv-editor-panel[hidden] { display: none; }
+.cv-editor-navigation {
+  position: sticky;
+  top: var(--cv-editor-top, var(--mf-header-h));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.7rem;
+  border: 1px solid var(--surface-border-color);
+  border-radius: 0.65rem;
+  background: rgb(var(--surface-rgb) / 0.97);
+  backdrop-filter: blur(8px);
+}
+.cv-editor-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.cv-form .cv-editor-tabs button { flex: 0 1 auto; min-width: 0; font-size: 0.75rem; }
+.cv-form .cv-editor-tabs button[aria-selected="true"] {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
+.cv-editor-context { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; }
+.cv-editor-context p { display: flex; flex-direction: column; min-width: 0; font-size: 0.8rem; }
+.cv-editor-context p > span { font-size: 0.7rem; color: var(--text-muted-color); }
+.cv-editor-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-editor-context button { flex-shrink: 0; }
+.cv-editor-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.5rem 0; }
+.cv-editor-field-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 0.45rem 0.8rem; margin-top: 0.6rem; }
+.cv-form .cv-editor-field-options label { flex-direction: row; align-items: flex-start; gap: 0.45rem; }
+.cv-editor-field-options input { flex-shrink: 0; margin-top: 0.15rem; }
 .cv-form button.cv-primary {
   padding: 0.34rem 0.95rem;
   border-radius: 0.5rem;

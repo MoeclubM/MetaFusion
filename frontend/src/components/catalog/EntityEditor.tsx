@@ -36,6 +36,13 @@ import { canonicalLanguageCode, languageLabel } from "@/lib/languages";
 /** 标签分隔符：中英文逗号/顿号/换行都算新增，避免只能靠回车。 */
 const TAG_SEPARATORS = /[,，、\n]/;
 
+function EditorPanel({ name, active, editorId, children }: {
+  name: string; active: string; editorId: string; children: React.ReactNode;
+}) {
+  return <section role="tabpanel" id={`${editorId}-${name}-panel`} aria-labelledby={`${editorId}-${name}-tab`}
+    hidden={active !== name} className="cv-editor-panel">{children}</section>;
+}
+
 export function EntityEditor({
   initial,
   initialKind,
@@ -123,6 +130,34 @@ export function EntityEditor({
   ]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const editorId = React.useId();
+  const [requestedSection, setRequestedSection] = useState("basic");
+  const [fieldSearch, setFieldSearch] = useState("");
+  const errorRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLFormElement>(null);
+  const baselineRef = useRef(JSON.stringify({ entity: e, note, sources, relations: pendingRelations }));
+  const initialKindAppliedRef = useRef(!!initial || kindOptions.length > 0);
+  useEffect(() => {
+    // 首次渲染时 definitions 可能尚未到达；预选只在种类清单加载后应用一次。
+    if (initialKindAppliedRef.current || kindOptions.length === 0) return;
+    initialKindAppliedRef.current = true;
+    if (!initialKind || !kindOptions.includes(initialKind) || e.kind === initialKind) return;
+    const selected = { ...e, kind: initialKind };
+    baselineRef.current = JSON.stringify({ entity: selected, note, sources, relations: pendingRelations });
+    setE(selected);
+  }, [initialKind, kindOptions, e, note, sources, pendingRelations]);
+  const dirty = baselineRef.current !== JSON.stringify({ entity: e, note, sources, relations: pendingRelations });
+  useEffect(() => {
+    if (!dirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [dirty]);
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.focus();
+    errorRef.current?.scrollIntoView({ block: "center" });
+  }, [error]);
   // 新增语种走可搜索的语言选择器，组件里不再留"待确认的语言代码"输入态。
   const [externalKey, setExternalKey] = useState("");
   // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
@@ -160,6 +195,8 @@ export function EntityEditor({
     setSelectedTemplate("");
     setPendingRelations([]);
     setRequestedKind("");
+    setRequestedSection("basic");
+    setFieldSearch("");
   };
   const d = definitions;
   const applicableFields = Object.entries(d.fields).filter(([, field]) =>
@@ -184,7 +221,7 @@ export function EntityEditor({
     const preset = Object.fromEntries((template.match || []).filter((condition) =>
       condition.operator === "equals" && d.fields[condition.field]?.applicable_kinds?.includes(kindKey)
     ).map((condition) => [condition.field,condition.value]));
-    setE((current) => ({...current,attributes:{...current.attributes,...preset}}));
+    setE((current) => ({...current,attributes:{...preset,...current.attributes}}));
     setSelectedFields((current) => Array.from(new Set([
       ...current,
       ...Object.keys(preset),
@@ -435,7 +472,13 @@ export function EntityEditor({
           !s.citation.trim() ||
           (s.kind === "url" && !/^https?:\/\/[^\s]+\.[^\s]+/i.test(s.url || "")),
       );
-    if (missingEvidence || !e.title.trim()) {
+    if (!e.title.trim()) {
+      setRequestedSection("basic");
+      setError(t("editor.titleRequired"));
+      return;
+    }
+    if (missingEvidence) {
+      setRequestedSection("evidence");
       setError(t("catalog.evidenceRequired"));
       return;
     }
@@ -486,6 +529,7 @@ export function EntityEditor({
         setE(out);
         setPendingRelations(failed);
         if (failures.length > 0) {
+          setRequestedSection("relations");
           setError(
             flushed > 0
               ? t("editor.relation.flushPartial", {
@@ -507,15 +551,56 @@ export function EntityEditor({
       setBusy(false);
     }
   };
+  const hasStructure = !!((defs?.structure?.[e.kind]?.fields || []).length || defs?.structure?.[e.kind]?.subjects || defs?.structure?.[e.kind]?.contents);
+  const editorSections = [
+    { id: "basic", label: t("editor.section.basic") },
+    ...(hasStructure ? [{ id: "structure", label: t("editor.section.structure") }] : []),
+    ...(applicableFields.length || Object.keys(e.attributes).length ? [{ id: "attributes", label: t("catalog.attributes") }] : []),
+    { id: "media", label: t("editor.section.media") },
+    { id: "relations", label: t("editor.section.relations") },
+    { id: "evidence", label: t("editor.section.evidence") },
+  ];
+  const activeSection = editorSections.some((section) => section.id === requestedSection) ? requestedSection : "basic";
+  const sectionIndex = editorSections.findIndex((section) => section.id === activeSection);
+  const changeSection = (id: string) => {
+    setRequestedSection(id);
+    editorRef.current?.scrollIntoView({ block: "start" });
+  };
+  const searchableFields = applicableFields.filter(([code, field]) => code !== "tags" &&
+    `${code} ${local(field.names, locale, "", code)}`.toLocaleLowerCase().includes(fieldSearch.trim().toLocaleLowerCase()));
   return (
-    <form onSubmit={save} noValidate className="cv-form">
+    <form ref={editorRef} onSubmit={save} noValidate className="cv-form cv-entity-editor"
+      style={{ "--cv-editor-top": initial ? "calc(var(--mf-header-h) + 3rem)" : "var(--mf-header-h)" } as React.CSSProperties}>
       <div className="cv-heading">
         <h1>{t(initial ? "catalog.edit" : "catalog.create")}</h1>
-        <button className="cv-primary" disabled={busy}>
-          {t(busy ? "catalog.saving" : "catalog.save")}
-        </button>
+        <span className="cv-hint" aria-live="polite">{t(dirty ? "editor.unsaved" : "editor.draftUnchanged")}</span>
       </div>
-      <ErrorMessage error={error} />
+      <div ref={errorRef} tabIndex={-1} hidden={!error}><ErrorMessage error={error} /></div>
+      <div className="cv-editor-navigation">
+        <div role="tablist" aria-label={t("editor.sections")} className="cv-editor-tabs">
+          {editorSections.map((section, index) => <button type="button" role="tab" key={section.id}
+            id={`${editorId}-${section.id}-tab`} aria-controls={`${editorId}-${section.id}-panel`}
+            aria-selected={activeSection === section.id} tabIndex={activeSection === section.id ? 0 : -1}
+            disabled={busy} onClick={() => changeSection(section.id)} onKeyDown={(event) => {
+              let next = index;
+              if (event.key === "ArrowRight") next = (index + 1) % editorSections.length;
+              else if (event.key === "ArrowLeft") next = (index - 1 + editorSections.length) % editorSections.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = editorSections.length - 1;
+              else return;
+              event.preventDefault(); changeSection(editorSections[next].id);
+              document.getElementById(`${editorId}-${editorSections[next].id}-tab`)?.focus();
+            }}>{section.label}</button>)}
+        </div>
+        <div className="cv-editor-context">
+          <p><span>{kindLabel(e.kind)}</span><strong>{e.title.trim() || t("editor.untitled")}</strong></p>
+          <button type="submit" className="cv-primary" disabled={busy || uploadingIndex !== null}>
+            {t(busy ? "catalog.saving" : "catalog.save")}
+          </button>
+        </div>
+        {uploadingIndex !== null && <p className="cv-hint" role="status">{t("editor.pictureUploading", { progress: uploadProgress })}</p>}
+      </div>
+      <EditorPanel name="basic" active={activeSection} editorId={editorId}>
       <fieldset>
         <legend>{t("catalog.identity")}</legend>
         <div className="cv-grid">
@@ -543,10 +628,8 @@ export function EntityEditor({
           </label>
           <label>
             {t("catalog.originalLanguage")}
-            <input
-              value={e.original_language}
-              onChange={(x) => patch({ original_language: x.target.value })}
-            />
+            <LanguagePicker variant="field" label={languageLabel(e.original_language) || t("catalog.originalLanguage")}
+              ariaLabel={t("catalog.originalLanguage")} onSelect={(code) => patch({ original_language: code })}/>
           </label>
           <label>
             {t("catalog.status")}
@@ -609,40 +692,6 @@ export function EntityEditor({
           )}
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
-        {/* 字段与布局均来自 definitions，不向实体写入分类或模板。 */}
-        <details className="cv-tags">
-          <summary className="mf-focus">
-            <strong>{tr("catalog.availableFields", "可用字段")}</strong>
-          </summary>
-          {templatePickOptions.length > 0 && (
-            <label style={{ display: "block", width: "100%" }}>
-              {tr("editor.templatePick", "字段布局模板")}
-              <Combobox
-                value={selectedTemplate}
-                onChange={applyTemplate}
-                options={templatePickOptions}
-                placeholder={tr("editor.templatePickPlaceholder", "选择布局模板…")}
-                searchPlaceholder={tr("editor.templateSearch", "搜索模板…")}
-                aria-label={tr("editor.templatePick", "字段布局模板")}
-              />
-            </label>
-          )}
-          <div className="cv-checks">
-            {applicableFields.filter(([code]) => code !== "tags").map(([code, field]) => (
-              <label key={code}>
-                <input
-                  type="checkbox"
-                  checked={fields.includes(code)}
-                  disabled={field.required || Object.prototype.hasOwnProperty.call(e.attributes, code)}
-                  onChange={(event) => setSelectedFields((current) => event.target.checked
-                    ? [...current, code]
-                    : current.filter((item) => item !== code))}
-                />
-                {local(field.names, locale, "", code)}
-              </label>
-            ))}
-          </div>
-        </details>
       </fieldset>
       <fieldset>
         <legend>{t("catalog.translations")}</legend>
@@ -733,8 +782,10 @@ export function EntityEditor({
         )}
         <p className="text-xs opacity-60">{t("catalog.translationHint")}</p>
       </fieldset>
+      </EditorPanel>
       {/* 结构区仅在当前层级有字段或收录入口时显示。 */}
-      {(((defs?.structure?.[e.kind]?.fields) || []).length > 0 || defs?.structure?.[e.kind]?.subjects || defs?.structure?.[e.kind]?.contents) && (
+      {hasStructure && (
+      <EditorPanel name="structure" active={activeSection} editorId={editorId}>
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
@@ -955,8 +1006,12 @@ export function EntityEditor({
           </>
         )}
       </fieldset>
+      </EditorPanel>
       )}
       {/* 关系维护：独立资源逐条提交，不复用实体 PUT；词表来自服务端 definitions。 */}
+      <EditorPanel name="relations" active={activeSection} editorId={editorId}>
+      <p className="cv-hint">{t(e.id ? "editor.relationsImmediate" : "editor.relationsQueued")}</p>
+      <button type="button" onClick={() => changeSection("evidence")}>{t("editor.completeEvidence")}</button>
       <RelationEditorField
         entityId={e.id}
         entityKind={e.kind}
@@ -965,6 +1020,32 @@ export function EntityEditor({
         drafts={pendingRelations}
         onDraftsChange={setPendingRelations}
       />
+      </EditorPanel>
+      {editorSections.some((section) => section.id === "attributes") && <EditorPanel name="attributes" active={activeSection} editorId={editorId}>
+      <fieldset>
+        <legend>{t("editor.fieldsAndLayout")}</legend>
+        <p className="cv-hint">{t("editor.fieldsHint")}</p>
+        {templatePickOptions.length > 0 && <label>
+          {tr("editor.templatePick", "字段布局模板")}
+          <Combobox value={selectedTemplate} onChange={applyTemplate} options={templatePickOptions}
+            placeholder={tr("editor.templatePickPlaceholder", "选择布局模板…")}
+            searchPlaceholder={tr("editor.templateSearch", "搜索模板…")}
+            aria-label={tr("editor.templatePick", "字段布局模板")}/>
+        </label>}
+        <details className="cv-tags">
+          <summary className="mf-focus"><strong>{t("catalog.availableFields")}</strong></summary>
+          <label>{t("editor.searchFields")}<input type="search" value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)}/></label>
+          <div className="cv-editor-field-options">
+            {searchableFields.map(([code, field]) => <label key={code}>
+              <input type="checkbox" checked={fields.includes(code)}
+                disabled={field.required || Object.prototype.hasOwnProperty.call(e.attributes, code)}
+                onChange={(event) => setSelectedFields((current) => event.target.checked ? [...current, code] : current.filter((item) => item !== code))}/>
+              {local(field.names, locale, "", code)}{field.required && " *"}
+            </label>)}
+          </div>
+          {!searchableFields.length && <p className="cv-hint">{t("editor.noMatchingFields")}</p>}
+        </details>
+      </fieldset>
       {(sections.length > 0 || restFields.length > 0 || foldedFields.length > 0) && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
@@ -1071,6 +1152,8 @@ export function EntityEditor({
           )}
         </fieldset>
       )}
+      </EditorPanel>}
+      <EditorPanel name="media" active={activeSection} editorId={editorId}>
       <fieldset>
         <legend>{t("catalog.externalIds")}</legend>
         {Object.entries(e.external_ids).map(([k, v]) => (
@@ -1347,15 +1430,22 @@ export function EntityEditor({
           onChange={onPickPictureFile}
         />
       </fieldset>
+      </EditorPanel>
+      <EditorPanel name="evidence" active={activeSection} editorId={editorId}>
+      <p className="cv-hint">{t("editor.evidenceHint")}</p>
       <Evidence
         note={note}
         setNote={setNote}
         sources={sources}
         setSources={setSources}
       />
-      <button className="cv-primary" disabled={busy}>
-        {t("catalog.save")}
-      </button>
+      </EditorPanel>
+      <div className="cv-editor-footer">
+        {sectionIndex > 0 && <button type="button" disabled={busy} onClick={() => changeSection(editorSections[sectionIndex - 1].id)}>{t("editor.previousSection")}</button>}
+        {sectionIndex < editorSections.length - 1
+          ? <button type="button" className="cv-primary" disabled={busy} onClick={() => changeSection(editorSections[sectionIndex + 1].id)}>{t("editor.nextSection")}</button>
+          : <button type="submit" className="cv-primary" disabled={busy || uploadingIndex !== null}>{t(busy ? "catalog.saving" : "catalog.save")}</button>}
+      </div>
       <ConfirmDialog
         open={!!requestedKind}
         title={t("catalog.changeKind.title")}
