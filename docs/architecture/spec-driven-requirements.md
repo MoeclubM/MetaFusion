@@ -20,6 +20,7 @@
      - `usage=expression_composition` 表示整体 Expression 包含同 Work 内的部分 Expression，全部同用途关系共用顺序及去重约束，并纳入共同无环组。`usage=release_group` 表示 Release 明确属于一个 Work/Collection 版本组；共同 subjects 只表示相关收录，不能据此推断版本。
      - 模板的 `match` 是有限条件的 AND，`priority` 决定匹配优先级，同最高优先级冲突回退通用事实布局；`blocks` 控制受支持区块的显示与顺序。可选 `creation_form` 属性用于描述和选模板，可在 GUI 扩展，字段可写性仍只由 `applicable_kinds` 决定。
      - 八种实体共用分区编辑器：基本信息、按结构声明出现的归属与收录、附加信息、图片与标识、关系、说明与来源。切换分区保留同一份草稿，字段布局模板与搜索入口位于附加信息；保存前定位缺失标题或证据，图片上传期间禁用保存。已有条目的关系逐条独立保存，新条目的关系在创建成功后提交，界面明确标注此边界。
+     - 对比页有显式 `ids` 时以 URL 清单为准，否则直接使用共享篮子状态；恢复缓存不得在空清单与已选清单之间相互回写。单个已选条目也回读题名和封面，加载或不可用时显示本地化提示，不以 UUID 作为题名。
      - 支持全量实体的内容元数据编辑与状态流转（`draft` / `pending_review` / `published` / `deleted` / `merged` 五档）、实体合并（Merge）与修订历史（Revisions）审计。
        状态口径：发布 = PUT 实体写 `status: "published"`；`/api/catalog/entities/:id/lifecycle` 只做合并与停用（请求体无 `action` 字段）。
    - **无多余 Slogan**：全站禁止添加各类夸张、冗余的营销 Slogan，保持国家图书馆级别的严谨、纯净与高效。

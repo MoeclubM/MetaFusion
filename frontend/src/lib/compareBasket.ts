@@ -16,7 +16,7 @@ export function readCompareBasket(): string[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+    return normalizeBasket(parsed.filter((x): x is string => typeof x === "string"));
   } catch {
     // 存储不可用（隐私模式）或 JSON 损坏：按空篮子继续，坏数据留在原处不覆盖也不清空。
     return [];
@@ -33,7 +33,10 @@ export function writeCompareBasket(ids: readonly string[]): string[] {
   const next = normalizeBasket(ids);
   if (typeof window === "undefined") return next;
   try {
-    window.localStorage.setItem(COMPARE_BASKET_KEY, JSON.stringify(next));
+    const serialized = JSON.stringify(next);
+    if (window.localStorage.getItem(COMPARE_BASKET_KEY) !== serialized) {
+      window.localStorage.setItem(COMPARE_BASKET_KEY, serialized);
+    }
   } catch {
     /* 存储不可用 */
   }
@@ -68,7 +71,7 @@ export function toggleBasket(current: readonly string[], id: string): string[] {
 
 /** 篮子 URL（/compare?ids=…），空篮子回 /compare。 */
 export function compareHref(ids: readonly string[]): string {
-  const cleaned = ids.map((x) => x.trim()).filter(Boolean);
+  const cleaned = normalizeBasket(ids);
   if (cleaned.length === 0) return "/compare";
   return `/compare?ids=${encodeURIComponent(cleaned.join(","))}`;
 }

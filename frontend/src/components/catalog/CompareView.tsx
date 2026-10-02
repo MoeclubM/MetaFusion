@@ -13,7 +13,8 @@ import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
 import {
   COMPARE_MAX_SLOTS,
   COMPARE_MIN_SLOTS,
-  readCompareBasket,
+  compareHref,
+  normalizeBasket,
   useCompareBasket,
 } from "@/lib/compareBasket";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -45,24 +46,19 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
   const { definitions: dynamicDefs, kinds } = useDefinitions();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const initialList = useMemo(() => {
-    const fromUrl = (ids || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (fromUrl.length > 0) return Array.from(new Set(fromUrl)).slice(0, COMPARE_MAX_SLOTS);
-    return readCompareBasket().slice(0, COMPARE_MAX_SLOTS);
-  }, [ids]);
-
-  // 跨标签页同步在 hook 里完成：另一页加入/移除后本页不刷新即一致。
+  const urlSelection = useMemo(() => normalizeBasket((ids || "").split(",")), [ids]);
+  // URL 显式清单优先；无清单时直接使用篮子，避免两份状态读后互相回写。
   const { basket: storedBasket, setBasket: writeBasket } = useCompareBasket();
-  const [selectedIds, setSelectedIds] = useState<string[]>(initialList);
+  const selectedIds = ids ? urlSelection : storedBasket;
   const [loadedItems, setItems] = useState<any[]>([]);
   const [itemsKey, setItemsKey] = useState("");
   const queryKey = selectedIds.join(",");
   const requestKey = JSON.stringify([viewerId, queryKey]);
   // 身份或选择变化的同次渲染即隐藏旧资料，不等待 effect 清空私有名称。
   const items = itemsKey === requestKey ? loadedItems : [];
+  const [loadedSingleEntity, setSingleEntity] = useState<Entity | null>(null);
+  const [singleEntityKey, setSingleEntityKey] = useState("");
+  const singleEntity = singleEntityKey === requestKey ? loadedSingleEntity : null;
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadedRecentEntities, setRecentEntities] = useState<Entity[]>([]);
@@ -84,31 +80,32 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
   const slotIndices = useMemo(() => Array.from({ length: maxSlots }, (_, i) => i), [maxSlots]);
 
   useEffect(() => {
-    setSelectedIds(initialList);
-  }, [initialList.join(",")]);
+    if (ids) writeBasket(urlSelection);
+  }, [ids, urlSelection, writeBasket]);
 
+  // 单个已选条目也回读标题与封面，不等到凑齐两个才加载，且不显示 UUID 作为题名。
   useEffect(() => {
-    // 读后写：存储里已是同一组就不碰（碰了也会经 hook 产生新引用，
-    // 跨标签页追逐时就是多余的渲染与请求抖动）。
-    if (readCompareBasket().join(",") !== selectedIds.join(",")) writeBasket(selectedIds);
-  }, [selectedIds, writeBasket]);
-
-  // 另一标签页改了篮子时跟随；URL 显式带了 ids 时保持用户给定的清单，不被篮子覆盖。
-  useEffect(() => {
-    if (ids) return;
-    const synced = storedBasket.slice(0, COMPARE_MAX_SLOTS);
-    if (selectedIds.length !== synced.length || selectedIds.some((x, i) => x !== synced[i])) {
-      setSelectedIds(synced);
-    }
-  }, [storedBasket, ids, selectedIds]);
+    if (selectedIds.length !== 1) return;
+    let active = true;
+    api<Entity>(`/catalog/entities/${encodeURIComponent(selectedIds[0])}/resolve`)
+      .then((entity) => {
+        if (!active) return;
+        setSingleEntity(entity);
+        setSingleEntityKey(requestKey);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSingleEntity(null);
+        setSingleEntityKey(requestKey);
+      });
+    return () => { active = false; };
+  }, [requestKey, selectedIds]);
 
   const updateSelected = (next: string[]) => {
-    setSelectedIds(next);
+    const cleaned = normalizeBasket(next);
+    writeBasket(cleaned);
     if (typeof window !== "undefined") {
-      const url = next.length
-        ? `/compare?ids=${encodeURIComponent(next.join(","))}`
-        : "/compare";
-      window.history.replaceState(null, "", url);
+      window.history.replaceState(null, "", compareHref(cleaned));
     }
   };
 
@@ -285,9 +282,9 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
 
   // 槽位/卡片摘要：标题+封面通用，副标题按层级取（发行：品番/格式；载体：格式；其余：层级名）。
   const getEntitySummary = (id: string) => {
-    const matched = items.find((x) => x.entity?.id === id) || recentEntities.find((x) => x.id === id);
+    const matched = items.find((x) => x.entity?.id === id) || (selectedIds[0] === id ? singleEntity : null) || recentEntities.find((x) => x.id === id);
     const obj = matched?.entity || matched;
-    const summaryTitle = obj ? title(obj, locale) : `${id.slice(0, 8)}...`;
+    const summaryTitle = obj ? title(obj, locale) : t(loading || (selectedIds.length === 1 && singleEntityKey !== requestKey) ? "catalog.entityReference" : "catalog.referenceUnknown");
     const coverUrl = obj ? firstCoverUrl(obj) : "";
     const kind = obj?.kind || "";
     const catalogNo = obj?.attributes?.catalog_number || "";
@@ -462,7 +459,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                           {String(info.catalogNo)}
                         </span>
                       ) : null}
-                      <span className="truncate text-muted-foreground/80">{info.subtitle || id.slice(0, 8)}</span>
+                      <span className="truncate text-muted-foreground/80">{info.subtitle}</span>
                     </div>
                   </div>
                 </div>
