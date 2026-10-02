@@ -10,6 +10,7 @@ interface AdaptiveCardCoverProps {
   fallbackIcon?: React.ReactNode;
   fallbackTitle?: string;
   fallbackSubtitle?: string;
+  fallbackContent?: React.ReactNode;
   /** 统一容器比例对应的类名；调用方已定好外框时传 "w-full h-full" */
   aspectClassName?: string;
   className?: string;
@@ -32,6 +33,7 @@ export function AdaptiveCardCover({
   fallbackIcon,
   fallbackTitle,
   fallbackSubtitle,
+  fallbackContent,
   aspectClassName = "aspect-square",
   className = "",
   imgClassName = "",
@@ -41,6 +43,7 @@ export function AdaptiveCardCover({
 
   useEffect(() => {
     setLoaded(false);
+    setHasError(false);
   }, [src]);
 
   const hasValidImage = !!src && !hasError;
@@ -69,7 +72,7 @@ export function AdaptiveCardCover({
         </>
       ) : (
         /* 兜底占位层：无图或取图失败时不画破图图标 */
-        <div className="w-full h-full relative overflow-hidden bg-linear-to-br from-primary/10 via-black/[0.02] to-primary/5 dark:from-primary/20 dark:via-surface dark:to-black/40 flex flex-col items-center justify-center p-3 text-center">
+        fallbackContent ?? <div className="w-full h-full relative overflow-hidden bg-linear-to-br from-primary/10 via-black/[0.02] to-primary/5 dark:from-primary/20 dark:via-surface dark:to-black/40 flex flex-col items-center justify-center p-3 text-center">
           {fallbackIcon && (
             <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-1.5 shadow-2xs group-hover:scale-110 transition-transform duration-base ease-soft">
               {fallbackIcon}

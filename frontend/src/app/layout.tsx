@@ -58,6 +58,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
+      data-scroll-behavior="smooth"
       className={`dark ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}
       data-theme-mode="dark"
       data-theme-accent={DEFAULT_ACCENT}
