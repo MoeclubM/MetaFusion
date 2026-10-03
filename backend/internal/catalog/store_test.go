@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/testutil"
 	"sync"
 	"testing"
@@ -339,26 +338,17 @@ func TestPostgresCatalog(t *testing.T) {
 			t.Fatal("invalid definition published")
 		}
 	})
-	t.Run("atomic outbox and retry", func(t *testing.T) {
-		consumer := "test_" + uuid.NewString()
-		first := ""
-		err := s.Deliver(ctx, consumer, func(_ context.Context, e Event) error { first = e.ID; return fmt.Errorf("offline") })
-		if err == nil || first == "" {
-			t.Fatal("missing callback")
+	t.Run("revision and outbox consistency", func(t *testing.T) {
+		var revisions, matchingEvents int
+		err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE EXISTS (
+			SELECT 1 FROM catalog.outbox o WHERE o.entity_id=r.target_id
+			AND o.version=r.version AND o.payload=r.snapshot
+		)) FROM catalog.revisions r WHERE r.target_id=$1`, song.ID).Scan(&revisions, &matchingEvents)
+		if err != nil {
+			t.Fatal(err)
 		}
-		found := false
-		if err = s.Deliver(ctx, consumer, func(_ context.Context, e Event) error {
-			if e.ID == first {
-				found = true
-			}
-			return nil
-		}); err != nil || !found {
-			t.Fatal("event lost after failure")
-		}
-		count := 0
-		s.Deliver(ctx, consumer, func(context.Context, Event) error { count++; return nil })
-		if count != 0 {
-			t.Fatal("acknowledged event redelivered")
+		if revisions == 0 || matchingEvents != revisions {
+			t.Fatalf("revision/outbox mismatch: revisions=%d matching_events=%d", revisions, matchingEvents)
 		}
 	})
 	if _, err = s.List(ctx, ListOptions{Query: "原创"}, nil); err != nil {
