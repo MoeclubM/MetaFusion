@@ -24,9 +24,9 @@
 # 注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
 # 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
-.=bfaf8b2
-../metafusion-auth=a3be13f
-../metafusion-community=fde4f4d
-../metafusion-storage=ef1f735
+.=50fbc80
+../metafusion-auth=c042835
+../metafusion-community=c2c18d5
+../metafusion-storage=7176acf
 ../metafusion-api-gateway=851b742
-../metafusion-docs=c4541bc
+../metafusion-docs=6ebaba6
