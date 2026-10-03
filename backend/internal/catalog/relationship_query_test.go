@@ -117,6 +117,15 @@ func relationshipQueryFixtureDefinitions(d Definitions) Definitions {
 	return d
 }
 
+func relationshipQueryFixtureContents(expressionID, hiddenExpressionID, hiddenReferenceID string) []Inclusion {
+	return []Inclusion{
+		{ExpressionID: hiddenExpressionID, Position: 0},
+		{ExpressionID: expressionID, Position: 1, Locator: Locator{"relative_to": "track", "path": "hidden-attributes"}, Attributes: map[string]any{"query_reference": hiddenReferenceID}},
+		{ExpressionID: expressionID, Position: 2, Locator: Locator{"relative_to": "track", "query_reference": hiddenReferenceID}},
+		{ExpressionID: expressionID, Position: 3},
+	}
+}
+
 // Run schema validation even when PostgreSQL is unavailable, so the database
 // fixture exercises a GUI-compatible rule instead of failing before its query.
 func TestRelationshipQueryExtensibleDefinition(t *testing.T) {
@@ -129,8 +138,25 @@ func TestRelationshipQueryExtensibleDefinition(t *testing.T) {
 	}
 	for name, d := range map[string]Definitions{"defaults": Defaults(), "persisted": persisted} {
 		t.Run(name, func(t *testing.T) {
-			if err := relationshipQueryFixtureDefinitions(d).Validate(); err != nil {
+			d = relationshipQueryFixtureDefinitions(d)
+			if err := d.Validate(); err != nil {
 				t.Fatalf("new relationship/record-level reference configuration: %v", err)
+			}
+			expressionID, hiddenExpressionID, hiddenReferenceID, workID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+			kinds := map[string]string{expressionID: "expression", hiddenExpressionID: "expression", hiddenReferenceID: "agent", workID: "work"}
+			ref := func(id string, allowed []string) error {
+				if !contains(allowed, kinds[id]) {
+					t.Fatalf("unexpected fixture reference %s allowed=%v", id, allowed)
+				}
+				return nil
+			}
+			for _, entity := range []Entity{
+				{Kind: "release", Title: "query release", Status: "published", Translations: map[string]Translation{"en": {Title: "query release"}}, Subjects: []Subject{{WorkID: workID, Role: "primary", Attributes: map[string]any{"query_reference": hiddenReferenceID}}}},
+				{Kind: "track", Title: "query track", Status: "published", MediumID: uuid.NewString(), Translations: map[string]Translation{"en": {Title: "query track"}}, Contents: relationshipQueryFixtureContents(expressionID, hiddenExpressionID, hiddenReferenceID)},
+			} {
+				if err := d.validateEntity(entity, ref, false); err != nil {
+					t.Fatalf("complete %s fixture must satisfy writes: %v", entity.Kind, err)
+				}
 			}
 		})
 	}
@@ -168,12 +194,7 @@ func TestPostgresRelationshipQueryFiltersBeforePagination(t *testing.T) {
 	hiddenExp := f.save(Entity{Kind: "expression", WorkID: work.ID, Title: "hidden expression"})
 	release := f.save(Entity{Kind: "release", Title: "query release", Subjects: []Subject{{WorkID: work.ID, Role: "primary", Attributes: map[string]any{"query_reference": hidden.ID}}}})
 	medium := f.save(Entity{Kind: "medium", ReleaseID: release.ID, Title: "query medium"})
-	track := f.save(Entity{Kind: "track", MediumID: medium.ID, Title: "query track", Contents: []Inclusion{
-		{ExpressionID: hiddenExp.ID, Position: 0},
-		{ExpressionID: exp.ID, Position: 1, Locator: Locator{"path": "hidden-attributes"}, Attributes: map[string]any{"query_reference": hidden.ID}},
-		{ExpressionID: exp.ID, Position: 2, Locator: Locator{"query_reference": hidden.ID}},
-		{ExpressionID: exp.ID, Position: 3},
-	}})
+	track := f.save(Entity{Kind: "track", MediumID: medium.ID, Title: "query track", Contents: relationshipQueryFixtureContents(exp.ID, hiddenExp.ID, hidden.ID)})
 	hideQueryEntity(t, f, hidden.ID)
 	hideQueryEntity(t, f, hiddenExp.ID)
 	missing := uuid.NewString()
