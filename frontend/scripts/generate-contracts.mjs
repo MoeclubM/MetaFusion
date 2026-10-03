@@ -6,7 +6,7 @@
 //
 // 来源：
 //   backend/internal/catalog/permission.go              目录权限码（本仓库，必需）
-//   backend/migrations/000001_catalog_core.up.sql       实体骨架 kinds（本仓库，必需）
+//   backend/migrations/baseline.json 指向的安装基线     实体骨架 kinds（本仓库，必需）
 //   ../metafusion-auth/internal/store/access.go         账号权限码 + 全量码表（兄弟仓库，可选）
 //   ../metafusion-community/internal/auth/permission.go 互动权限码（兄弟仓库，可选）
 //   ../metafusion-storage/internal/auth/permission.go   存储权限码（兄弟仓库，可选）
@@ -74,32 +74,28 @@ function codesFromGenerated(prefix) {
   return [...found].sort();
 }
 
-/** 实体骨架：唯一来源是目录库基线的 catalog.entities.kind CHECK 约束。 */
+/** 实体骨架来自当前安装基线的命名 CHECK 约束，不从历史夹具生成。 */
+const migrationDir = path.join(ROOT, "backend/migrations");
+const baselineManifest = JSON.parse(fs.readFileSync(path.join(migrationDir, "baseline.json"), "utf8"));
+const baselinePrefix = String(baselineManifest.version).padStart(6, "0") + "_";
+const baselineFiles = fs.readdirSync(migrationDir).filter((file) => file.startsWith(baselinePrefix) && file.endsWith(".up.sql"));
+if (baselineFiles.length !== 1) throw new Error("安装基线文件必须唯一且与 baseline.json 一致");
+const baselineSource = "backend/migrations/" + baselineFiles[0];
 function kindsFromMigration() {
-  const file = path.join(ROOT, "backend/migrations/000001_catalog_core.up.sql");
-  const text = fs.readFileSync(file, "utf8");
-  const marker = "CHECK(kind IN (";
-  const at = text.indexOf(marker);
-  if (at < 0) throw new Error("未在迁移基线里找到 catalog.entities 的 kind CHECK 约束");
-  const end = text.indexOf(")", at + marker.length);
-  if (end < 0) throw new Error("kind CHECK 约束没有闭合括号");
-  const inner = text.slice(at + marker.length, end);
-  const names = [];
-  const re = /'([a-z_]+)'/g;
-  let m;
-  while ((m = re.exec(inner)) !== null) names.push(m[1]);
-  if (names.length < 2) throw new Error("kind CHECK 约束里没有解析出骨架名");
+  const text = fs.readFileSync(path.join(ROOT, baselineSource), "utf8");
+  const constraint = text.match(/CONSTRAINT\s+entities_kind_check\s+CHECK\s*\(([^\n]+)\)/);
+  if (!constraint) throw new Error("未在安装基线找到 entities_kind_check 约束");
+  const names = [...constraint[1].matchAll(/'([a-z_]+)'/g)].map((match) => match[1]);
+  if (names.length < 2 || new Set(names).size !== names.length) throw new Error("实体种类约束无法解析或有重复");
   return names;
 }
 
 const codeNames = (code) => code.toUpperCase().replace(/[.]/g, "_");
-const serviceById = (id) => SERVICES.find((s) => s.id === id);
 
-const resolve = process.argv.includes("--offline") ? process.argv.includes("--offline") : true;
 const codesByService = {};
 let authAggregate = null;
 for (const s of SERVICES) {
-  if (resolve && fs.existsSync(s.file)) {
+  if (fs.existsSync(s.file)) {
     codesByService[s.id] = codesFromGo(s.file, s.prefix);
     if (s.id === "auth") authAggregate = allCodesFromGo(s.file);
   } else {
@@ -208,7 +204,7 @@ const permissionsOut =
   ].join("\n");
 
 const kindsOut =
-  header("实体骨架八元组（目录库基线的 catalog.entities.kind 约束）。", ["backend/migrations/000001_catalog_core.up.sql"]) +
+  header("实体骨架八元组（目录库基线的 catalog.entities.kind 约束）。", [baselineSource]) +
   [
     "export const ENTITY_KINDS = [",
     ...kinds.map((k) => '  "' + k + '",'),
