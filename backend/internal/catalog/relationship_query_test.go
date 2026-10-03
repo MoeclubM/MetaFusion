@@ -98,9 +98,19 @@ func hideQueryEntity(t *testing.T, f fixture, id string) {
 }
 
 func relationshipQueryFixtureDefinitions(d Definitions) Definitions {
+	if d.Relations == nil {
+		d.Relations = map[string]RelationDefinition{}
+	}
+	if d.Fields == nil {
+		d.Fields = map[string]Field{}
+	}
 	d.Relations["query_link"] = RelationDefinition{Names: names4("查询边", "查詢邊", "照会リンク", "Query link"), ReverseNames: names4("被查询", "被查詢", "逆リンク", "Linked by"), SourceKinds: []string{"agent"}, TargetKinds: []string{"agent"}, Fields: []string{"character"}, ParticipantSlot: "peer", Enabled: true}
 	for _, code := range []string{"locator", "inclusion_attributes", "subject_attributes"} {
 		field := d.Fields[code]
+		// Empty fields are omitted during JSON persistence and decode as nil.
+		if field.Fields == nil {
+			field.Fields = map[string]Field{}
+		}
 		field.Fields["query_reference"] = Field{Names: names4("引用", "引用", "参照", "Reference"), Type: "entity", Kinds: []string{"agent"}, Enabled: true}
 		d.Fields[code] = field
 	}
@@ -110,8 +120,23 @@ func relationshipQueryFixtureDefinitions(d Definitions) Definitions {
 // Run schema validation even when PostgreSQL is unavailable, so the database
 // fixture exercises a GUI-compatible rule instead of failing before its query.
 func TestRelationshipQueryExtensibleDefinition(t *testing.T) {
-	if err := relationshipQueryFixtureDefinitions(Defaults()).Validate(); err != nil {
-		t.Fatalf("new relationship/record-level reference configuration: %v", err)
+	var persisted Definitions
+	if err := json.Unmarshal([]byte(encode(Defaults())), &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Fields["inclusion_attributes"].Fields != nil || persisted.Fields["subject_attributes"].Fields != nil {
+		t.Fatal("JSON round trip should exercise omitted empty record field maps")
+	}
+	for name, d := range map[string]Definitions{"defaults": Defaults(), "persisted": persisted} {
+		t.Run(name, func(t *testing.T) {
+			if err := relationshipQueryFixtureDefinitions(d).Validate(); err != nil {
+				t.Fatalf("new relationship/record-level reference configuration: %v", err)
+			}
+		})
+	}
+	empty := relationshipQueryFixtureDefinitions(Definitions{})
+	if empty.Relations["query_link"].ParticipantSlot != "peer" || len(empty.Fields) != 3 {
+		t.Fatal("fixture should initialize missing optional maps")
 	}
 }
 
