@@ -29,6 +29,7 @@ interface SearchSuggestProps {
   submitLabel: string;
   ariaLabel?: string;
   className?: string;
+  onNavigate?: () => void;
 }
 
 
@@ -45,6 +46,7 @@ export function SearchSuggest({
   submitLabel,
   ariaLabel,
   className = "",
+  onNavigate,
 }: SearchSuggestProps) {
   const { t, tr, locale } = useI18n();
   const { kinds } = useDefinitions();
@@ -62,7 +64,7 @@ export function SearchSuggest({
   const q = value.trim();
 
   useEffect(() => {
-    if (!q) {
+    if (!q || !focused) {
       setItems([]);
       return;
     }
@@ -87,7 +89,7 @@ export function SearchSuggest({
       alive = false;
       clearTimeout(timer);
     };
-  }, [q]);
+  }, [q, focused]);
 
   const open = focused && q.length > 0 && items.length > 0;
 
@@ -102,6 +104,7 @@ export function SearchSuggest({
     setActive(-1);
     inputRef.current?.blur();
     router.push("/catalog/" + item.id);
+    onNavigate?.();
   };
 
   const submit = () => {
@@ -183,7 +186,7 @@ export function SearchSuggest({
           id={listId}
           role="listbox"
           aria-label={t("search.suggestions")}
-          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-line bg-surface shadow-elevated overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-2 z-50 max-h-[45dvh] overflow-y-auto rounded-xl border border-line bg-surface shadow-elevated"
         >
           {items.map((item, i) => {
             const KindIcon = kindIcon(item.kind);

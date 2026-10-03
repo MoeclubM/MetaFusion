@@ -9,7 +9,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { Sun, Moon, Palette } from "lucide-react";
 import { ThemeControls } from "@/components/ThemeControls";
 
-export const ThemePicker: React.FC = () => {
+export const ThemePicker: React.FC<{ withinDialog?: boolean }> = ({ withinDialog = false }) => {
   const { resolvedMode } = useTheme();
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
@@ -56,7 +56,7 @@ export const ThemePicker: React.FC = () => {
           role="dialog"
           aria-label={t("settings.appearanceTitle")}
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-1.5 w-[19rem] max-w-[calc(100vw-2rem)] rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3"
+          className={`absolute right-0 mt-1.5 w-[19rem] ${withinDialog ? "max-w-[calc(100vw-5rem)]" : "max-w-[calc(100vw-2rem)]"} rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3`}
         >
           <div className="flex items-center justify-between border-b border-line-subtle pb-2">
             <span className="flex items-center gap-2 text-xs font-semibold text-text-strong">

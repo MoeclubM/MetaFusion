@@ -19,6 +19,7 @@ export function Modal({
  icon,
  children,
  maxWidth = "max-w-lg",
+ initialFocus,
 }: {
  open: boolean;
  onClose: () => void;
@@ -26,6 +27,8 @@ export function Modal({
  icon?: React.ReactNode;
  children: React.ReactNode;
  maxWidth?: string;
+ /** 打开后优先聚焦的面板内元素，例如搜索输入框。 */
+ initialFocus?: string;
 }) {
  const { t } = useI18n();
  const titleId = useId();
@@ -46,7 +49,8 @@ export function Modal({
   }
 
   const focusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
-  (focusable()[0] ?? panel).focus();
+  (initialFocus ? panel.querySelector<HTMLElement>(initialFocus) : null)?.focus();
+  if (!panel.contains(document.activeElement)) (focusable()[0] ?? panel).focus();
 
   function onKeyDown(e: KeyboardEvent) {
    if (modalStack[modalStack.length - 1] !== panel) return;
@@ -83,7 +87,7 @@ export function Modal({
    const restore = restoreRef.current;
    if (restore && restore.isConnected) restore.focus();
   };
- }, [open, onClose]);
+ }, [open, onClose, initialFocus]);
 
  if (!open) return null;
  return (
@@ -95,7 +99,7 @@ export function Modal({
  aria-labelledby={titleId}
  tabIndex={-1}
  onClick={(e) => e.stopPropagation()}
- className={`w-full ${maxWidth} rounded-lg border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-elevated max-h-[90vh] overflow-y-auto outline-none`}
+ className={`w-full ${maxWidth} rounded-lg border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-elevated max-h-[90dvh] overflow-y-auto outline-none`}
  >
  <div className="flex items-center justify-between border-b border-line-subtle pb-3">
  <h3 id={titleId} className="text-sm font-semibold text-text-strong flex items-center gap-2">

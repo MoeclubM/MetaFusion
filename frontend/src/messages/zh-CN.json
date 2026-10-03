@@ -937,6 +937,7 @@
   "catalog.gridView": "网格视图",
   "catalog.listView": "列表视图",
   "search.placeholder": "搜索作品、发行版本、创作者或标签...",
+  "search.open": "打开搜索",
   "search.submit": "搜索",
   "admin.nav.entities": "实体管理",
   "admin.nav.section": "目录管理导航",

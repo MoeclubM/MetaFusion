@@ -937,6 +937,7 @@
   "catalog.gridView": "Grid View",
   "catalog.listView": "List View",
   "search.placeholder": "Search works, releases, agents or tags...",
+  "search.open": "Open search",
   "search.submit": "Search",
   "admin.nav.entities": "Entities",
   "admin.nav.section": "Catalog navigation",

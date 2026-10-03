@@ -634,22 +634,24 @@ function AdminInner() {
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
       <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-0 z-30">
-        <PageContainer className="min-h-14 py-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-3">
+        <PageContainer className="h-14 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <Link
               href="/home"
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
+              aria-label={t("admin.console.backToSite")}
+              title={t("admin.console.backToSite")}
+              className="flex h-11 w-11 sm:w-auto shrink-0 items-center justify-center gap-1 text-xs text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>{t("admin.console.backToSite")}</span>
+              <span className="hidden sm:inline">{t("admin.console.backToSite")}</span>
             </Link>
-            <span className="text-text-faint">/</span>
-            <div className="flex items-center gap-2 font-semibold text-sm text-text-strong">
-              <span>{t("admin.console.consoleTitle")}</span>
+            <span className="hidden text-text-faint sm:inline">/</span>
+            <div className="min-w-0 font-semibold text-sm text-text-strong">
+              <span className="block truncate">{t("admin.console.consoleTitle")}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+          <div className="flex shrink-0 items-center gap-2 text-xs font-mono text-text-muted">
             <LocaleSwitcher compact />
             <ThemePicker />
             <span className="hidden sm:inline-flex max-w-40 truncate px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">

@@ -741,14 +741,14 @@ img, video { max-width: 100%; }
 }
 
 /* 站点顶栏高度：吸顶元素（筛选条、详情子头、管理台内栏）统一按它定位。
-   <md 时搜索独占一行，<xl 时另有移动导航行；桌面只保留主行。
+   手机搜索与导航使用弹窗；平板另有紧凑导航行，桌面只保留主行。
    Navbar 挂载后会写入实测值覆盖这里，这是无 Navbar 页面与首帧的兜底。 */
 :root {
-  --mf-header-h: 9rem;
+  --mf-header-h: 3.5625rem;
 }
 @media (min-width: 768px) {
   :root {
-    --mf-header-h: 6.5rem;
+    --mf-header-h: 6rem;
   }
 }
 @media (min-width: 1280px) {

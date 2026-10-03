@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
@@ -14,6 +14,7 @@ import { ACCOUNT_CONSOLE_CODES, can, canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import { PageContainer } from "@/components/ui/PageShell";
 import { SearchSuggest } from "@/components/common/SearchSuggest";
+import { Modal } from "@/components/ui/Modal";
 import {
   Bell,
   Plus,
@@ -30,6 +31,8 @@ import {
   MessageSquare,
   Terminal,
   Mail,
+  Menu,
+  Search,
 } from "lucide-react";
 
 /**
@@ -63,6 +66,18 @@ export const Navbar: React.FC<{
   }, [pathname, searchQuery]);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<"navigation" | "search" | null>(null);
+  const closeMobilePanel = useCallback(() => setMobilePanel(null), []);
+  useEffect(() => {
+    setMobilePanel(null);
+    setIsUserMenuOpen(false);
+  }, [pathname]);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMobilePanel(null); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
   // 登录链接的回跳地址依赖 window.location.href，服务端渲染时只能取 "/home" 兜底：
   // 两边各算各的会让水合报 href 属性不匹配。首帧与服务端同值，挂载后再换真实地址。
   const [loginHref, setLoginHref] = useState(() => getAuthLoginUrl("/home"));
@@ -78,7 +93,7 @@ export const Navbar: React.FC<{
   const [unreadNotifications, setUnreadNotifications] = useState<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  // 顶栏实际高度随断点变化：<xl 时顶栏里还多一行移动导航，写死在 CSS 里必然对不上。
+  // 顶栏实际高度随断点变化：平板宽度保留一行导航，其余断点仅主行。
   // 这里把实测高度写进 --mf-header-h，吸顶元素（管理台内栏、社区工具条、首页筛选条）
   // 才不会被顶栏压住；globals.css 保留同口径静态值，供无 Navbar 的页面与首帧使用。
   useEffect(() => {
@@ -223,10 +238,11 @@ export const Navbar: React.FC<{
   ];
 
   return (
+    <>
     <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-line-subtle bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
-      <PageContainer className="min-h-14 sm:min-h-15 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 md:py-0">
+      <PageContainer className="h-14 md:h-15 flex items-center justify-between gap-x-2 sm:gap-x-3">
         {/* Left Brand + Navigation */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-1 md:gap-4 shrink-0">
           {/* 品牌名 span 在 <640px 被隐藏，只剩 26×26 的图形：title 只是兜底名，
               显式 aria-label 才是稳定可访问名（屏幕阅读器与自动化都以它为准）。 */}
           <Link href="/" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
@@ -240,6 +256,9 @@ export const Navbar: React.FC<{
               </span>
             </span>
           </Link>
+          <button type="button" aria-label={t("navigation.label")} aria-haspopup="dialog" aria-expanded={mobilePanel === "navigation"} onClick={() => { setIsUserMenuOpen(false); setMobilePanel("navigation"); }} className="md:hidden grid h-11 w-11 place-items-center rounded-control text-text-body hover:bg-surfaceHover">
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
 
           <nav className="hidden xl:flex items-center gap-1">
             {/* 开发者中心与管理后台都不在顶栏——统一收进用户菜单，顶栏只剩内容导航。 */}
@@ -272,7 +291,7 @@ export const Navbar: React.FC<{
         </div>
 
         <SearchSuggest
-          className="order-last w-full min-w-0 md:order-none md:flex-1 md:min-w-[12rem] md:max-w-sm"
+          className="hidden min-w-0 md:flex md:flex-1 md:min-w-[10rem] md:max-w-sm"
           value={query}
           onValueChange={setQuery}
           onSubmit={onSearch || ((q) => router.push(q ? "/explore?q=" + encodeURIComponent(q) : "/explore"))}
@@ -282,10 +301,12 @@ export const Navbar: React.FC<{
 
         {/* Right Controls */}
         <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+          <button type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-expanded={mobilePanel === "search"} onClick={() => { setIsUserMenuOpen(false); setMobilePanel("search"); }} className="md:hidden grid h-11 w-11 place-items-center rounded-control text-text-body hover:bg-surfaceHover">
+            <Search className="h-5 w-5" aria-hidden="true" />
+          </button>
           {/* 新建：指向统一新建页 /new（层级在编辑器内切换，?kind= 只做预选）。
               标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
-          {/* 站内通知：常驻铃铛入口（未登录不显示），未读 >0 才挂角标，>99 显示 99+。
-              放在右侧控件区而不是 hidden xl:flex 的桌面导航里，窄屏同样看得见。 */}
+          {/* 站内通知：桌面右侧入口，手机收进导航弹窗；未读 >99 显示 99+。 */}
           {user && (
             <Link
               href="/notifications"
@@ -295,7 +316,7 @@ export const Navbar: React.FC<{
                   : t("navigation.notifications")
               }
               title={t("navigation.notifications")}
-              className={`relative inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
+              className={`relative hidden md:inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
                 pathname.startsWith("/notifications")
                   ? "bg-primary/10 border-primary/25 text-primary"
                   : "bg-emphasis/[0.04] border-line text-text-strong hover:bg-emphasis/[0.08]"
@@ -316,15 +337,13 @@ export const Navbar: React.FC<{
           <Link
               href="/new"
             aria-label={t("catalog.create")}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 h-9 rounded-control bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
+            className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 h-9 max-md:min-h-11 max-md:min-w-11 rounded-control bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">{t("catalog.create")}</span>
             </Link>
 
-          {/* 私信：与站内通知并列的**独立**入口（各自一枚角标，不合成汇总——合成要跨服务聚合，
-              为一个角标给顶栏引入新的可失败依赖不划算）。图标语义必须一眼可辨：
-              铃铛 = 站内通知、信封 = 私信；两者各有 aria-label（含未读数时念出条数）。 */}
+          {/* 私信与通知独立计数；手机入口在导航弹窗及用户菜单。 */}
           {user && (
             <Link
               href="/messages"
@@ -334,7 +353,7 @@ export const Navbar: React.FC<{
                   : t("messages.title")
               }
               title={t("messages.title")}
-              className={`relative inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
+              className={`relative hidden md:inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
                 pathname.startsWith("/messages")
                   ? "bg-primary/10 border-primary/25 text-primary"
                   : "bg-emphasis/[0.04] border-line text-text-strong hover:bg-emphasis/[0.08]"
@@ -357,8 +376,10 @@ export const Navbar: React.FC<{
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
+                aria-label={t("navbar.userCenter")}
+                aria-expanded={isUserMenuOpen}
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="relative flex items-center gap-1 sm:gap-2 px-1.5 sm:pr-2.5 h-9 rounded-control bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
+                className="relative flex items-center justify-center gap-1 sm:gap-2 px-1.5 sm:pr-2.5 h-9 max-md:min-h-11 max-md:min-w-11 rounded-control bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {/* 未读私信角标改挂在顶栏信封入口上（见上）：同一个计数在顶栏只出现一次，
                     头像按钮回归"纯菜单开关"，不再承担未读提示。 */}
@@ -481,7 +502,7 @@ export const Navbar: React.FC<{
             <a
               href={loginHref}
               aria-label={t("navbar.signIn")}
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
+              className="inline-flex items-center justify-center gap-1.5 px-3 h-9 max-md:min-h-11 max-md:min-w-11 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t("navbar.signIn")}</span>
@@ -489,18 +510,18 @@ export const Navbar: React.FC<{
           )}
 
           {/* Controls: Theme & Locale */}
-          <div className="flex items-center border-l border-line pl-1 sm:pl-2 gap-1 sm:gap-1.5">
+          <div className="hidden md:flex items-center border-l border-line pl-2 gap-1.5">
             <LocaleSwitcher compact />
             <ThemePicker />
           </div>
         </div>
       </PageContainer>
-      {/* 移动端横向导航：与主行共用 PageContainer，保证顶栏内容同一条左基线。 */}
-      <PageContainer>
-      <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto pb-2">
+      {/* 平板横向导航：手机使用弹窗，不占额外的顶栏行。 */}
+      <PageContainer className="hidden md:block xl:hidden">
+      <nav aria-label={t("navigation.label")} className="flex gap-1 overflow-x-auto pb-1">
         {navLinks.map((tab) => {
           const active = isNavLinkActive(pathname, tab);
-          const className = `whitespace-nowrap rounded-lg px-3 py-2 text-sm ${active ? "bg-primary/10 text-primary" : "text-text-muted"}`;
+          const className = `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs ${active ? "bg-primary/10 text-primary" : "text-text-muted"}`;
           // external 项必须走 <a>：/docs/catalog 与外站资源站不是本应用的路由，
           // next/link 会让 App Router 去取一条不存在的 RSC 载荷（与桌面分支同一处理）。
           if (tab.external) {
@@ -519,5 +540,29 @@ export const Navbar: React.FC<{
       </nav>
       </PageContainer>
     </header>
+    <Modal open={mobilePanel === "search"} onClose={closeMobilePanel} title={t("search.submit")} icon={<Search className="h-4 w-4" />} initialFocus="input" maxWidth="max-w-lg">
+      {/* 给联想结果预留空间，弹窗内的滚动不会遮住输入与关闭操作。 */}
+      <div className="min-h-[min(22rem,55dvh)]">
+        <SearchSuggest value={query} onValueChange={setQuery} onSubmit={(q) => { closeMobilePanel(); if (onSearch) onSearch(q); else router.push(q ? "/explore?q=" + encodeURIComponent(q) : "/explore"); }} onNavigate={closeMobilePanel} placeholder={t("search.placeholder")} submitLabel={t("search.submit")} />
+      </div>
+    </Modal>
+    <Modal open={mobilePanel === "navigation"} onClose={closeMobilePanel} title={t("navigation.label")} icon={<Menu className="h-4 w-4" />} maxWidth="max-w-lg">
+      <nav aria-label={t("navigation.label")} className="grid grid-cols-2 gap-2">
+        {navLinks.map((tab) => {
+          const Icon = tab.icon;
+          const active = isNavLinkActive(pathname, tab);
+          const className = `flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm ${active ? "bg-primary/10 text-primary" : "text-text-body hover:bg-surfaceHover"}`;
+          const content = <><Icon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{tab.label}</span></>;
+          return tab.external ? <a key={tab.href} href={tab.href} onClick={closeMobilePanel} className={className}>{content}</a> : <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} onClick={closeMobilePanel} className={className}>{content}</Link>;
+        })}
+        {user && <Link href="/notifications" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Bell className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("navigation.notifications")}</span>{unreadNotifications !== null && unreadNotifications > 0 && <span className="text-primary">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>}
+        {user && <Link href="/messages" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Mail className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("messages.title")}</span>{unreadCount !== null && unreadCount > 0 && <span className="text-primary">{unreadCount > 99 ? "99+" : unreadCount}</span>}</Link>}
+      </nav>
+      <div className="flex items-center justify-between gap-3 border-t border-line-subtle pt-3">
+        <span className="text-xs text-text-muted">{t("settings.appearanceTitle")}</span>
+        <div className="flex gap-2"><LocaleSwitcher compact /><ThemePicker withinDialog /></div>
+      </div>
+    </Modal>
+    </>
   );
 };
