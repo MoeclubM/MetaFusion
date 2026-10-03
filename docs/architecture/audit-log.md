@@ -195,7 +195,7 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 
 | 仓库 | 落点 | 说明 |
 | --- | --- | --- |
-| catalog（主仓） | `backend/migrations/000002_audit_log.up.sql`（+ `.down.sql`） | 版本化迁移，`mf-migrate up` 与服务启动同一份 |
+| catalog（主仓） | `backend/migrations/000021_catalog_baseline.up.sql` 的 audit-ddl 区间 | 显式 `mf-migrate up` 建立，HTTP 启动只读检查 |
 | auth | 无版本化迁移：`internal/audit` 的 `Schema` 常量由 `store.Init` 执行 | 照该仓既有做法；`cmd/server/main.go` 启动即执行 |
 | community | `migrations/000007_audit_log.up.sql` | 启动与迁移工具读同一份（`internal/store.Init`） |
 | storage | `internal/store/migrations/000002_audit_log.up.sql` | 启动时按版本号顺序应用 |

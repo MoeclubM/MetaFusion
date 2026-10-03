@@ -1,0 +1,101 @@
+{
+  "version": 21,
+  "replaces": 20,
+  "legacy": [
+    {
+      "version": 1,
+      "name": "catalog_core",
+      "checksum": "758579082fc6ef42f0eac8285bec8a658e6c690598266dc865b86dc364e13162"
+    },
+    {
+      "version": 2,
+      "name": "audit_log",
+      "checksum": "bec06de5db13c4085dbaa1519ab6455c0cbabf56939850785c2ea7ba18ffe603"
+    },
+    {
+      "version": 3,
+      "name": "notifications",
+      "checksum": "f9ff6fee5e80120a6477b6844e853707c6a1a23de83e99dffe5608f03fb50908"
+    },
+    {
+      "version": 5,
+      "name": "api_request_logs",
+      "checksum": "fd1a66d9bf417fd683d05a06943ff01698a893a033ff8d12021b4bc1116c26a9"
+    },
+    {
+      "version": 6,
+      "name": "request_idempotency",
+      "checksum": "a6f2f1137de86a2feaadd93ffd493abd1e3941c63d3fa9bb952966f6e0e044bc"
+    },
+    {
+      "version": 7,
+      "name": "revision_definition_version",
+      "checksum": "fa06d305d39c9d2df357444deb0c6db11743356d60f797f618ec9dc9f96ae4dc"
+    },
+    {
+      "version": 8,
+      "name": "redirect_lookup_index",
+      "checksum": "2bb23da70e8d8addf52ae1b9ed2bb42c2e9308b422cbef765cf445d686324944"
+    },
+    {
+      "version": 9,
+      "name": "notification_receipts",
+      "checksum": "2a85e7dbe0c5a9dd8b22a930dac105bcafe51b2cf88fdaba5db8236597a8955a"
+    },
+    {
+      "version": 10,
+      "name": "relation_lookup_indexes",
+      "checksum": "50f8c3b2010090a3d7b600f1f39281c1a35ab4b6a2430f6adbd0605f649f601e"
+    },
+    {
+      "version": 11,
+      "name": "opensearch_outbox_lookup",
+      "checksum": "1de319fc4d1c1590965d5e921cdd53a80dedde0f7225dd5a20c357b24abcb93c"
+    },
+    {
+      "version": 12,
+      "name": "drop_revision_actor_role",
+      "checksum": "a8a4466f70eff684496cf8b3c7a9405141d919c3f5dda081c65b6b59285e3ac1"
+    },
+    {
+      "version": 13,
+      "name": "external_source_merge",
+      "checksum": "a6925ae28bd83eaa5d824634796d532b7f07eb225a8a421d479be5f973529d19"
+    },
+    {
+      "version": 14,
+      "name": "single_definition_config",
+      "checksum": "b98169834c6b773285fcec3f4ecf32930007880c2e4858b6c7eb8f8957d23d22"
+    },
+    {
+      "version": 15,
+      "name": "shelf_open_tags",
+      "checksum": "226f7d9c196c0133805c7f3d4faad2b9aba69ddf116fd711ed6a8b1d4e7c8de5"
+    },
+    {
+      "version": 16,
+      "name": "generic_metadata_timespan",
+      "checksum": "7ed74af208bfdfe039cf48fd860bec4fa38668efa28bfe766ad946d6b68de968"
+    },
+    {
+      "version": 17,
+      "name": "editable_structure_names",
+      "checksum": "140a4db70fe29efd8b2bb5ba3054ce7c0995174fad5a2dc510d49fcaca2351a4"
+    },
+    {
+      "version": 18,
+      "name": "api_rate_limit_policy",
+      "checksum": "1f03933847a3ad523698cc50c542d44c5718a4905a0ecc109a5627ae77fb821a"
+    },
+    {
+      "version": 19,
+      "name": "catalog_composition_rules",
+      "checksum": "0b8511647f11e92dafe239fc91d96ddda422b7189862e1a10948a81be6841980"
+    },
+    {
+      "version": 20,
+      "name": "retire_obsolete_catalog_indexes",
+      "checksum": "300c8c1e630e6248655bc3c5be62380cba6c873c5b83251251073b5526ef1d55"
+    }
+  ]
+}

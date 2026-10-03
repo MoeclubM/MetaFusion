@@ -17,7 +17,7 @@ func TestRetiringIndexesPreservesCatalog(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.Database(t)
 	before := fstest.MapFS{}
-	files, err := fs.ReadDir(migrations.FS, ".")
+	files, err := fs.ReadDir(testutil.LegacyMigrations(), ".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestRetiringIndexesPreservesCatalog(t *testing.T) {
 		if file.IsDir() || file.Name() >= "000020_" {
 			continue
 		}
-		data, err := fs.ReadFile(migrations.FS, file.Name())
+		data, err := fs.ReadFile(testutil.LegacyMigrations(), file.Name())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,6 +44,9 @@ func TestRetiringIndexesPreservesCatalog(t *testing.T) {
 	}
 	var previous string
 	if err := db.QueryRowContext(ctx, `SELECT row_to_json(e)::text FROM catalog.entities e WHERE id=$1`, id).Scan(&previous); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrator.New(db, testutil.LegacyMigrations()).Up(ctx); err != nil {
 		t.Fatal(err)
 	}
 	upgrade := migrator.New(db, migrations.FS)

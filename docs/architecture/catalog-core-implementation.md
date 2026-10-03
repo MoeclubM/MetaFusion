@@ -14,11 +14,11 @@
 
 模板 `match` 支持 exists/equals/contains 的 AND，priority 决定顺序，相同最高优先级回退通用布局；缺少 match 的模板不参与自动选择，仍可在编辑器中手工选用，显式空数组是该 kind 的兜底模板。`blocks` 是受支持区块的有序列表，缺省继承布局、[] 隐藏可选区块。通用详情据此组织目录/组合/收录/署名/关系/资源页签，发行页支持版本组/目录/相关收录/署名/关系的 DOM 顺序；固定事实与修订入口保持可读。creation_form 仅为可选属性与模板选择条件，不决定可写字段或实体身份。
 
-升级顺序：停旧写入 → 备份并确认可恢复 → 新版 mf-migrate up（000019）→ mf-migrate seed → mf-migrate check-refs → 新后端/前端一起恢复写入。新列与索引是增量增加；身份、定位、次序和历史快照不变。种子只补缺失定义与尚未配置的内置模板 match，保留自定义字段、停用状态、已有 match/blocks 和优先级。HTTP 启动只读检查来源列，缺迁移拒绝启动。down 拒绝删除来源证据；旧程序会覆盖来源，不能作为允许写入的回退版本。真实库回归见 `media_upgrade_test.go`（018→019、重复 up/seed、保留配置/历史、升级后编辑）。
+安装与升级使用当前合并基线，见[部署与恢复手册](./deployment-runbook.md)。尚未完成 019 的旧实例先用合并前发布完成停写升级；019 新增收录来源，保留身份、定位、次序和历史快照，不能部署会覆盖来源的旧写入端。种子只补缺失定义与尚未配置的内置模板 match，保留自定义字段、停用状态、已有 match/blocks 和优先级。HTTP 启动只读检查来源列。真实库回归见 `media_upgrade_test.go`（历史 018→020→021、重复 up/seed、保留配置/历史、升级后编辑）。
 
 面向编目者的模型、例子与端点见 [编目教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)（文档在独立仓库 `metafusion-docs`）。
 
-核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、结构侧表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，迁移 `000003_notifications`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 使用事务级 advisory lock。乐观版本避免静默覆盖，复合外键和延迟触发器拒绝跨域父子和循环。
+核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、结构侧表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，安装基线 `000021_catalog_baseline`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 使用事务级 advisory lock。乐观版本避免静默覆盖，复合外键和延迟触发器拒绝跨域父子和循环。
 
 关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。固定规则码以 `structure:` 开头，动态语义码以 `relation:` 开头；返回方向、类别、端点、位置、角色、定位、属性及本次读取的 definitions 版本，limit 默认 50、最大 100。
 

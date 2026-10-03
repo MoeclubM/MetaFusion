@@ -61,7 +61,7 @@
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **数据库最小权限角色**：主仓 Compose 支持四个服务使用不同连接身份（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`）；只有目标实例已按 [数据层角色与最小权限](docs/architecture/database-roles.md) 执行授权脚本并验证，才能断言越权跨 schema 会被拒绝。授权与校验脚本为 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；各部署的实际启用状态需核实配置与目标库，不能从 compose 变量存在推断已启用。
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 数据库迁移工具，使用 PostgreSQL Advisory Lock 协调迁移进程的执行；多副本部署仍需使用同一数据库/锁键并遵循部署手册的迁移顺序。
-- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。`down` 的数据影响由对应迁移 SQL 决定；当前基线 `backend/migrations/000001_catalog_core.down.sql` 会执行 `DROP SCHEMA catalog CASCADE`，属于破坏性目录库重置，不是无损数据回滚。执行任何迁移前须核对目标、脚本与备份，并按部署与恢复手册确认回滚边界。
+- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。安装基线为 `000021_catalog_baseline`，新库直接建立当前结构；已完成 000020 的存量库验证历史账本后登记基线，不重放 DDL。基线的 `down` 明确拒绝回滚。执行任何迁移前须核对目标、脚本与备份，并按部署与恢复手册确认回滚边界。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
 
 ---
@@ -186,8 +186,8 @@ bash deploy/deploy.sh pull
 # 检查当前版本与待迁移脚本状态
 bash deploy/deploy.sh migrate status
 
-# 结构升级。回滚前必须检查该迁移对应的 down SQL 与备份；尤其当前 000001_catalog_core.down.sql 会 DROP SCHEMA catalog CASCADE，
-# 回滚到该基线会删除目录 schema 数据，不是无损回到上一版。常规发布回退按部署与恢复手册处理。
+# 结构升级。存量库须先完成 000020，合并基线不重写历史账本。
+# 当前基线不可逆；常规发布回退按部署与恢复手册处理。
 bash deploy/deploy.sh migrate up
 # 仅在核实该版本 down SQL 及目标数据风险、并获准后执行：
 # bash deploy/deploy.sh migrate down

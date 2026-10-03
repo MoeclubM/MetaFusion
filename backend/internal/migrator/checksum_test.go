@@ -23,20 +23,6 @@ func TestChecksumOfStable(t *testing.T) {
 	}
 }
 
-// 漂移判定（纯逻辑）：一致/无记录/改过三态。
-func TestDriftStatus(t *testing.T) {
-	cur := checksumOf("v1")
-	if driftStatus(cur, cur) != "match" {
-		t.Fatal("一致应判 match")
-	}
-	if driftStatus("", cur) != "legacy-empty" {
-		t.Fatal("无记录应判 legacy-empty")
-	}
-	if driftStatus(cur, checksumOf("v2")) != "modified" {
-		t.Fatal("改过应判 modified")
-	}
-}
-
 func testFS(files map[string]string) fstest.MapFS {
 	m := fstest.MapFS{}
 	for name, content := range files {
@@ -46,7 +32,7 @@ func testFS(files map[string]string) fstest.MapFS {
 }
 
 // S2 真库：已执行迁移的文件被改过，Up 必须失败告警而不是静默跳过；
-// 无记录的老行回填后通过；内容不变重复 Up 静默通过。无 MF_V2_TEST_DSN 时跳过。
+// 无记录的老行必须拒绝；内容不变重复 Up 静默通过。无 MF_V2_TEST_DSN 时跳过。
 func TestMigratorUpVerifiesChecksum(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.Database(t)
@@ -63,18 +49,18 @@ func TestMigratorUpVerifiesChecksum(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("改过已执行迁移的 Up 应报 immutable，实际 %v", err)
 	}
-	// 无记录的老行：警告回填后通过，且回填的是当前文件摘要。
+	// Missing checksums must never be adopted automatically.
 	if _, err := db.ExecContext(ctx, `UPDATE schema_migrations SET checksum='' WHERE version=1`); err != nil {
 		t.Fatal(err)
 	}
-	if err := New(db, testFS(map[string]string{"000001_smoke.up.sql": v1})).Up(ctx); err != nil {
-		t.Fatalf("无记录老行回填后应通过：%v", err)
+	if err := New(db, testFS(map[string]string{"000001_smoke.up.sql": v1})).Up(ctx); err == nil || !strings.Contains(err.Error(), "unverified") {
+		t.Fatalf("unverified ledger accepted: %v", err)
 	}
 	var stored string
 	if err := db.QueryRowContext(ctx, `SELECT checksum FROM schema_migrations WHERE version=1`).Scan(&stored); err != nil {
 		t.Fatal(err)
 	}
-	if stored != checksumOf(v1) {
-		t.Fatalf("回填的应是当前文件摘要，实际 %q", stored)
+	if stored != "" {
+		t.Fatal("unverified checksum was mutated")
 	}
 }

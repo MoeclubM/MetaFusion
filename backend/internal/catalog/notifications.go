@@ -1,6 +1,6 @@
 package catalog
 
-// 站内通知（收件箱）。表结构与设计取舍见 backend/migrations/000003_notifications.up.sql 的注释，
+// 站内通知（收件箱）。表结构与设计取舍见 docs/architecture/catalog-core-implementation.md，
 // 完整报告见 docs-local/report-f1-notifications/REPORT.md。
 //
 // 落点：目录服务 —— 五类事件里四个产生端在目录（审核结果、收录、导入完成），

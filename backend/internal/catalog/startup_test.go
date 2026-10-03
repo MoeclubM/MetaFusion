@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metafusion/metafusion-app/migrations"
+	"github.com/metafusion/metafusion-app/internal/testutil"
 )
 
 func restoreDroppedTestTable(t *testing.T, f fixture, ctx context.Context, migrationFile string) {
 	t.Helper()
-	sql, err := fs.ReadFile(migrations.FS, migrationFile)
+	sql, err := fs.ReadFile(testutil.LegacyMigrations(), migrationFile)
 	if err != nil {
 		t.Fatal(err)
 	}

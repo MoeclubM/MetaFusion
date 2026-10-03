@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// 结构文件（迁移 000001）是安装基线，只应"按需建表建索引"：新库 `mf-migrate up` 整份执行，
-// 因此不能含删列/删表/数据搬迁这类破坏性语句——一旦带上，每次新装都在跑破坏性操作。
-// 例外：幂等的 ADD COLUMN IF NOT EXISTS 加列允许保留（"缺列补齐"而非破坏，可重入）。
-// 需要改结构就改这一个文件；确实要做一次性数据搬迁时，另开一条迁移，不要写进基线。
+// 安装基线只描述终态结构；已发布后不可变，后续变化必须另加增量。
+// 新库不得重放删列、删表或业务数据搬迁。
 func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
 	baseline, err := catalogBaseline()
 	if err != nil {

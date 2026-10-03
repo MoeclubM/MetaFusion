@@ -36,7 +36,7 @@ SIBLING_DIRS = {
 # 八个来源：("标签", "仓库", "相对仓库根的路径")。deploy 那一份从标记区间里取。
 SOURCES = [
     ("deploy(预建)", "catalog", "deploy/sql/roles-least-privilege.sql"),
-    ("catalog/迁移", "catalog", "backend/migrations/000002_audit_log.up.sql"),
+    ("catalog/迁移", "catalog", "backend/migrations/000021_catalog_baseline.up.sql"),
     ("catalog/audit.go", "catalog", "backend/internal/audit/audit.go"),
     ("auth/audit.go", "auth", "internal/audit/audit.go"),
     ("community/迁移", "community", "migrations/000007_audit_log.up.sql"),
@@ -108,7 +108,7 @@ def read_source(path):
         raw = fh.read()
     if path.endswith(".go"):
         return slice_go_const(raw)
-    if path.endswith("roles-least-privilege.sql"):
+    if path.endswith(("roles-least-privilege.sql", "000021_catalog_baseline.up.sql")):
         return slice_region(raw)
     return raw
 

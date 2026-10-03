@@ -358,18 +358,8 @@ print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核�
 # ENTRYPOINT，少了 --entrypoint 参数会被交给 /app/server，一条迁移都不会执行
 # （backend/Dockerfile 的 server 阶段是 ENTRYPOINT ["/app/server"]）。
 function migrate_up_checked() {
-    # 000014 removes an old table; 000019 adds evidence old writers would erase
-    # when replacing track contents. Quiesce before either upgrade and only
-    # resume with the new catalog/frontend after the explicit seed job.
-    local before
-    if ! before=$(run_migrate status "$@"); then
-        echo "❌ 无法读取迁移前状态，停止部署" >&2
-        exit 1
-    fi
-    if printf '%s\n' "$before" | grep -Eq '^0000(14|19)[[:space:]]*\|.*\|[[:space:]]*PENDING'; then
-        echo "⏸️  目录契约迁移待执行，先停止旧目录服务与前端..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml "$@" stop backend frontend
-    fi
+    # The consolidated baseline rejects incomplete pre-020 ledgers. Old
+    # contract upgrades belong to the pre-baseline release and its runbook.
     echo "🗄️  执行目录库版本化迁移..."
     run_migrate up "$@"
 
@@ -383,7 +373,7 @@ function migrate_up_checked() {
         echo "❌ 仍有未应用的迁移（上面标为 PENDING）：部署中止" >&2
         exit 1
     fi
-    if printf '%s\n' "$status" | grep -q 'DIRTY'; then
+    if printf '%s\n' "$status" | grep -Eq 'DIRTY|MODIFIED|UNVERIFIED|UNKNOWN'; then
         echo "❌ 存在脏迁移（上面标为 DIRTY）：先人工确认再部署" >&2
         exit 1
     fi
@@ -391,7 +381,7 @@ function migrate_up_checked() {
         echo "❌ 迁移账本里没有任何已应用版本：迁移未生效，部署中止" >&2
         exit 1
     fi
-    echo "✅ 迁移已确认：账本无 PENDING / DIRTY"
+    echo "✅ 迁移已确认：账本无待办或未验证记录"
 }
 
 # 迁移落地后显式合并种子定义（EnsureSeedDefinitions，保留人工配置）。

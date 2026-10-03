@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -43,12 +44,14 @@ type AppliedMigration struct {
 
 type Migrator struct {
 	db     *sql.DB
+	q      connection
 	source fs.FS
 }
 
 func New(db *sql.DB, source fs.FS) *Migrator {
 	return &Migrator{
 		db:     db,
+		q:      db,
 		source: source,
 	}
 }
@@ -63,21 +66,37 @@ func (m *Migrator) EnsureSchemaMigrationsTable(ctx context.Context) error {
 		dirty BOOLEAN DEFAULT FALSE NOT NULL,
 		checksum VARCHAR(64) DEFAULT '' NOT NULL
 	);`
-	_, err := m.db.ExecContext(ctx, query)
+	_, err := m.q.ExecContext(ctx, query)
 	return err
 }
 
-// WithLock 在 PostgreSQL Advisory Lock 互斥保护下执行操作
-func (m *Migrator) WithLock(ctx context.Context, fn func() error) error {
-	_, err := m.db.ExecContext(ctx, "SELECT pg_advisory_lock($1)", LockID)
+// connection keeps the advisory lock, ledger and transactions on one session.
+type connection interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+}
+
+func (m *Migrator) withLock(ctx context.Context, fn func(*Migrator) error) error {
+	conn, err := m.db.Conn(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to acquire migration advisory lock: %w", err)
+		return err
+	}
+	defer conn.Close()
+	if _, err = conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", LockID); err != nil {
+		return fmt.Errorf("acquire migration lock: %w", err)
 	}
 	defer func() {
-		_, _ = m.db.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", LockID)
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := conn.ExecContext(unlockCtx, "SELECT pg_advisory_unlock($1)", LockID); err != nil {
+			// Discard a session whose lock cannot be released instead of returning it to the pool.
+			_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+		}
 	}()
-
-	return fn()
+	locked := *m
+	locked.q = conn
+	return fn(&locked)
 }
 
 // LoadMigrationFiles 从虚拟文件系统或目录读取并解析所有 SQL 迁移文件
@@ -163,7 +182,7 @@ func (m *Migrator) GetAppliedMigrations(ctx context.Context) (map[int64]AppliedM
 		return nil, err
 	}
 
-	rows, err := m.db.QueryContext(ctx, "SELECT version, name, applied_at, dirty, checksum FROM schema_migrations ORDER BY version ASC")
+	rows, err := m.q.QueryContext(ctx, "SELECT version, name, applied_at, dirty, checksum FROM schema_migrations ORDER BY version ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +196,7 @@ func (m *Migrator) GetAppliedMigrations(ctx context.Context) (map[int64]AppliedM
 		}
 		applied[am.Version] = am
 	}
-	return applied, nil
+	return applied, rows.Err()
 }
 
 // checksumOf 算迁移文件内容的 sha256 十六进制摘要：Up 在应用时记入
@@ -187,54 +206,24 @@ func checksumOf(content string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// driftStatus 比对已执行记录的摘要与当前文件摘要（纯逻辑，可单测）：
-// match=一致；legacy-empty=记录无摘要（checksum 列引入前的老行，无法比对）；
-// modified=两边非空且不等，文件在执行后被改过。
-func driftStatus(stored, current string) string {
-	if stored == "" {
-		return "legacy-empty"
-	}
-	if stored != current {
-		return "modified"
-	}
-	return "match"
-}
-
-// verifyAppliedChecksum 在跳过已执行迁移前核验文件未被改过：
-// 一致则静默通过；记录无摘要的老行记警告并以当前文件回填（使后续运行可比，
-// 回填即认定当前文件为基准）；改过则阻断 Up——已执行迁移必须不可变，
-// 修复用新的增量迁移表达，不直接改旧文件。
-func (m *Migrator) verifyAppliedChecksum(ctx context.Context, am AppliedMigration, f MigrationFile) error {
-	switch driftStatus(am.Checksum, checksumOf(f.Content)) {
-	case "match":
-		return nil
-	case "legacy-empty":
-		log.Printf("WARNING migration [%06d_%s] has no recorded checksum (applied before checksum tracking); adopting current file as baseline", f.Version, f.Name)
-		if _, err := m.db.ExecContext(ctx, "UPDATE schema_migrations SET checksum=$2 WHERE version=$1", f.Version, checksumOf(f.Content)); err != nil {
-			return fmt.Errorf("failed to backfill checksum for migration %d: %w", f.Version, err)
-		}
-		return nil
-	default:
-		return fmt.Errorf("migration [%06d_%s] file changed after it was applied (recorded checksum %.12s, current %.12s): applied migrations are immutable; express the fix as a new incremental migration instead of editing this file", f.Version, f.Name, am.Checksum, checksumOf(f.Content))
-	}
-}
-
 // Up 执行所有待执行的 up 迁移
 func (m *Migrator) Up(ctx context.Context) error {
-	return m.WithLock(ctx, func() error {
+	return m.withLock(ctx, func(m *Migrator) error {
 		applied, err := m.GetAppliedMigrations(ctx)
 		if err != nil {
 			return err
 		}
 
-		// 检查是否存在脏状态 (Dirty State)
-		for _, a := range applied {
-			if a.Dirty {
-				return fmt.Errorf("database is in a dirty state at version %d (%s). Please inspect and force/fix before migrating", a.Version, a.Name)
-			}
+		files, err := m.LoadMigrationFiles()
+		if err != nil {
+			return err
 		}
 
-		files, err := m.LoadMigrationFiles()
+		baseline, err := m.loadBaseline(files)
+		if err != nil {
+			return err
+		}
+		legacy, err := m.validateLedger(applied, files, baseline)
 		if err != nil {
 			return err
 		}
@@ -248,19 +237,14 @@ func (m *Migrator) Up(ctx context.Context) error {
 
 		appliedCount := 0
 		for _, f := range upFiles {
-			if am, exists := applied[f.Version]; exists {
-				// S2：已执行迁移不可变——跳过前先比对 checksum，文件被改过即失败告警，
-				// 不静默跳过（否则旧库永远停留在“以为已执行”的结构上，迁移形同虚设）。
-				if err := m.verifyAppliedChecksum(ctx, am, f); err != nil {
-					return err
-				}
+			if _, exists := applied[f.Version]; exists {
 				continue
 			}
 
 			log.Printf("Applying migration [%06d_%s]...", f.Version, f.Name)
 			checksum := checksumOf(f.Content)
 
-			tx, err := m.db.BeginTx(ctx, nil)
+			tx, err := m.q.BeginTx(ctx, nil)
 			if err != nil {
 				return fmt.Errorf("failed to begin tx for migration %d: %w", f.Version, err)
 			}
@@ -273,7 +257,7 @@ func (m *Migrator) Up(ctx context.Context) error {
 			}
 
 			// 执行 SQL 内容
-			if strings.TrimSpace(f.Content) != "" {
+			if !(legacy && baseline != nil && f.Version == baseline.Version) && strings.TrimSpace(f.Content) != "" {
 				if _, err := tx.ExecContext(ctx, f.Content); err != nil {
 					_ = tx.Rollback()
 					return fmt.Errorf("migration [%06d_%s] failed: %w", f.Version, f.Name, err)
@@ -306,7 +290,7 @@ func (m *Migrator) Up(ctx context.Context) error {
 
 // Down 回滚最新版本的一条迁移
 func (m *Migrator) Down(ctx context.Context) error {
-	return m.WithLock(ctx, func() error {
+	return m.withLock(ctx, func(m *Migrator) error {
 		applied, err := m.GetAppliedMigrations(ctx)
 		if err != nil {
 			return err
@@ -329,6 +313,14 @@ func (m *Migrator) Down(ctx context.Context) error {
 			return err
 		}
 
+		baseline, err := m.loadBaseline(files)
+		if err != nil {
+			return err
+		}
+		if _, err = m.validateLedger(applied, files, baseline); err != nil {
+			return err
+		}
+
 		var downFile *MigrationFile
 		for _, f := range files {
 			if f.Version == latestVersion && f.Direction == DirectionDown {
@@ -342,7 +334,7 @@ func (m *Migrator) Down(ctx context.Context) error {
 		}
 
 		log.Printf("Rolling back migration [%06d_%s]...", downFile.Version, downFile.Name)
-		tx, err := m.db.BeginTx(ctx, nil)
+		tx, err := m.q.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("failed to begin tx: %w", err)
 		}
@@ -370,50 +362,69 @@ func (m *Migrator) Down(ctx context.Context) error {
 
 // Status 打印迁移状态与待执行迁移
 func (m *Migrator) Status(ctx context.Context) error {
-	applied, err := m.GetAppliedMigrations(ctx)
-	if err != nil {
-		return err
-	}
-
-	files, err := m.LoadMigrationFiles()
-	if err != nil {
-		return err
-	}
-
-	var upFiles []MigrationFile
-	for _, f := range files {
-		if f.Direction == DirectionUp {
-			upFiles = append(upFiles, f)
+	return m.withLock(ctx, func(m *Migrator) error {
+		applied, err := m.GetAppliedMigrations(ctx)
+		if err != nil {
+			return err
 		}
-	}
-
-	fmt.Println("================================================================================")
-	fmt.Println("  MetaFusion Database Migrations Status")
-	fmt.Println("================================================================================")
-	fmt.Printf("%-8s | %-36s | %-10s | %-20s\n", "VERSION", "MIGRATION NAME", "STATUS", "APPLIED AT")
-	fmt.Println("---------+--------------------------------------+------------+---------------------")
-
-	for _, f := range upFiles {
-		if am, ok := applied[f.Version]; ok {
-			statusStr := "APPLIED"
-			if am.Dirty {
-				statusStr = "DIRTY(!)"
-			} else if driftStatus(am.Checksum, checksumOf(f.Content)) == "modified" {
-				statusStr = "MODIFIED(!)"
+		files, err := m.LoadMigrationFiles()
+		if err != nil {
+			return err
+		}
+		baseline, err := m.loadBaseline(files)
+		if err != nil {
+			return err
+		}
+		entries := map[int64]ledgerEntry{}
+		if baseline != nil {
+			for _, e := range baseline.Legacy {
+				if _, ok := applied[e.Version]; ok {
+					entries[e.Version] = e
+				}
 			}
-			fmt.Printf("%06d   | %-36s | %-10s | %s\n", f.Version, f.Name, statusStr, am.AppliedAt.Format("2006-01-02 15:04:05"))
-		} else {
-			fmt.Printf("%06d   | %-36s | %-10s | %s\n", f.Version, f.Name, "PENDING", "-")
 		}
-	}
-	fmt.Println("================================================================================")
-	return nil
+		for _, f := range files {
+			if f.Direction == DirectionUp {
+				entries[f.Version] = ledgerEntry{f.Version, f.Name, checksumOf(f.Content)}
+			}
+		}
+		for v, a := range applied {
+			if _, ok := entries[v]; !ok {
+				entries[v] = ledgerEntry{v, a.Name, ""}
+			}
+		}
+		versions := make([]int64, 0, len(entries))
+		for v := range entries {
+			versions = append(versions, v)
+		}
+		sort.Slice(versions, func(i, j int) bool { return versions[i] < versions[j] })
+		fmt.Printf("%-8s | %-36s | %-12s | %s\n", "VERSION", "MIGRATION NAME", "STATUS", "APPLIED AT")
+		for _, v := range versions {
+			e := entries[v]
+			status, at := "PENDING", "-"
+			if a, ok := applied[v]; ok {
+				status, at = "APPLIED", a.AppliedAt.Format("2006-01-02 15:04:05")
+				if a.Dirty {
+					status = "DIRTY(!)"
+				} else if e.Checksum == "" {
+					status = "UNKNOWN(!)"
+				} else if a.Checksum == "" {
+					status = "UNVERIFIED(!)"
+				} else if a.Checksum != e.Checksum || a.Name != e.Name {
+					status = "MODIFIED(!)"
+				}
+			}
+			fmt.Printf("%06d   | %-36s | %-12s | %s\n", v, e.Name, status, at)
+		}
+		_, err = m.validateLedger(applied, files, baseline)
+		return err
+	})
 }
 
 // Force 强制修复指定版本的 dirty 状态
 func (m *Migrator) Force(ctx context.Context, version int64) error {
-	return m.WithLock(ctx, func() error {
-		res, err := m.db.ExecContext(ctx, "UPDATE schema_migrations SET dirty = FALSE WHERE version = $1", version)
+	return m.withLock(ctx, func(m *Migrator) error {
+		res, err := m.q.ExecContext(ctx, "UPDATE schema_migrations SET dirty = FALSE WHERE version = $1", version)
 		if err != nil {
 			return err
 		}

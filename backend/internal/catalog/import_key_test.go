@@ -37,7 +37,7 @@ func TestGuardImportKey(t *testing.T) {
 }
 
 // 手工写入者抢占内部幂等键必须被拒：键决定"重导命中哪条记录"，且唯一索引全库唯一
-// （migrations/000001_catalog_core.up.sql 的 entities_metafusion_import_key），
+// （migrations/000021_catalog_baseline.up.sql 的 entities_metafusion_import_key），
 // 被抢占后合法导入永久撞 23505，或按 kind 命中后合并进他人实体。
 // 导入链路（Edit 的 internal 标记）仍必须放行，否则正常导入自己就被挡住。
 func TestPostgresForgedImportKeyIsRejected(t *testing.T) {

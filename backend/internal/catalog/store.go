@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"strings"
 	"sync"
 	"time"
@@ -18,26 +17,6 @@ import (
 	"github.com/metafusion/metafusion-app/internal/migrator"
 	"github.com/metafusion/metafusion-app/migrations"
 )
-
-// baseline 是目录库的结构来源：与 `mf-migrate up` 执行的是**同一份文件**（迁移 000001）。
-// S2 冻结（注释说明，不动规则）：000001 是已执行的安装基线，永不修改；后续结构变化只以
-// backend/migrations 中有序不可变的增量迁移表达。
-// 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
-// 现在只保留这一个读取入口，供基线守卫测试（defaults_test.go）断言不含破坏性语句。
-const baselineFile = "000001_catalog_core.up.sql"
-
-func catalogBaseline() (string, error) {
-	b, err := fs.ReadFile(migrations.FS, baselineFile)
-	if err != nil {
-		return "", fmt.Errorf("read catalog baseline %s: %w", baselineFile, err)
-	}
-	return string(b), nil
-}
-
-// auditSchemaFile 是审计表结构（迁移 000002）：审计表只由 `mf-migrate up` 建立，
-// 服务启动只做只读检查（见 startup.go），不再执行任何 DDL。这份常量供跨服务
-// 表结构一致性校验读取（audit_migration_test.go ↔ scripts/check_audit_schema.py）。
-const auditSchemaFile = "000002_audit_log.up.sql"
 
 // 领域哨兵错误：respond（http.go）按错误链判定 HTTP 状态码，所以写路径与
 // retirement/生命周期里的拒绝必须用同一批哨兵，而不是各自 fmt.Errorf 出同名字符串——
@@ -121,7 +100,7 @@ func (s *Store) Authenticate(token string) (*User, error) {
 // 见 TestDefinitionsSeedOnlyWhenEmpty 与 TestMergeSeedDefinitionsIsAdditiveOnly。
 func (s *Store) Initialize(ctx context.Context) error {
 	// 本地安装与显式迁移命令共用同一个带版本记账的迁移器；
-	// 000016 必须先于新版内容种子，不能靠旧的手工增量列表跳过。
+	// 结构必须先于内容种子，存量库须通过基线账本验证。
 	if err := migrator.New(s.DB, migrations.FS).Up(ctx); err != nil {
 		return err
 	}

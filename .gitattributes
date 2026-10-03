@@ -1,6 +1,10 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Migration checksums must be independent of the checkout platform.
+backend/migrations/* text eol=lf
+backend/internal/migrator/testdata/legacy_catalog/*.sql text eol=lf
+
 # 自托管的第三方脚本按字节保存：换行归一化会改掉文件内容，docs_assets_test.go 的摘要校验
 # 与「与上游发布物逐字一致」都会失效（core.autocrlf=true 的机器上检出即失败）。
 backend/internal/catalog/docsassets/* -text

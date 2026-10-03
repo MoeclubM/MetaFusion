@@ -17,7 +17,7 @@ func TestUpgradeFrom18PreservesCatalogAndEditing(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.Database(t)
 	beforeFS := fstest.MapFS{}
-	entries, err := fs.ReadDir(migrations.FS, ".")
+	entries, err := fs.ReadDir(testutil.LegacyMigrations(), ".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestUpgradeFrom18PreservesCatalogAndEditing(t *testing.T) {
 		if entry.IsDir() || entry.Name() >= "000019_" {
 			continue
 		}
-		data, err := fs.ReadFile(migrations.FS, entry.Name())
+		data, err := fs.ReadFile(testutil.LegacyMigrations(), entry.Name())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,6 +96,9 @@ func TestUpgradeFrom18PreservesCatalogAndEditing(t *testing.T) {
 	}
 	if err = s.CheckCompatibleVersion(ctx); err == nil || !strings.Contains(err.Error(), "inclusion sources") {
 		t.Fatalf("old binary/schema mismatch not detected: %v", err)
+	}
+	if err = migrator.New(db, testutil.LegacyMigrations()).Up(ctx); err != nil {
+		t.Fatal(err)
 	}
 	upgrader := migrator.New(db, migrations.FS)
 	if err = upgrader.Up(ctx); err != nil {

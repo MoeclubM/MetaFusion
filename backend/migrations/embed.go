@@ -2,7 +2,7 @@ package migrations
 
 import "embed"
 
-// FS 嵌入所有 SQL 迁移文件，确保二进制可独立在任何环境执行完整数据库版本迁移
+// FS 嵌入安装基线、后续增量与历史摘要清单；历史 SQL 仅作测试夹具。
 //
-//go:embed *.sql
+//go:embed *.sql baseline.json
 var FS embed.FS
