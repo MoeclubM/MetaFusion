@@ -5,7 +5,7 @@
 // （deploy/nginx.conf 的 /admin/account|community|storage/ 三条 location），这里只留入口：
 // 左栏底部的「其他控制台」，按权限码与探活结果收敛——未部署的域不出现死链。
 
-import React, { useEffect, useRef, useState, Suspense } from "react";
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { LoadingFallback } from "@/components/common/LoadingFallback";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
@@ -33,6 +33,7 @@ import {
   COMMUNITY_REPORT_REVIEW,
   COMMUNITY_TOPIC_PIN,
   STORAGE_ASSET_MODERATE,
+  CATALOG_LIFECYCLE_MANAGE,
   can,
   canEnterAdmin,
   canEnterCatalogConsole,
@@ -61,17 +62,8 @@ import {
   Gauge,
 } from "lucide-react";
 
-type AdminTab =
-  | "overview"
-  | "entities"
-  | "definitions"
-  | "reviews"
-  | "merge"
-  | "modules"
-  | "extdb"
-  | "shelves"
-  | "exchange"
-  | "ratelimits";
+import { isCompatibleMergeTarget } from "@/lib/mergeTarget";
+import { canUseCatalogAdminTab, type CatalogAdminTab as AdminTab } from "@/lib/catalogAdminNavigation";
 
 const NAV_GROUPS: { labelKey: string; tabs: { id: AdminTab; labelKey: string; icon: LucideIcon }[] }[] = [
   { labelKey: "admin.nav.work", tabs: [
@@ -91,7 +83,6 @@ const NAV_GROUPS: { labelKey: string; tabs: { id: AdminTab; labelKey: string; ic
     { id: "exchange", labelKey: "admin.tab.exchange", icon: ArrowUpRight },
   ] },
 ];
-const ADMIN_TABS = NAV_GROUPS.flatMap((group) => group.tabs);
 const PAGE_SIZE = 25;
 
 type ConsoleId = "account" | "community" | "storage";
@@ -153,14 +144,22 @@ function AdminInner() {
   const kindOptions = resolveKindOptions(kinds);
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const visibleGroups = useMemo(() => NAV_GROUPS.map((group) => ({
+    ...group, tabs: group.tabs.filter((item) => canUseCatalogAdminTab(user, item.id)),
+  })).filter((group) => group.tabs.length > 0), [user]);
+  const visibleTabs = visibleGroups.flatMap((group) => group.tabs);
+  const visibleTabsKey = visibleTabs.map((item) => item.id).join(",");
+  const currentTab = visibleTabs.some((item) => item.id === activeTab) ? activeTab : "overview";
+  const mayManageLifecycle = can(user, CATALOG_LIFECYCLE_MANAGE);
   const selectTab = (tab: AdminTab) => {
+    if (!canUseCatalogAdminTab(user, tab)) return;
     setActiveTab(tab);
     if (window.location.hash !== `#${tab}`) window.history.pushState(null, "", `#${tab}`);
   };
   useEffect(() => {
     const syncFromUrl = () => {
       const hash = window.location.hash.slice(1);
-      setActiveTab(ADMIN_TABS.some((item) => item.id === hash) ? hash as AdminTab : "overview");
+      setActiveTab(visibleTabs.some((item) => item.id === hash) ? hash as AdminTab : "overview");
     };
     syncFromUrl();
     window.addEventListener("popstate", syncFromUrl);
@@ -169,7 +168,7 @@ function AdminInner() {
       window.removeEventListener("popstate", syncFromUrl);
       window.removeEventListener("hashchange", syncFromUrl);
     };
-  }, []);
+  }, [visibleTabsKey]);
   // 四个计数各为 null 表示"还没拿到或取不到"：卡片显示占位符，不把没取到的数当成 0 讲成事实。
   const [stats, setStats] = useState<{
     pending: number | null;
@@ -187,6 +186,9 @@ function AdminInner() {
   const [unpublishTarget, setUnpublishTarget] = useState<any | null>(null);
   const [unpublishing, setUnpublishing] = useState(false);
   const [reviewNotice, setReviewNotice] = useState("");
+  const [reviewError, setReviewError] = useState(false);
+  const [actingId, setActingId] = useState("");
+  const statusActionBusy = useRef(false);
   // 取数失败必须与「没有待审条目」分开：管理员看到空列表会以为队列已清空（见 loadReviewList）。
   const [reviewListFailed, setReviewListFailed] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
@@ -213,54 +215,47 @@ function AdminInner() {
   // 合并结果的成功/失败由状态位决定配色：原先靠 "Error: " 前缀判定，等于把英文前缀写进流程。
   const [mergeError, setMergeError] = useState(false);
   const [merging, setMerging] = useState(false);
+  const mergeBusy = useRef(false);
+  const [mergePreview, setMergePreview] = useState<{source: Record<string, any>; target: Record<string, any>; note: string} | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewFailed, setOverviewFailed] = useState(false);
+  const overviewRequest = useRef(0);
 
-  const loadOverview = () => {
-    // 目录域的三个计数（待审 / 已发布 / 墓碑）一次拿全：GET /catalog/entities/stats 是按状态分组的
-    // 聚合。以前为两个数字发两次 limit=1 的列表请求，而墓碑数那条路走不通——列表端点固定排除
-    // deleted/merged（后端 listFilter 的刻意口径），status=deleted 的列表恒空。
-    // 非 2xx、网络失败、字段不是数字一律不写状态：卡片保持占位符，绝不把"取不到"显示成 0。
-    fetch("/api/catalog/entities/stats", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const statuses = d?.statuses;
-        if (!statuses || typeof statuses !== "object") return;
-        const pending = countOrNull(statuses.pending_review);
-        const published = countOrNull(statuses.published);
-        // 墓碑 = deleted + merged：两个终态都不在列表里，任一项取不到就整张卡留占位符。
-        const deleted = countOrNull(statuses.deleted);
-        const merged = countOrNull(statuses.merged);
-        setStats((prev) => {
-          const next = { ...prev };
-          if (pending != null) next.pending = pending;
-          if (published != null) next.published = published;
-          if (deleted != null && merged != null) next.tombstones = deleted + merged;
-          return next;
-        });
-      })
-      .catch(() => {});
-
-    // 外部权威库启用数：GET /catalog/external-databases 只回启用项
-    // （store.go ListExternalDatabases 的 enabledOnly=true），取到空数组就是 0 个启用，
-    // 与"取不到"（留 null）分开——不拿空数组冒充失败，也不拿失败冒充 0。
-    fetch("/api/catalog/external-databases", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d && Array.isArray(d.items)) {
-          setStats((prev) => ({ ...prev, extDatabases: d.items.length }));
-        }
-      })
-      .catch(() => {});
-
-    // 能力清单是部署态声明（registry.go）：enabled 表示部署配置声明了该子系统在不在场。
-    // 概览不再用它出卡片（那是部署态数字，不是目录域指标），但"子系统与能力"页签仍读它。
-    fetch("/api/capabilities", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        // 与 CatalogProvider 同一口径：契约漂移时不把非数组灌进 state（下面有 modules.map 渲染路径）。
-        setModules(Array.isArray(d.modules) ? d.modules : []);
-      })
-      .catch(() => {});
+  const loadOverview = async () => {
+    const request = ++overviewRequest.current;
+    setOverviewLoading(true);
+    setOverviewFailed(false);
+    setStats({ pending: null, published: null, tombstones: null, extDatabases: null });
+    setModules([]);
+    const results = await Promise.allSettled([
+      mayManageLifecycle ? fetchApi<{statuses: Record<string, number>}>("/catalog/entities/stats") : Promise.resolve(null),
+      fetchApi<{items: unknown[]}>("/catalog/external-databases"),
+      fetchApi<{modules: any[]}>("/capabilities"),
+    ]);
+    if (request !== overviewRequest.current) return;
+    let failed = results.some((result) => result.status === "rejected");
+    const counts = results[0];
+    if (counts.status === "fulfilled" && counts.value) {
+      const statuses = counts.value.statuses;
+      const pending = countOrNull(statuses?.pending_review);
+      const published = countOrNull(statuses?.published);
+      const deleted = countOrNull(statuses?.deleted);
+      const merged = countOrNull(statuses?.merged);
+      if ([pending, published, deleted, merged].some((v) => v === null)) failed = true;
+      setStats((prev) => ({...prev, pending, published, tombstones: deleted !== null && merged !== null ? deleted + merged : null}));
+    }
+    const external = results[1];
+    if (external.status === "fulfilled") {
+      if (Array.isArray(external.value.items)) setStats((prev) => ({...prev, extDatabases: external.value.items.length}));
+      else failed = true;
+    }
+    const capability = results[2];
+    if (capability.status === "fulfilled") {
+      if (Array.isArray(capability.value.modules)) setModules(capability.value.modules);
+      else failed = true;
+    }
+    setOverviewFailed(failed);
+    setOverviewLoading(false);
   };
 
   const loadReviewList = () => {
@@ -275,7 +270,8 @@ function AdminInner() {
       })
       .then((d) => {
         if (request !== reviewRequest.current) return;
-        setPendingItems(Array.isArray(d.items) ? d.items : []);
+        if (!Array.isArray(d.items) || countOrNull(d.total) === null) throw new Error("invalid_response");
+        setPendingItems(d.items);
         setReviewTotal(countOrNull(d.total));
       })
       .catch(() => {
@@ -305,7 +301,8 @@ function AdminInner() {
       })
       .then((d) => {
         if (request !== entitiesRequest.current) return;
-        setEntitiesList(Array.isArray(d.items) ? d.items : []);
+        if (!Array.isArray(d.items) || countOrNull(d.total) === null) throw new Error("invalid_response");
+        setEntitiesList(d.items);
         setEntitiesTotal(countOrNull(d.total));
       })
       .catch(() => {
@@ -365,32 +362,34 @@ function AdminInner() {
     if (mayEnterCatalog) {
       loadOverview();
     }
-  }, [mayEnterCatalog]);
+    return () => { overviewRequest.current += 1; };
+  }, [mayEnterCatalog, user?.id, mayManageLifecycle]);
 
   useEffect(() => {
-    if (activeTab === "entities" && mayEnterCatalog) {
+    if (currentTab === "entities" && mayEnterCatalog) {
       loadEntities();
     }
-  }, [activeTab, entitiesKind, entitiesStatus, entitiesPage, mayEnterCatalog]);
+  }, [currentTab, entitiesKind, entitiesStatus, entitiesPage, mayEnterCatalog]);
 
   useEffect(() => {
-    if (activeTab === "reviews" && mayEnterCatalog) {
+    if (currentTab === "reviews" && mayEnterCatalog) {
       loadReviewList();
     }
-  }, [activeTab, reviewStatus, reviewPage, mayEnterCatalog]);
+  }, [currentTab, reviewStatus, reviewPage, mayEnterCatalog]);
 
   // 状态写入的唯一封装：PUT 是整份替换，必须先读全量再改状态（列表项是摘要，
   // 直接提交会因缺字段被服务端拒）；sources 的 kind 只能是 url / publication / self
   // （validation.go 的 validateSources）：管理台动作属于自述来源，用 "self" + 操作记录说明，
   // 不拿站点地址冒充外部证据。
-  const submitEntityStatus = async (id: string, status: "published" | "draft", note: string) => {
+  const submitEntityStatus = async (id: string, status: "published" | "draft", note: string, expectedVersion: number) => {
     const full = await fetchApi<Record<string, any>>(`/catalog/entities/${id}`);
+    if (full.version !== expectedVersion) throw new Error("version_conflict");
     const { updated_at: _updatedAt, ...doc } = full;
     await fetchApi(`/catalog/entities/${id}`, {
       method: "PUT",
       body: JSON.stringify({
         entity: { ...doc, id, status },
-        expected_version: full.version || 1,
+        expected_version: expectedVersion,
         edit_note: note,
         sources: [{ kind: "self", citation: t("admin.reviews.sourceCitation") }],
       }),
@@ -401,15 +400,23 @@ function AdminInner() {
   // 生命周期端点 POST …/lifecycle 只做删除与合并（lifecycle.go 恒把状态置 deleted/merged）。
   // 反向的 published → draft 被 store.go 的 use_lifecycle_endpoint 拦住，只能走
   // POST …/unpublish（见 handleUnpublish）。
-  const handleEntityPublish = async (id: string) => {
+  const handleStatusAction = async (id: string, action: "published" | "draft", expectedVersion: number, fromEntities = false) => {
+    if (!mayManageLifecycle || statusActionBusy.current) return;
+    statusActionBusy.current = true;
+    setActingId(id);
     setReviewNotice("");
+    setReviewError(false);
     try {
-      await submitEntityStatus(id, "published", t("admin.reviews.approveNote"));
-      setReviewNotice(t("admin.reviews.approved"));
-      loadEntities();
-      loadOverview();
+      await submitEntityStatus(id, action, t(action === "published" ? "admin.reviews.approveNote" : "admin.reviews.rejectNote"), expectedVersion);
+      if (fromEntities) loadEntities(); else loadReviewList();
+      void loadOverview();
+      setReviewNotice(t(action === "published" ? "admin.reviews.approved" : "admin.reviews.rejected"));
     } catch (e) {
+      setReviewError(true);
       setReviewNotice(localizeCatalogError(String((e as Error).message || e), t));
+    } finally {
+      statusActionBusy.current = false;
+      setActingId("");
     }
   };
 
@@ -417,8 +424,9 @@ function AdminInner() {
   // 400 use_lifecycle_endpoint，生命周期端点只写 deleted/merged。expected_version 用
   // 当前行的版本，服务端把它放进 WHERE 做乐观并发——别人先改过就是 409，不会覆盖掉。
   const handleUnpublish = async () => {
-    if (!unpublishTarget) return;
+    if (!unpublishTarget || unpublishing) return;
     setUnpublishing(true);
+    setReviewError(false);
     setReviewNotice("");
     try {
       await unpublishEntity({
@@ -435,6 +443,7 @@ function AdminInner() {
     } catch (e) {
       // 下架有两种拒绝最值得单独讲清：状态已经变了（列表是旧的）与版本冲突（别人先改过）。
       // 其余错误码统一走码表，不把裸码渲染给用户。
+      setReviewError(true);
       const raw = String((e as Error).message || e);
       const code = raw.trim().split(":")[0]?.trim();
       setReviewNotice(
@@ -449,21 +458,6 @@ function AdminInner() {
     }
   };
 
-  const handleReviewAction = async (id: string, action: "published" | "draft") => {
-    setReviewNotice("");
-    try {
-      await submitEntityStatus(
-        id,
-        action,
-        action === "published" ? t("admin.reviews.approveNote") : t("admin.reviews.rejectNote"),
-      );
-      loadReviewList();
-      loadOverview();
-      setReviewNotice(action === "published" ? t("admin.reviews.approved") : t("admin.reviews.rejected"));
-    } catch (e) {
-      setReviewNotice(localizeCatalogError(String((e as Error).message || e), t));
-    }
-  };
 
   // 这里刻意没有"启停"动作：运行时模块开关已随子系统拆分退役，
   // 能力是否可用由部署决定（服务在不在、配置没配置），面板只呈现事实（enabled），
@@ -473,6 +467,8 @@ function AdminInner() {
     e.preventDefault();
     const sourceId = mergeSource.trim();
     const targetId = mergeTarget.trim();
+    if (mergeBusy.current || !mayManageLifecycle) return;
+    mergeBusy.current = true;
     setMerging(true);
     setMergeMessage("");
     setMergeError(false);
@@ -481,53 +477,51 @@ function AdminInner() {
       // 同归属（作品/发行版/载体/父级/内容单元）、目标已发布、源不是已删除/已合并。
       // 少任何一条，服务端只会回 invalid_merge_target / invalid_status——先在本地讲清楚。
       const pair = await Promise.all([
-        fetchApi<Record<string, any>>(`/catalog/entities/${sourceId}`),
-        fetchApi<Record<string, any>>(`/catalog/entities/${targetId}`),
-      ]).catch(() => null);
-      if (!pair) {
-        setMergeError(true);
-        setMergeMessage(t("admin.console.mergeMissingEntity"));
-        return;
-      }
+        fetchApi<Record<string, any>>(`/catalog/entities/${encodeURIComponent(sourceId)}`),
+        fetchApi<Record<string, any>>(`/catalog/entities/${encodeURIComponent(targetId)}`),
+      ]);
       const [source, target] = pair;
       if (source.status === "deleted" || source.status === "merged") {
         setMergeError(true);
         setMergeMessage(t("admin.console.mergeSourceRetired"));
         return;
       }
-      const sameScope =
-        source.kind === target.kind &&
-        (source.work_id || "") === (target.work_id || "") &&
-        (source.release_id || "") === (target.release_id || "") &&
-        (source.medium_id || "") === (target.medium_id || "") &&
-        (source.parent_id || "") === (target.parent_id || "") &&
-        (source.content_unit_id || "") === (target.content_unit_id || "");
-      // 自合并（源与目标同一条）服务端同样判 invalid_merge_target，先本地拦掉再讲清楚原因。
-      if (sourceId === targetId || !sameScope || target.status !== "published") {
+      if (!isCompatibleMergeTarget(source, target)) {
         setMergeError(true);
         setMergeMessage(t("admin.console.mergeInvalidTarget"));
         return;
       }
-      await fetchApi(`/catalog/entities/${sourceId}/lifecycle`, {
-        method: "POST",
-        body: JSON.stringify({
-          target_id: targetId,
-          // 版本取刚才读到的值：与 Lifecycle 的乐观并发同源，期间被人改过就如实报 version_conflict。
-          expected_version: source.version || 1,
-          // edit_note 与 sources 都是必填证据（validateSources）：说明留空时退回合并标题，
-          // kind 只能是 url / publication / self，管理台动作用 "self" + 操作记录，不伪造外部 URL。
-          edit_note: mergeNote.trim() || t("admin.console.mergeTitle"),
-          sources: [{ kind: "self", citation: t("admin.reviews.sourceCitation") }],
-        }),
-      });
-      setMergeMessage(t("admin.console.mergeSuccess"));
-      setMergeSource("");
-      setMergeTarget("");
-      setMergeNote("");
+      setMergePreview({source, target, note: mergeNote.trim() || t("admin.console.mergeTitle")});
     } catch (err) {
       setMergeError(true);
       setMergeMessage(localizeCatalogError(String((err as Error).message || err), t));
     } finally {
+      mergeBusy.current = false;
+      setMerging(false);
+    }
+  };
+
+  const confirmMerge = async () => {
+    if (!mergePreview || mergeBusy.current || !mayManageLifecycle) return;
+    const {source, target, note} = mergePreview;
+    mergeBusy.current = true;
+    setMerging(true);
+    try {
+      await fetchApi(`/catalog/entities/${encodeURIComponent(source.id)}/lifecycle`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: target.id, expected_version: source.version,
+          edit_note: note, sources: [{kind: "self", citation: t("admin.reviews.sourceCitation")}] }),
+      });
+      setMergeError(false);
+      setMergeMessage(t("admin.console.mergeSuccess"));
+      setMergeSource(""); setMergeTarget(""); setMergeNote("");
+      void loadOverview();
+    } catch (err) {
+      setMergeError(true);
+      setMergeMessage(localizeCatalogError(String((err as Error).message || err), t));
+    } finally {
+      setMergePreview(null);
+      mergeBusy.current = false;
       setMerging(false);
     }
   };
@@ -640,8 +634,8 @@ function AdminInner() {
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
       <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-0 z-30">
-        <PageContainer className="h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <PageContainer className="min-h-14 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/home"
               className="flex items-center gap-1 text-xs text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
@@ -658,7 +652,7 @@ function AdminInner() {
           <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
             <LocaleSwitcher compact />
             <ThemePicker />
-            <span className="hidden sm:inline-flex px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+            <span className="hidden sm:inline-flex max-w-40 truncate px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
               {user.username}
             </span>
           </div>
@@ -674,9 +668,9 @@ function AdminInner() {
             </label>
             <Select
               id="admin-section"
-              value={activeTab}
+              value={currentTab}
               onChange={(v) => selectTab(v as AdminTab)}
-              options={NAV_GROUPS.flatMap((group) =>
+              options={visibleGroups.flatMap((group) =>
                 group.tabs.map((item) => ({ value: item.id, label: t(item.labelKey) }))
               )}
               aria-label={t("admin.nav.section")}
@@ -684,14 +678,14 @@ function AdminInner() {
           </div>
           {/* 粘附偏移只需包含管理台顶栏。 */}
           <nav aria-label={t("admin.nav.section")} className="hidden lg:block rounded-xl border border-line-subtle bg-surfaceSubtle p-2">
-            {NAV_GROUPS.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.labelKey} className="py-1 first:pt-0 last:pb-0">
                 <div className="px-3 py-2 text-[11px] font-semibold text-text-faint tracking-wide">
                   {t(group.labelKey)}
                 </div>
                 {group.tabs.map((item) => {
                   const Icon = item.icon;
-                  const active = activeTab === item.id;
+                  const active = currentTab === item.id;
                   return (
                     <button
                       key={item.id}
@@ -742,9 +736,9 @@ function AdminInner() {
 
         {/* Right Main Workbench */}
         {/* key 让每次切换页签都重放进入动画；外层统一包裹层保证各页签的首元素落在同一纵向位置 */}
-        <TabPanel activeKey={activeTab} spacing="none" className="flex-1 min-w-0">
+        <TabPanel activeKey={currentTab} spacing="none" className="flex-1 min-w-0">
           <div className="space-y-4 [&>*:first-child]:mt-0">
-          {activeTab === "overview" && (
+          {currentTab === "overview" && (
             <div className="space-y-4">
               <div>
                 <h2 className="text-base font-semibold text-text-strong">
@@ -755,7 +749,8 @@ function AdminInner() {
               {/* 卡片只放目录域拿得到的真实数据，且标签与端点口径一致：数据库版本与会话模式没有
                   任何端点暴露，部署态能力数（/api/capabilities）不是目录域指标，都不出现在这里；
                   取不到显示占位符，不写死、不拿 0 冒充。 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" aria-busy={overviewLoading}>
+                {mayManageLifecycle && <>
                 <button type="button" onClick={() => selectTab("reviews")} className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle hover:border-primary/40 hover:bg-surfaceHover text-left transition-colors cursor-pointer">
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.pendingReviews")}
@@ -778,7 +773,8 @@ function AdminInner() {
                   </div>
                   <div className="text-2xl font-bold text-text-strong">{stats.tombstones ?? "—"}</div>
                 </div>
-                <button type="button" onClick={() => selectTab("extdb")} className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle hover:border-primary/40 hover:bg-surfaceHover text-left transition-colors cursor-pointer">
+                </>}
+                <button type="button" disabled={!canUseCatalogAdminTab(user, "extdb")} onClick={() => selectTab("extdb")} className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle hover:border-primary/40 hover:bg-surfaceHover text-left transition-colors cursor-pointer">
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.extDatabases")}
                   </div>
@@ -786,21 +782,25 @@ function AdminInner() {
                 </button>
               </div>
 
+              <div className="flex items-center justify-between gap-3">
+                {overviewFailed ? <p role="alert" className="text-xs text-danger">{t("admin.console.overviewFailed")}</p> : <span />}
+                <button type="button" disabled={overviewLoading} onClick={() => void loadOverview()} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs disabled:opacity-50"><RefreshCw className={overviewLoading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{t("common.refresh")}</button>
+              </div>
               <div className="rounded-xl border border-line-subtle bg-surfaceSubtle p-4">
                 <h3 className="text-sm font-semibold text-text-strong mb-3">{t("admin.console.quickActions")}</h3>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/new" className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90">
                     <Plus className="h-4 w-4" aria-hidden="true" />{t("catalog.newEntity")}
                   </Link>
-                  <button type="button" onClick={() => selectTab("definitions")} className="rounded-lg border border-line px-3 py-2 text-xs text-text-body hover:bg-surfaceHover">{t("admin.tab.definitions")}</button>
-                  <button type="button" onClick={() => selectTab("shelves")} className="rounded-lg border border-line px-3 py-2 text-xs text-text-body hover:bg-surfaceHover">{t("admin.tab.shelves")}</button>
+                  <button type="button" disabled={!canUseCatalogAdminTab(user, "definitions")} onClick={() => selectTab("definitions")} className="rounded-lg border border-line px-3 py-2 text-xs text-text-body hover:bg-surfaceHover">{t("admin.tab.definitions")}</button>
+                  <button type="button" disabled={!canUseCatalogAdminTab(user, "shelves")} onClick={() => selectTab("shelves")} className="rounded-lg border border-line px-3 py-2 text-xs text-text-body hover:bg-surfaceHover">{t("admin.tab.shelves")}</button>
                 </div>
               </div>
 
             </div>
           )}
 
-          {activeTab === "entities" && (
+          {currentTab === "entities" && (
             <div className="space-y-4">
               {/* Entities Header & Search */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
@@ -834,7 +834,7 @@ function AdminInner() {
               </div>
 
               {reviewNotice && (
-                <div className="p-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs text-text-body">
+                <div role={reviewError ? "alert" : "status"} className={`p-3 rounded-xl border text-xs ${reviewError ? "border-danger/30 bg-danger/10 text-danger" : "border-success/30 bg-success/10 text-success"}`}>
                   {reviewNotice}
                 </div>
               )}
@@ -963,22 +963,24 @@ function AdminInner() {
                                   published → draft（store.go 的 use_lifecycle_endpoint）；
                                   生命周期端点只做删除与合并。已发布条目改成走下架端点（见下），
                                   已删除/已合并连合并入口都不给。 */}
-                              {(e.status === "draft" || e.status === "pending_review") && (
+                              {mayManageLifecycle && (e.status === "draft" || e.status === "pending_review") && (
                                 <button
                                   type="button"
-                                  onClick={() => handleEntityPublish(e.id)}
+                                  disabled={!!actingId}
+                                  onClick={() => void handleStatusAction(e.id, "published", e.version, true)}
                                   className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-success text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.approve")}
                                 </button>
                               )}
-                              {e.status === "published" && (
+                              {mayManageLifecycle && e.status === "published" && (
                                 // 已发布条目现在有真正的降级入口（/unpublish），不再是禁用态：
                                 // 调用前二次确认，确认框里说明这一步的影响面。
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setReviewNotice("");
+                                    setReviewError(false);
                                     setUnpublishTarget(e);
                                   }}
                                   className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-warn text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
@@ -986,7 +988,7 @@ function AdminInner() {
                                   {t("admin.entities.unpublish")}
                                 </button>
                               )}
-                              {e.status !== "deleted" && e.status !== "merged" && (
+                              {mayManageLifecycle && e.status !== "deleted" && e.status !== "merged" && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1018,15 +1020,15 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "definitions" && <DefinitionsEditor />}
+          {currentTab === "definitions" && <DefinitionsEditor />}
 
-          {activeTab === "extdb" && <ExternalDatabasesTab />}
+          {currentTab === "extdb" && <ExternalDatabasesTab />}
 
-          {activeTab === "shelves" && <ShelvesTab />}
+          {currentTab === "shelves" && <ShelvesTab />}
 
-          {activeTab === "ratelimits" && <RateLimitsTab />}
+          {currentTab === "ratelimits" && <RateLimitsTab />}
 
-          {activeTab === "reviews" && (
+          {currentTab === "reviews" && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle flex items-center justify-between">
                 <div>
@@ -1072,7 +1074,7 @@ function AdminInner() {
               </div>
 
               {reviewNotice && (
-                <div className="p-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs text-text-body">
+                <div role={reviewError ? "alert" : "status"} className={`p-3 rounded-xl border text-xs ${reviewError ? "border-danger/30 bg-danger/10 text-danger" : "border-success/30 bg-success/10 text-success"}`}>
                   {reviewNotice}
                 </div>
               )}
@@ -1100,14 +1102,14 @@ function AdminInner() {
                       key={item.id}
                       className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-mono uppercase">
                             {item.kind}
                           </span>
                           <span className="font-semibold text-sm text-text-strong">{item.title}</span>
                         </div>
-                        <div className="text-xs text-text-faint font-mono">
+                        <div className="text-xs text-text-faint font-mono break-all">
                           ID: {item.id} · v{item.version}
                         </div>
                       </div>
@@ -1126,6 +1128,7 @@ function AdminInner() {
                             type="button"
                             onClick={() => {
                               setReviewNotice("");
+                              setReviewError(false);
                               setUnpublishTarget(item);
                             }}
                             className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-warn text-xs font-semibold cursor-pointer"
@@ -1136,14 +1139,16 @@ function AdminInner() {
                           <>
                             <button
                               type="button"
-                              onClick={() => handleReviewAction(item.id, "published")}
+                              disabled={!!actingId}
+                              onClick={() => void handleStatusAction(item.id, "published", item.version)}
                               className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-success text-xs font-semibold"
                             >
                               {t("admin.reviews.approve")}
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleReviewAction(item.id, "draft")}
+                              disabled={!!actingId}
+                              onClick={() => void handleStatusAction(item.id, "draft", item.version)}
                               className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-danger text-xs font-semibold"
                             >
                               {t("admin.entities.reject")}
@@ -1167,7 +1172,7 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "merge" && (
+          {currentTab === "merge" && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <h2 className="text-base font-semibold text-text-strong mb-1">
@@ -1180,38 +1185,41 @@ function AdminInner() {
 
               <form onSubmit={handleMergeSubmit} className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-xl">
                 <div>
-                  <label className="block text-xs font-medium text-text-body mb-1">
+                  <label htmlFor="merge-source" className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.sourceUuid")}
                   </label>
                   <input
                     type="text"
                     required
+                    id="merge-source"
                     value={mergeSource}
                     onChange={(e) => setMergeSource(e.target.value)}
-                    placeholder="e.g. 5d1211ef-afe5-46fb-bfcb-706d84cebaec"
+                    placeholder={t("catalog.compareUuidPlaceholder")}
                     className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-text-body mb-1">
+                  <label htmlFor="merge-target" className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.targetUuid")}
                   </label>
                   <input
                     type="text"
                     required
+                    id="merge-target"
                     value={mergeTarget}
                     onChange={(e) => setMergeTarget(e.target.value)}
-                    placeholder="e.g. ea8c8cd1-c75b-4919-9f02-b61e9a082b44"
+                    placeholder={t("catalog.compareUuidPlaceholder")}
                     className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-text-body mb-1">
+                  <label htmlFor="merge-note" className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.mergeNote")}
                   </label>
                   <textarea
+                    id="merge-note"
                     rows={2}
                     value={mergeNote}
                     onChange={(e) => setMergeNote(e.target.value)}
@@ -1221,7 +1229,7 @@ function AdminInner() {
                 </div>
 
                 {mergeMessage && (
-                  <div className={`p-3 rounded-lg text-xs font-mono ${
+                  <div role={mergeError ? "alert" : "status"} className={`p-3 rounded-lg text-xs font-mono ${
                     mergeError ? "bg-rose-500/20 text-danger" : "bg-emerald-500/20 text-success"
                   }`}>
                     {mergeMessage}
@@ -1233,13 +1241,13 @@ function AdminInner() {
                   disabled={merging}
                   className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
-                  {merging ? t("admin.console.merging") : t("admin.console.executeMerge")}
+                  {merging ? t("admin.console.merging") : t("admin.console.previewMerge")}
                 </button>
               </form>
             </div>
           )}
 
-          {activeTab === "modules" && (
+          {currentTab === "modules" && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle flex items-center justify-between">
                 <div>
@@ -1260,7 +1268,8 @@ function AdminInner() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {overviewFailed && <p role="alert" className="text-xs text-danger">{t("admin.console.overviewFailed")}</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-busy={overviewLoading}>
                 {modules.map((mod) => (
                   <div
                     key={mod.id}
@@ -1270,12 +1279,7 @@ function AdminInner() {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-text-strong text-sm font-mono">{mod.id}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-text-faint"}`} />
-                        <span className="text-text-muted font-mono text-[11px]">
-                          {mod.enabled ? t("admin.console.active") : t("admin.console.disabled")}
-                        </span>
-                      </div>
+
                     </div>
 
                     <span
@@ -1293,22 +1297,37 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "exchange" && <ExchangeTab />}
+          {currentTab === "exchange" && <ExchangeTab />}
           </div>
         </TabPanel>
       </PageContainer>
 
+      <ConfirmDialog open={mergePreview != null} title={t("admin.console.mergeTitle")}
+        message={<div className="space-y-3">
+          <p>{t("admin.console.mergeConfirm")}</p>
+          {[ ["admin.console.sourceUuid", mergePreview?.source], ["admin.console.targetUuid", mergePreview?.target] ].map(([label, entity]) => {
+            const row = entity as Record<string, any> | undefined;
+            return <div key={String(label)} className="rounded-lg border border-line p-2 text-text-body">
+              <div className="text-text-muted">{t(String(label))}</div>
+              <div className="font-semibold break-words">{row?.title} · {row ? kindLabel(row.kind) : ""} · v{row?.version}</div>
+              <div className="font-mono break-all">{row?.id}</div>
+            </div>;
+          })}
+          <p className="break-words">{mergePreview?.note}</p>
+        </div>}
+        confirmLabel={t("admin.console.executeMerge")} busy={merging}
+        onClose={() => { if (!merging) setMergePreview(null); }} onConfirm={() => void confirmMerge()} />
       {/* 实体行的"退回草稿"与审核台共用这个确认框：一次只可能有一个待确认目标。 */}
       <ConfirmDialog
         open={unpublishTarget != null}
         title={t("admin.entities.unpublish")}
-        message={t("admin.entities.unpublishConfirm", {
+        message={<div className="space-y-2"><p>{t("admin.entities.unpublishConfirm", {
           title: unpublishTarget?.title ?? "",
           version: String(unpublishTarget?.version ?? 1),
-        })}
+        })}</p>{reviewError && reviewNotice ? <p role="alert">{reviewNotice}</p> : null}</div>}
         confirmLabel={t("admin.entities.unpublish")}
         busy={unpublishing}
-        onClose={() => setUnpublishTarget(null)}
+        onClose={() => { if (!unpublishing) setUnpublishTarget(null); }}
         onConfirm={() => void handleUnpublish()}
       />
     </div>
