@@ -14,8 +14,8 @@
 --   | 存储 | mf_storage                   | mf_storage_owner        | storage   |
 --
 -- 为什么运行角色仍持有本域 DDL（owner 成员身份 = Tier 1），而不是纯 CRUD：
---   四个服务的启动路径都会执行建表 DDL（catalog `Store.Initialize`、auth `store.Init`、
---   community `store.Init`、storage `store.Init`；DDL 见
+--   目录 HTTP 启动只读校验；目录 DDL/种子由运维身份显式执行 up/seed。
+--   auth `store.Init`、community `store.Init`、storage `store.Init` 仍在启动路径迁移；DDL 见
 --   `backend/migrations/000021_catalog_baseline.up.sql`、`../metafusion-auth/internal/store/store.go`、
 --   `../metafusion-community/migrations/000001_init.up.sql`、
 --   `../metafusion-storage/internal/store/migrations/000001_init.up.sql`）。
@@ -23,7 +23,7 @@
 --   **先做权限检查、再看对象是否存在**（实测：结构已建好、数据都在，只给 CRUD 的角色仍报
 --   `permission denied for schema <x>`；`CREATE SCHEMA IF NOT EXISTS` 还额外要求库级 CREATE），
 --   三个仓库里还有 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`（要求对象所有权）。
---   因此"只给 CRUD 的运行角色"会让四个服务根本起不来；要落地纯 CRUD 运行角色，前提是
+--   因此其余三域的运行角色尚不能只持有 CRUD；要统一落地纯 CRUD 运行角色，前提是
 --   "启动只校验、迁移由 owner 单独跑"（审计 §4.3 第 3 条，未实现）。
 --   本脚本的做法是：运行角色 = 本域结构归属角色的成员，**权限边界仍然只在本域 schema 内**，
 --   这正是 P0 要堵住的"跨服务读写"。第 4 节的 CRUD 与默认权限已经备好：把启动迁移拆出去之后，
