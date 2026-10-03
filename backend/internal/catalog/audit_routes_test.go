@@ -125,14 +125,15 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 	}
 }
 
-// 豁免必须真的是"零写入"：这里把两条豁免端点的语义钉住，免得以后有人把写逻辑挪进它们，
+// 豁免必须真的是"零写入"：这里把豁免端点的语义钉住，免得以后有人把写逻辑挪进它们，
 // 却因为在豁免表里而静默不留痕。
 func TestAuditExemptRoutesAreReadOnlyByDesign(t *testing.T) {
 	exempt := AuditExempt()
-	if len(exempt) != 4 {
+	if len(exempt) != 5 {
 		t.Fatalf("豁免表条数变了（%d）：新增豁免要在测试里说明它为什么零写入", len(exempt))
 	}
-	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity", "POST /api/admin/catalog-definitions/impact"} {
+	// relationships/query 仅在 repeatable-read 的只读事务中读目录投影。
+	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity", "POST /api/catalog/relationships/query", "POST /api/admin/catalog-definitions/impact"} {
 		if strings.TrimSpace(exempt[key]) == "" {
 			t.Fatalf("%s 必须带豁免理由", key)
 		}

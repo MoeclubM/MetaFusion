@@ -181,7 +181,7 @@ func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
 	})
 }
 
-// routeLimiter 限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
+// routeLimiter 限流重型查询接口, 超限返回 429 + Retry-After(秒)。
 //
 // 主体与额度：已登录请求的主体是**账号**（同一账号的多个 IP/标签页共用一个桶），
 // 未登录请求的主体是其真实客户端 IP。额度按
@@ -656,6 +656,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		page, err := s.EntityLinks(c.Request.Context(), c.Param("id"), limit, offset, user(c))
 		respond(c, page, err)
+	})
+	cat.POST("/relationships/query", routeLimiter(60), func(c *gin.Context) {
+		var in RelationshipQueryRequest
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.QueryRelationships(c.Request.Context(), in, user(c))
+		respond(c, v, err)
 	})
 	cat.GET("/entities/:id/occurrences", func(c *gin.Context) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))

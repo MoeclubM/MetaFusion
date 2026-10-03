@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/lib/pq"
 )
 
 // EntityLink is a read-only projection of one canonical structural or semantic
@@ -86,23 +88,62 @@ JOIN catalog.entities source ON source.id=l.source_id::uuid
 JOIN catalog.entities target ON target.id=l.target_id::uuid
 WHERE ($2::boolean OR source.status='published' OR source.created_by=$3::uuid)
  AND ($2::boolean OR target.status='published' OR target.created_by=$3::uuid)
+ AND ($6='both' OR ($6='outgoing' AND l.source_id=$1::text)
+  OR ($6='incoming' AND l.target_id=$1::text AND l.source_id<>$1::text))
+ AND ($7::text[] IS NULL OR l.code=ANY($7::text[]))
+ AND ($8::text[] IS NULL OR (CASE WHEN l.source_id=$1::text THEN target.kind ELSE source.kind END)=ANY($8::text[]))
 ORDER BY l.code, l.position, l.source_id, l.target_id, l.role, l.relation_id
 LIMIT $4 OFFSET $5`
 
 func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u *User) (EntityLinksPage, error) {
-	page := EntityLinksPage{SubjectID: id, Items: []EntityLink{}, Entities: map[string]Entity{}, Limit: limit, Offset: offset}
 	self, err := s.Get(ctx, id, u)
 	if err != nil {
-		return page, err
+		return EntityLinksPage{}, err
 	}
-	id = self.ID
-	page.SubjectID = id
 	defs, err := s.Definitions(ctx)
+	if err != nil {
+		return EntityLinksPage{}, err
+	}
+	page, err := entityLinksFrom(ctx, s.DB, self.ID, limit, offset, u, defs, relationshipFilters{Direction: "both"})
 	if err != nil {
 		return page, err
 	}
+	page.Entities[self.ID] = self
+	ids := make([]string, 0, len(page.Items)*2)
+	for _, link := range page.Items {
+		ids = append(ids, link.SourceID, link.TargetID)
+	}
+	peers, err := s.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return page, err
+	}
+	// Guard against a visibility change between the SQL page and endpoint fetch.
+	filtered := page.Items[:0]
+	for _, link := range page.Items {
+		source, sourceOK := peers[link.SourceID]
+		target, targetOK := peers[link.TargetID]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		filtered = append(filtered, link)
+		page.Entities[link.SourceID] = source
+		page.Entities[link.TargetID] = target
+	}
+	page.Items = filtered
+	return page, nil
+}
+
+type relationshipFilters struct {
+	Direction string
+	RuleCodes []string
+	PeerKinds []string
+}
+
+// entityLinksFrom is shared by single-subject links and the bounded Agent query.
+// Filters and endpoint visibility are applied in SQL before visible pagination.
+func entityLinksFrom(ctx context.Context, q queryer, id string, limit, offset int, u *User, defs DefinitionConfig, filters relationshipFilters) (EntityLinksPage, error) {
+	page := EntityLinksPage{SubjectID: id, Items: []EntityLink{}, Entities: map[string]Entity{}, Limit: limit, Offset: offset}
 	page.DefinitionETag = defs.ETag
-	page.Entities[id] = self
 	manage := u != nil && u.Can(PermissionLifecycleManage)
 	userID := "00000000-0000-0000-0000-000000000000"
 	if u != nil {
@@ -114,7 +155,7 @@ func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u
 	const window = 200
 	seen, dbOffset := 0, 0
 	for len(page.Items) <= limit {
-		rows, err := s.DB.QueryContext(ctx, entityLinksPageSQL, id, manage, userID, window, dbOffset)
+		rows, err := q.QueryContext(ctx, entityLinksPageSQL, id, manage, userID, window, dbOffset, filters.Direction, pq.Array(filters.RuleCodes), pq.Array(filters.PeerKinds))
 		if err != nil {
 			return page, err
 		}
@@ -154,10 +195,9 @@ func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u
 				if err = json.Unmarshal(relationDoc, &relation); err != nil {
 					return page, err
 				}
-				if rule, ok := defs.Document.Relations[relation.Type]; ok {
-					if defs.Document.attributes(rule.Fields, relation.Attributes, reference(ctx, s.DB, u), true) != nil {
-						continue
-					}
+				rule, ok := defs.Document.Relations[relation.Type]
+				if !ok || defs.Document.attributes(rule.Fields, relation.Attributes, reference(ctx, q, u), true) != nil {
+					continue
 				}
 				link.Class, link.Key = "semantic", relationID
 			} else {
@@ -167,6 +207,20 @@ func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u
 					return page, fmt.Errorf("unknown fixed relationship rule: %s", link.RuleCode)
 				}
 				link.Key = fixedLinkKey(link)
+				// Record-level references can become hidden after a structural fact
+				// was saved. Neither their IDs nor their locators may leak on read.
+				ref := reference(ctx, q, u)
+				switch link.RuleCode {
+				case "structure:release_subject":
+					if defs.Document.value(defs.Document.Fields["subject_attributes"], link.Attributes, ref, true) != nil {
+						continue
+					}
+				case "structure:track_content":
+					if defs.Document.value(defs.Document.Fields["locator"], map[string]any(link.Locator), ref, true) != nil ||
+						defs.Document.value(defs.Document.Fields["inclusion_attributes"], link.Attributes, ref, true) != nil {
+						continue
+					}
+				}
 			}
 			if link.SourceID == id {
 				link.Direction = "outgoing"
@@ -188,27 +242,6 @@ func (s *Store) EntityLinks(ctx context.Context, id string, limit, offset int, u
 		}
 		dbOffset += len(candidates)
 	}
-	ids := make([]string, 0, len(page.Items)*2)
-	for _, link := range page.Items {
-		ids = append(ids, link.SourceID, link.TargetID)
-	}
-	peers, err := s.GetManyVisible(ctx, ids, u)
-	if err != nil {
-		return page, err
-	}
-	// Guard against a visibility change between the SQL page and endpoint fetch.
-	filtered := page.Items[:0]
-	for _, link := range page.Items {
-		source, sourceOK := peers[link.SourceID]
-		target, targetOK := peers[link.TargetID]
-		if !sourceOK || !targetOK {
-			continue
-		}
-		filtered = append(filtered, link)
-		page.Entities[link.SourceID] = source
-		page.Entities[link.TargetID] = target
-	}
-	page.Items = filtered
 	return page, nil
 }
 

@@ -22,6 +22,8 @@
 
 关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。固定规则码以 `structure:` 开头，动态语义码以 `relation:` 开头；返回方向、类别、端点、位置、角色、定位、属性及本次读取的 definitions 版本，limit 默认 50、最大 100。
 
+Agent 批量查询使用只读 `POST /api/catalog/relationships/query`：`ids` 为1–20个主体，`direction` 为 both/outgoing/incoming，`rule_codes` 取当前 relationship_rules 完整码，`peer_kinds` 过滤相对主体的对端层级。limit 默认25、最大100，offset 为0–10000，均按主体独立分页；筛选与可见性检查先于分页。响应为 definition_etag、pages、去重的 entities 摘要与 unavailable_ids（不存在和不可见不区分）；摘要仅包含 id、kind、version、title、original_language、translations，不是完整实体编辑载荷。定义、主体和直接边在同一 RepeatableRead 只读事务中装配；多次分页请求不共享快照。固定与语义边复用现有投影，不新增关系事实表；查询不执行写入，不递归遍历。默认限流60次/分钟，仍由现行账户/组策略调整。
+
 归属与位置的权威来源是结构侧表的 `work_id`、`release_id`、`medium_id`、`parent_id` 和 `content_unit_id`；发行收录来自 `release_subjects`，轨位收录来自 `track_contents`，署名、改编、聚合等语义来自 `catalog.relations`。固定边须在所属实体或收录写入口编辑。当前 links 不提供逐边证据或历史规则版本；旧外键没有保存这些信息，未来须先在权威写入处设计来源记录与迁移。新增结构写入仍须有现有骨架无法表达的带来源样本，见[演进方案](./metadata-structure-evolution-plan.md)。媒体样本与身份判断见[媒体编目与前端复核](./media-catalog.md)。
 
 作品目录共用 ContentUnit、Expression 与聚合关系读取结果；没有可见内容时隐藏，失败时显示重试，同题名 Expression 标为“内容表达”。通用游戏不推断为独立游戏；Bangumi 来源类型映射为 `game` 预览标记，不在实体上虚构业务类型。旧误分类须有来源再更正，定义种子须按部署流程显式执行。
