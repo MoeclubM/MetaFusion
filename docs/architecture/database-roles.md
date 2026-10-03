@@ -2,7 +2,7 @@
 
 本文是**数据层隔离**的口径与落地说明：四个服务（目录 / 账号 / 互动 / 存储）共用同一个 PostgreSQL
 实例与同一个库，但**不再共用同一个库用户**。剩余迁移职责分离见
-[服务解耦路线](./service-decoupling-roadmap.md) §4.3。
+[服务解耦路线](./service-decoupling-roadmap.md) §4.1。
 
 授权脚本（幂等，唯一授权来源）：
 
@@ -23,25 +23,20 @@
 有 `USAGE` + 全部对象的 CRUD/序列/函数权限，对**别人的 schema 一点权限都没有**（含 schema USAGE）。
 库 owner（compose 里的 `POSTGRES_USER`，默认 `metafusion`）保留为运维/迁移身份。
 
-## 2. 服务 × 表矩阵（历史快照，2026-09-19）
+## 2. 服务与对象归属
 
-下表是当时的结构快照，不是当前迁移清单。例如目录迁移 `000014` 已将 definitions 改为 definition_config，`000018` 新增 rate_limit_policy。目标实例以已执行迁移与库侧检查为准，授权脚本以 schema 为范围覆盖新对象，不按此快照逐表授予。
+授权以 schema 为范围覆盖已存在对象与新对象，不维护另一份逐表白名单。目录结构以 `backend/migrations/` 的安装基线和后续迁移为准；账号、互动、存储结构以各仓迁移入口为准。目标实例的表、序列、索引与已执行账本应通过库侧检查核对，实例快照只记 docs-local。
 
-库 = 一个（`metafusion_db`），四个业务 schema + 一个共享审计 schema；下表由 `pg_class` 实测导出
-（`docs-local/task-db-roles/recon.sql`，只读侦察入口 `run-recon.sh <db>`），不是凭印象：
+| schema | 权威结构来源 | 运行权限 |
+| --- | --- | --- |
+| `catalog` | 主仓目录迁移与 `mf-migrate` | `mf_catalog` 读写本域对象 |
+| `auth` | 账号仓自身 DDL/迁移 | `mf_auth` 读写本域对象 |
+| `community` | 互动仓 `migrations/` | `mf_community` 读写本域对象 |
+| `storage` | 存储仓 `internal/store/migrations/` | `mf_storage` 读写本域对象 |
+| `audit` | 共享审计契约与 owner 预建段 | 四个运行角色 SELECT/INSERT；不得 UPDATE/DELETE/TRUNCATE |
+| `public` | 目录迁移账本 `schema_migrations` | 运维/迁移身份；服务角色不获账本权限 |
 
-| schema | 表 | 序列 / 其它 | 谁读写 |
-| --- | --- | --- | --- |
-| `catalog` | entities, relations, content_units, expressions, release_subjects, mediums, tracks, track_contents, revisions, definitions, shelves, external_databases, outbox, deliveries, user_preferences, notifications（16；`notifications` 由 `000003_notifications` 建出，见迁移基准 §2 的 `/api/notifications/*` 行） | definitions_id_seq, revisions_id_seq, shelves_id_seq；函数 check_parent_cycle() | `mf_catalog` |
-| `auth` | users, sessions, oauth_clients, oauth_codes, oauth_tokens, oauth_audit, personal_access_tokens, instance_settings, invites, invite_uses, groups, user_groups（12） | — | `mf_auth` |
-| `community` | boards, topics, posts, tags, topic_tags, favorites, direct_messages, schema_migrations（8） | tags_id_seq | `mf_community` |
-| `storage` | assets, bindings, schema_migrations（3） | — | `mf_storage` |
-| `audit` | audit_log（共享，四个服务只追加） | — | 四个运行角色（SELECT/INSERT） |
-| `public` | schema_migrations（目录迁移工具的账本） | — | **库 owner**（运维身份），服务角色零权限 |
-
-服务间**没有**跨 schema 的 SQL：代码检索里 `catalog.`/`auth.`/`community.`/`storage.` 的
-跨域命中全部是权限码字符串（如 `community.post.create`）或注释，没有一条跨域查询（四个仓库的
-`FROM|JOIN|INSERT|UPDATE` + schema 名逐条核对）。
+业务服务只访问本域对象；共享审计是明确的跨域例外。实体身份和可见性通过 HTTP 查询，不能用跨业务 schema 的 SQL 或外键替代该边界。
 
 ## 3. 为什么运行角色仍持有本域 DDL（Tier 1 → Tier 2）
 
@@ -166,27 +161,18 @@ COMMUNITY_MIGRATE_DATABASE_URL  → community-migrate（一次性，跨域读）
 
 **通用纪律**：迁移新增表或序列后重跑授权脚本（重复第 3 步），使默认权限覆盖新对象；本机已验证目录 000002 新表在重跑前对 `mf_catalog` 无权限、重跑后恢复。共享审计表的权限也须在表创建后授予，否则服务写审计会失败。
 
-## 7. 验证记录（本机真库，可复跑）
+## 7. 验证入口
 
-| 项 | 命令要点 | 结果 |
-| --- | --- | --- |
-| 授权与接管 | `apply-roles.sh <db> <owner_dsn>`（本机 WSL PG17） | 幂等；重复执行只收敛权限，二次接管无动作；从"半途失败"状态重跑可恢复 |
-| 覆盖率与越权 | `verify-role-isolation.sql` | A/B/C/D/F 全过：每个角色对本域**全部**表有 CRUD、对全部序列有 USAGE/SELECT，对别人的 schema/表零权限，`SET LOCAL ROLE` 后读/写别人的表均 `permission denied` |
-| 运行角色启动 | 四个服务二进制 + 各自 DSN（`docs-local/task-db-roles/run-service.ps1`） | 四个服务全部启动成功；`/ready` 200，目录 definitions/entities、账号 setup/settings/JWKS、互动 boards/topics/feed 均 200 且有真实数据 |
-| 真库测试套件（受限角色） | catalog `MF_V2_TEST_DSN`、auth `AUTH_TEST_DSN`、community `COMMUNITY_TEST_DSN`、storage `STORAGE_TEST_DSN`，用户分别是四个运行角色 | catalog 311 PASS / 0 FAIL / 0 SKIP；auth 103/0/0；community 80/0/0；storage 88/0/0 |
-| 越权被拒 | `probe-denial.sh` | catalog 读写 auth/community/storage 全 `permission denied for schema ...`；四个角色各自读写自己的域成功 |
-| 共享审计授权（预建路径） | `case1-2.sh` + `-v audit_bootstrap=1` | `audit` schema 与 `audit.audit_log`（含主键与四条索引）归 `mf_audit_owner`；四个角色 usage/create/sel/ins=t、upd/del=f；verify exit 0 |
-| 默认路径（不预建） | `case1-2.sh` 用例 1 | 不动 audit 归属；表未建时 F 段只提示；verify exit 0 |
-| 守卫修复验证 | `guarded-check.sh` + 四服务启动复核 | 非 owner 重跑迁移空转通过；预建 owner 与服务先建两种顺序均正常启动（详见 §4.1） |
-| 审计 DDL 一致性（CI） | `python scripts/check_audit_schema.py`（+ `--selftest`） | 8 个来源（授权脚本预建段 + 4 份 Go 常量 + 3 份迁移文件）逐条语句与结构一致；负向测试（改一列类型 / 换 `--siblings-root` 注入漂移副本）确定会红并指出差异位置 |
+- 用 `verify-role-isolation.sql` 核对本域表/序列权限、跨域拒绝、owner 归属与共享审计只追加权限；以脚本实际输出为准。
+- 用 `python scripts/check_audit_schema.py` 和 `--selftest` 核对共享审计 DDL，避免各仓常量、迁移与预建段漂移。
+- 在受限运行角色下启动各服务，核对 `/ready`、真实读取及必要写入；只通过离线 SQL 检查不能证明服务启动可用。
+- 新迁移执行、审计表预建与角色撤权之后重复检查。具体发布版本、测试计数和实例结果归 docs-local，不在本文保留旧批次报告。
 
-测试套件里"跨域"没有出现：各服务的用例只碰自己的 schema（community/storage 的 `Init` 也只建自己那份）。
-两个测试夹具需要 `CREATEDB`（catalog 每个用例新建一次性库、auth 的 `seed_groups` 用例）；
-那是**测试期**能力，脚本重跑会把 `NOCREATEDB` 收回来。
+测试夹具可能需要 CREATEDB 创建隔离库；这属于测试身份能力，不能据此给线上运行角色授权。授权脚本会收回运行角色的 CREATEDB。
 
-## 8. 未做 / 需要别人接手
+## 8. 尚未完成的边界
 
-1. **Tier 2 降级**：目标是启动只校验、迁移由 owner 单独执行（审计 §4.3）。账号、互动、存储启动路径仍执行 DDL；目录迁移已由 `mf-migrate up` 显式执行。本轮未完成前者，落地需改服务代码。
+1. **Tier 2 降级**：目标是启动只校验、迁移由 owner 单独执行（审计 §4.1）。账号、互动、存储启动路径仍执行 DDL；目录迁移已由 `mf-migrate up` 显式执行。前者仍需按服务实施并验收。
 2. **`mf-migrate` 的 DSN 化**：`backend/internal/config` 只读 `DB_*`；统一为 `DATABASE_URL` 需改代码并补 public 账本权限（脚本第 6.4 节）。
-3. **共享对象 DDL 的归属口径（见 §4.2）**：新增共享对象时，应明确由哪个身份创建，其余服务只校验；本轮只为审计表落了守卫与一致性检查。
+3. **共享对象 DDL 的归属口径（见 §4.2）**：新增共享对象时，应明确由哪个身份创建，其余服务只校验；审计表已有守卫与一致性检查。
 4. **每服务独立库**：尚未实施；已有 DSN 可作为后续切换入口。社区与存储旧角色样例已移除，授权只维护于本文所列统一脚本。

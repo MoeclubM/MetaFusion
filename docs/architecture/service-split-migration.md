@@ -71,11 +71,11 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 - 每个服务拥有自己的 schema，只读写自己的表；**禁止跨服务 JOIN**。
 - 服务间只通过 HTTP 契约与事件交互：
   - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
-  - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
-    `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./service-decoupling-roadmap.md) §5。
+  - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有跨业务服务消费者**，子系统对合并结果的收敛靠同步查询目录接口。
+    OpenSearch 通过 `deliveries`（consumer + `event_id`）记录已完成消费，批量索引成功后才确认；通用回调投递占位代码已退役。未来跨服务投递须另行定义幂等、重试与重放契约，见[服务解耦路线](./service-decoupling-roadmap.md) §5。
 - 结构来源：目录迁移由 `backend/migrations/*.sql` + `mf-migrate up` 执行，空库内容种子由 `mf-migrate seed` 显式发布；目录 HTTP 进程启动只做 `CheckCompatibleVersion` 只读检查，不再执行 DDL 或种子。互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行尚未记账的迁移并写入 `<schema>.schema_migrations`。账号服务仍在启动路径执行自身 DDL。四服务的迁移职责尚未完全统一。
   迁移锁须按实际路径区分：目录 `mf-migrate` 用会话级锁 `88481001`；存储迁移用事务级锁 `740204`，互动迁移用事务级锁 `740205`。目录运行写入的 `740202` 与账号写入的 `740203` 不是迁移锁；共享审计表 DDL 另用 `740205` 跨服务串行化。新增迁移入口时先核对现有锁的作用域与顺序，不能直接套用旧键位表。
-  “启动只校验、迁移由 owner 单独跑”已在目录服务实现；账号、互动、存储仍需分离启动与迁移（受限角色下 DDL 会遇到权限问题），见 [审计文档](./service-decoupling-roadmap.md) §4.3。
+  “启动只校验、迁移由 owner 单独跑”已在目录服务实现；账号、互动、存储仍需分离启动与迁移（受限角色下 DDL 会遇到权限问题），见 [服务解耦路线](./service-decoupling-roadmap.md) §4.1。
 - **库侧权限边界（2026-09 落地）**：四个服务各有自己的库角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），
   只对本域 schema 有权限，越权读写由库直接拒绝；仅有的跨域例外是共享审计表 `audit.audit_log`
   （四个服务只追加）与切流的 community-migrate 工具。授权脚本 `deploy/sql/roles-least-privilege.sql`、
