@@ -118,6 +118,7 @@ for (const a of ACCENTS) {
   lines.push(`  --primary-rgb: ${rgbTriplet(v.dark.primary)};`);
   lines.push(`  --primary-contrast-rgb: ${rgbTriplet(v.dark.contrast)};`);
   lines.push(`  --accent-color: ${v.dark.accent};`);
+  lines.push(`  --accent-rgb: ${rgbTriplet(v.dark.accent)};`);
   lines.push("}");
   lines.push(`[data-theme-accent="${a.id}"][data-theme-mode="light"] {`);
   lines.push(`  --primary-color: ${v.light.primary};`);
@@ -127,6 +128,7 @@ for (const a of ACCENTS) {
   lines.push(`  --primary-rgb: ${rgbTriplet(v.light.primary)};`);
   lines.push(`  --primary-contrast-rgb: ${rgbTriplet(v.light.contrast)};`);
   lines.push(`  --accent-color: ${v.light.accent};`);
+  lines.push(`  --accent-rgb: ${rgbTriplet(v.light.accent)};`);
   lines.push("}");
   lines.push("");
 }
@@ -137,6 +139,14 @@ for (const tone of TONES) {
     lines.push(`  --bg-color: ${t.bg};`);
     lines.push(`  --surface-color: ${t.surface};`);
     lines.push(`  --surface-hover-color: ${t.surfaceHover};`);
+    // Tailwind 透明度令牌与 CSS 原色必须来自同一套表面值。
+    lines.push(`  --bg-rgb: ${rgbTriplet(t.bg)};`);
+    lines.push(`  --surface-rgb: ${rgbTriplet(t.surface)};`);
+    lines.push(`  --surface-hover-rgb: ${rgbTriplet(t.surfaceHover)};`);
+    lines.push(`  --card-rgb: ${rgbTriplet(t.surface)};`);
+    lines.push(`  --muted-rgb: ${rgbTriplet(t.surfaceHover)};`);
+    lines.push(`  --secondary-rgb: ${rgbTriplet(t.surfaceHover)};`);
+    lines.push(`  --muted-foreground-rgb: ${rgbTriplet(t.textMuted)};`);
     lines.push(`  --surface-subtle-color: ${t.surfaceSubtle};`);
     lines.push(`  --line-color: ${t.line};`);
     lines.push(`  --line-subtle-color: ${t.lineSubtle};`);

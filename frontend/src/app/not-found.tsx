@@ -25,7 +25,7 @@ export default function NotFound() {
     <main className="mf-enter min-h-screen bg-background relative flex flex-col items-center justify-center overflow-clip px-6 py-12 selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-60 pointer-events-none" aria-hidden />
       <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
       <div className="relative z-10 max-w-md w-full text-center flex flex-col items-center">
         <div className="mb-6 animate-pulse">

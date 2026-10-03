@@ -80,6 +80,7 @@ const config: Config = {
           soft: "rgb(var(--state-alt-soft-rgb) / <alpha-value>)",
         },
         accent: {
+          DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
           gold: "#f59e0b",
           cyan: "#06b6d4",
           emerald: "#10b981",

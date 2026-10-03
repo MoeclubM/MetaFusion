@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, Compass, Database, LogIn } from "lucide-react";
 import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
+import { ThemeModeSwitcher } from "@/components/ThemeModeSwitcher";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { GitHubIcon } from "@/components/Icons";
 import { PageContainer, PageShell } from "@/components/ui/PageShell";
@@ -22,12 +23,12 @@ function RootLandingInner() {
     <div className="min-h-screen min-h-svh bg-background text-text-strong relative flex flex-col overflow-clip selection:bg-primary selection:text-primary-foreground">
       <div className="absolute inset-0 bg-radial-vignette opacity-60 pointer-events-none" aria-hidden />
       <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-primary/[0.08] rounded-full blur-[140px] pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-sky-500/[0.08] rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-accent/[0.08] rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
       {/* 控件保留右上角布局，但参与文档流，避免手机和矮窗口遮住主内容。 */}
       <PageContainer as="header" className="relative z-20 py-4">
         <nav aria-label={t("landing.pageControls")} className="flex flex-wrap items-center justify-end gap-2">
-          <Link href="/home" className={shortcutClass}><span>{t("landing.enterHome")}</span><ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+          <Link href="/home" className={shortcutClass} aria-label={t("landing.enterHome")} title={t("landing.enterHome")}><span className="hidden sm:inline">{t("landing.enterHome")}</span><ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
           <a href="/docs/catalog" className={shortcutClass} aria-label={t("landing.docsTitle")} title={t("landing.docsTitle")}>
             <BookOpen className="w-3.5 h-3.5 text-primary" aria-hidden /><span className="hidden sm:inline">{t("navigation.docs")}</span>
           </a>
@@ -35,6 +36,7 @@ function RootLandingInner() {
             <GitHubIcon className="w-3.5 h-3.5" /><span className="hidden sm:inline">GitHub</span>
           </a>
           <LocaleSwitcher compact />
+          <ThemeModeSwitcher />
           <ThemePicker />
         </nav>
       </PageContainer>

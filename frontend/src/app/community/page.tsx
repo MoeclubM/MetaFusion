@@ -280,7 +280,7 @@ function CommunityContent() {
      读成左边缘一条竖向色差带（首页/设置页的列不写背景，所以只有本页有）。 */}
  <div className="hidden lg:block absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
  <div className="hidden lg:block absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <div className="hidden lg:block absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ <div className="hidden lg:block absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
 
  {/* Forum layout: sidebar + topic stream */}

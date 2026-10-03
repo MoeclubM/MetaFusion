@@ -16,6 +16,7 @@ import { PageContainer } from "@/components/ui/PageShell";
 import { Select } from "@/components/ui/Select";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ThemePicker } from "@/components/ThemePicker";
+import { ThemeModeSwitcher } from "@/components/ThemeModeSwitcher";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { RateLimitsTab } from "./components/tabs/RateLimitsTab";
@@ -653,6 +654,7 @@ function AdminInner() {
 
           <div className="flex shrink-0 items-center gap-2 text-xs font-mono text-text-muted">
             <LocaleSwitcher compact />
+            <ThemeModeSwitcher />
             <ThemePicker />
             <span className="hidden sm:inline-flex max-w-40 truncate px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
               {user.username}

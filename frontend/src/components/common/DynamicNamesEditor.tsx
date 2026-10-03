@@ -87,16 +87,16 @@ export function DynamicNamesEditor({
   );
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       {label && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <label className="block text-[11px] font-mono text-text-body font-medium flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-primary" />
             <span>{label}</span>
             {required && <span className="text-danger">*</span>}
           </label>
           {helperText && (
-            <span className="text-[10px] text-text-faint font-mono">
+            <span className="min-w-0 break-words text-[10px] text-text-faint font-mono">
               {helperText}
             </span>
           )}
@@ -116,9 +116,9 @@ export function DynamicNamesEditor({
             return (
               <div
                 key={code}
-                className="flex items-center gap-2 bg-black/40 border border-line rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] sm:flex items-center gap-2 bg-background border border-line rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
               >
-                <span className="px-2 py-0.5 rounded bg-emphasis/[0.06] text-text-body text-[11px] font-mono shrink-0 min-w-[64px] text-center">
+                <span className="col-span-2 justify-self-start max-w-full break-all px-2 py-0.5 rounded bg-emphasis/[0.06] text-text-body text-[11px] font-mono shrink-0 min-w-[64px] text-center">
                   {code}
                   {preset && (
                     <span className="text-[10px] text-text-faint ml-1">
@@ -131,7 +131,7 @@ export function DynamicNamesEditor({
                   value={currentNames[code] || ""}
                   onChange={(e) => handleUpdate(code, e.target.value)}
                   placeholder={t("multilingual.namePlaceholder", { code })}
-                  className="flex-1 bg-transparent px-2 py-1 text-xs text-emphasis placeholder:text-gray-600 focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent px-2 py-1 text-xs text-emphasis placeholder:text-text-faint focus:outline-none"
                 />
                 <button
                   type="button"
@@ -169,6 +169,7 @@ export function DynamicNamesEditor({
           label={t("multilingual.addOtherLang")}
           ariaLabel={t("multilingual.addOtherLang")}
           variant="chip"
+          inline
         />
       </div>
     </div>

@@ -6,6 +6,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { LanguageEntry, sameLanguage, searchLanguages } from "@/lib/languages";
 
 interface LanguagePickerProps {
+  /** 表单内按文档流展开，避免窄容器或滚动卡片裁切选项。 */
+  inline?: boolean;
   /** 已添加的语种：在选择器里置灰并标记「已添加」，避免重复添加。 */
   selected?: readonly string[];
   /** 选中一个语种。回调收到的永远是语言表里的规范码（ja → ja-JP）。 */
@@ -35,6 +37,7 @@ export function LanguagePicker({
   label,
   ariaLabel,
   variant = "field",
+  inline = false,
   disabled,
   className,
 }: LanguagePickerProps) {
@@ -122,6 +125,7 @@ export function LanguagePicker({
       if (entry && !isAdded(entry)) select(entry);
     } else if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       closePanel();
     } else if (event.key === "Tab") {
       setOpen(false);
@@ -134,7 +138,7 @@ export function LanguagePicker({
     : "px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-text-muted hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft disabled:opacity-50";
 
   return (
-    <div ref={containerRef} className={"relative " + (className || (fieldTrigger ? "block" : "inline-block"))}>
+    <div ref={containerRef} className={"relative min-w-0 max-w-full " + (className || (fieldTrigger || inline ? "w-full" : "w-full sm:w-auto sm:inline-block"))}>
       <button
         ref={triggerRef}
         type="button"
@@ -169,7 +173,7 @@ export function LanguagePicker({
 
       {open && (
         <div
-          className="absolute left-0 z-50 mt-1 w-full min-w-[19rem] rounded-card border border-line bg-surface shadow-elevated p-1.5"
+          className={`${inline ? "relative" : "relative sm:absolute sm:min-w-[19rem]"} left-0 z-50 mt-1 w-full rounded-card border border-line bg-surface shadow-elevated p-1.5`}
           onClick={(event) => event.stopPropagation()}
         >
           <input

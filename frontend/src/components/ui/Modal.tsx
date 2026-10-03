@@ -20,6 +20,7 @@ export function Modal({
  children,
  maxWidth = "max-w-lg",
  initialFocus,
+ footer,
 }: {
  open: boolean;
  onClose: () => void;
@@ -29,12 +30,16 @@ export function Modal({
  maxWidth?: string;
  /** 打开后优先聚焦的面板内元素，例如搜索输入框。 */
  initialFocus?: string;
+ /** 固定操作区；提供时只让内容区滚动，长表单仍能访问底部操作。 */
+ footer?: React.ReactNode;
 }) {
  const { t } = useI18n();
  const titleId = useId();
  const panelRef = useRef<HTMLDivElement>(null);
  // 关闭后把焦点还给打开它的按钮：读屏与键盘用户不会"掉"到页面顶部。
  const restoreRef = useRef<HTMLElement | null>(null);
+ const onCloseRef = useRef(onClose);
+ useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
  useEffect(() => {
   if (!open) return;
@@ -48,15 +53,16 @@ export function Modal({
    document.body.style.overflow = "hidden";
   }
 
-  const focusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+  const focusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((item) => !item.matches(":disabled") && item.getClientRects().length > 0);
   (initialFocus ? panel.querySelector<HTMLElement>(initialFocus) : null)?.focus();
   if (!panel.contains(document.activeElement)) (focusable()[0] ?? panel).focus();
 
   function onKeyDown(e: KeyboardEvent) {
+   if (e.defaultPrevented) return;
    if (modalStack[modalStack.length - 1] !== panel) return;
    if (e.key === "Escape") {
     e.preventDefault();
-    onClose();
+    onCloseRef.current();
     return;
    }
    if (e.key !== "Tab") return;
@@ -87,7 +93,7 @@ export function Modal({
    const restore = restoreRef.current;
    if (restore && restore.isConnected) restore.focus();
   };
- }, [open, onClose, initialFocus]);
+ }, [open, initialFocus]);
 
  if (!open) return null;
  return (
@@ -99,18 +105,19 @@ export function Modal({
  aria-labelledby={titleId}
  tabIndex={-1}
  onClick={(e) => e.stopPropagation()}
- className={`w-full ${maxWidth} rounded-lg border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-elevated max-h-[90dvh] overflow-y-auto outline-none`}
+ className={`w-full min-w-0 ${maxWidth} rounded-lg border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-elevated max-h-[90dvh] ${footer ? "flex flex-col overflow-hidden" : "overflow-y-auto"} outline-none`}
  >
- <div className="flex items-center justify-between border-b border-line-subtle pb-3">
- <h3 id={titleId} className="text-sm font-semibold text-text-strong flex items-center gap-2">
+ <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle pb-3">
+ <h3 id={titleId} className="min-w-0 text-sm font-semibold text-text-strong flex items-center gap-2 break-words">
  {icon}
  {title}
  </h3>
- <button type="button" onClick={onClose} aria-label={t("revisions.close")} className="text-text-muted hover:text-gray-900 dark:hover:text-white p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-fast ease-soft w-9 h-9 max-sm:min-h-[44px] grid place-items-center cursor-pointer">
+ <button type="button" onClick={onClose} aria-label={t("revisions.close")} className="shrink-0 text-text-muted hover:text-gray-900 dark:hover:text-white p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-fast ease-soft w-9 h-9 max-sm:min-h-[44px] grid place-items-center cursor-pointer">
  <X className="w-4 h-4" aria-hidden="true" />
  </button>
  </div>
- {children}
+ {footer ? <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div> : children}
+ {footer && <div className="shrink-0 border-t border-line-subtle pt-3">{footer}</div>}
  </div>
  </div>
  );

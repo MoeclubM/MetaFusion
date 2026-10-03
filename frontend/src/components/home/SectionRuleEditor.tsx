@@ -43,13 +43,13 @@ type Props = {
 function RuleChip({ label, code, onRemove }: { label: string; code?: string; onRemove: () => void }) {
   const { t } = useI18n();
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/25 text-[11px] font-mono">
-      <span className="truncate max-w-[160px]">{label}</span>
-      {code && code !== label && <span className="text-primary/50">{code}</span>}
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/25 text-[11px] font-mono">
+      <span className="min-w-0 flex-1 break-all">{label}</span>
+      {code && code !== label && <span className="min-w-0 flex-1 break-all text-primary/50">{code}</span>}
       <button
         type="button"
         onClick={onRemove}
-        className="hover:text-danger cursor-pointer"
+        className="shrink-0 hover:text-danger cursor-pointer"
         title={t("common.delete")}
         aria-label={t("common.delete")}
       >
@@ -77,7 +77,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={active}
       className={
-        "px-2 py-0.5 rounded border text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
+        "min-w-0 max-w-full break-all px-2 py-0.5 rounded border text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
         (active
           ? "bg-primary/20 border-primary/40 text-primary"
           : "bg-emphasis/[0.03] border-line text-text-muted hover:text-emphasis hover:bg-emphasis/[0.07]")
@@ -91,7 +91,7 @@ function ToggleChip({
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="p-2.5 rounded-lg bg-emphasis/[0.02] border border-emphasis/[0.08] space-y-2">
+    <div className="min-w-0 p-2.5 rounded-lg bg-emphasis/[0.02] border border-emphasis/[0.08] space-y-2">
       <div className="text-[11px] font-mono font-bold text-text-body">{title}</div>
       {children}
     </div>
@@ -99,10 +99,10 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 const inputClass =
-  "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono placeholder:text-text-faint focus:border-primary outline-none";
+  "flex-1 min-w-0 max-w-full px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono placeholder:text-text-faint focus:border-primary outline-none";
 
 const addButtonClass =
-  "px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-text-body hover:text-emphasis text-xs cursor-pointer";
+  "shrink-0 px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-text-body hover:text-emphasis text-xs cursor-pointer";
 
 export function SectionRuleEditor({ row, defs, onChange }: Props) {
   const { t, locale } = useI18n();
@@ -168,7 +168,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="min-w-0 space-y-2.5">
       {row.custom && (
         <div className="space-y-1">
           <label className="block text-[11px] font-mono text-text-body" htmlFor={`mf-section-slug-${row.slug}`}>
@@ -239,7 +239,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
           <select
             value={vocab}
             onChange={(e) => setVocabPick(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono focus:border-primary outline-none cursor-pointer"
+            className="min-w-0 w-full max-w-full px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono focus:border-primary outline-none cursor-pointer"
           >
             {vocabCodes.map((code) => (
               <option key={code} value={code}>
@@ -316,13 +316,13 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
             <span className="text-[11px] text-text-faint font-mono">{t("home.customizeRuleNone")}</span>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:flex gap-2">
           <input
             list={`mf-section-field-${row.slug}`}
             value={fieldKey}
             onChange={(e) => setFieldKey(e.target.value)}
             placeholder={t("home.customizeFieldKeyPlaceholder")}
-            className={inputClass}
+            className={inputClass + " col-span-2"}
           />
           <datalist id={`mf-section-field-${row.slug}`}>
             {fieldCodes.map((code) => (

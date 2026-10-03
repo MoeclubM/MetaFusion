@@ -14,6 +14,7 @@ import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
 import { DirectMessagePrivacyCard } from "@/components/settings/DirectMessagePrivacyCard";
 import { MyActivityPanel } from "@/components/settings/MyActivityPanel";
 import { ThemeControls } from "@/components/ThemeControls";
+import { ThemeModeControls } from "@/components/ThemeModeControls";
 import { useSearchParams } from "next/navigation";
 import {
   Shield,
@@ -214,7 +215,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
       <PageShell width="narrow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-line-subtle">
@@ -490,8 +491,15 @@ export default function SettingsPage() {
           {activeTab === "authorizations" && <OAuthGrantsPanel />}
 
           {activeTab === "appearance" && (
-            <div className="p-4 sm:p-5">
-              <ThemeControls />
+            <div className="space-y-5 p-4 sm:p-5">
+              <section className="space-y-2" aria-labelledby="appearance-mode-heading">
+                <h2 id="appearance-mode-heading" className="text-sm font-semibold text-text-strong">{t("theme.displayMode")}</h2>
+                <ThemeModeControls />
+              </section>
+              <section className="space-y-3 border-t border-line-subtle pt-4" aria-labelledby="appearance-palette-heading">
+                <h2 id="appearance-palette-heading" className="text-sm font-semibold text-text-strong">{t("theme.palette")}</h2>
+                <ThemeControls />
+              </section>
             </div>
           )}
 

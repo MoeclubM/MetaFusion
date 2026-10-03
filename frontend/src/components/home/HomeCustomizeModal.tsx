@@ -5,7 +5,7 @@
 // 回落到它，所以这里不再有第二条"模板"入口：唯一的追加入口是「添加分区」，候选里既列
 // 系统预设分区（把隐藏掉的预设加回列表），也提供空白自建分区；用户改的是自己的偏好副本
 // ——改标题 / 换规则 / 换图标 / 调顺序 / 隐藏，系统货架本身不被改动，也不影响别人。
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { Modal } from "@/components/ui/Modal";
 import type { DynamicDefinitions } from "@/lib/definitions";
 import { SectionRuleEditor } from "@/components/home/SectionRuleEditor";
 import {
@@ -79,6 +80,7 @@ export function HomeCustomizeModal({
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const [pendingReset, setPendingReset] = useState(false);
   const [localError, setLocalError] = useState("");
+  const closeModal = useCallback(() => { if (!saving) onClose(); }, [onClose, saving]);
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -195,26 +197,24 @@ export function HomeCustomizeModal({
   };
 
   const shownError = localError || error;
+  const footer = (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      {shownError && <p role="alert" className="w-full min-w-0 break-words text-[11px] text-danger font-mono">{shownError}</p>}
+      <button type="button" onClick={handleReset} disabled={saving || loading || loadFailed} className="inline-flex min-h-11 items-center gap-1.5 text-xs font-mono text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer">
+        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+        <span>{t("home.customizeReset")}</span>
+      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <button type="button" onClick={closeModal} disabled={saving} className="min-h-11 px-3 py-2 rounded-lg border border-line text-xs text-text-body hover:text-emphasis hover:bg-surfaceHover transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer">{t("catalog.cancel")}</button>
+        <button type="button" onClick={handleSave} disabled={saving || loading || loadFailed} className="min-h-11 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer">{saving ? t("common.saving") : t("common.save")}</button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-xl border border-line bg-surface shadow-elevated">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-emphasis/[0.08] shrink-0">
-          <h2 className="font-display font-bold text-sm text-emphasis flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-primary" />
-            {t("home.customizeTitle")}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-surfaceHover text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
-            aria-label={t("catalog.cancel")}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-3 overflow-y-auto grow">
+    <>
+      <Modal open={open} onClose={closeModal} title={t("home.customizeTitle")} icon={<Sliders className="w-4 h-4 shrink-0 text-primary" />} maxWidth="max-w-3xl" footer={footer}>
+        <fieldset disabled={saving || loading || loadFailed} className="min-w-0 space-y-3">
           <p className="text-xs text-text-faint">{t("home.customizeHint")}</p>
 
           <button
@@ -264,7 +264,7 @@ export function HomeCustomizeModal({
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.08] text-xs text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
                       >
                         <Icon className="w-3.5 h-3.5 text-primary" />
-                        <span>{shelfTitle(template, locale)}</span>
+                        <span className="min-w-0 break-all">{shelfTitle(template, locale)}</span>
                         {hidden && (
                           <span className="text-[10px] font-mono text-text-faint">{t("home.customizeAddHidden")}</span>
                         )}
@@ -291,7 +291,7 @@ export function HomeCustomizeModal({
                   key={index}
                   className="rounded-lg border border-emphasis/[0.08] bg-emphasis/[0.02] overflow-hidden"
                 >
-                  <div className="flex items-center gap-2 px-3 py-2">
+                  <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2">
                     <button
                       type="button"
                       onClick={() => toggleHidden(index)}
@@ -324,6 +324,7 @@ export function HomeCustomizeModal({
                         {rule.length > 0 ? rule.join(" · ") : t("home.customizeRuleAll")}
                       </div>
                     </div>
+                    <div className="col-span-3 flex flex-wrap items-center justify-end gap-1 sm:col-span-1">
                     {typeof count === "number" && (
                       <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-[10px] font-mono shrink-0">
                         {t("home.itemCount", { count: count.toString() })}
@@ -381,6 +382,7 @@ export function HomeCustomizeModal({
                     >
                       <Sliders className="w-3.5 h-3.5" />
                     </button>
+                    </div>
                   </div>
                   {isOpen && (
                     <div className="px-3 py-3 border-t border-emphasis/[0.08]">
@@ -391,39 +393,9 @@ export function HomeCustomizeModal({
               );
             })
           )}
-        </div>
+        </fieldset>
 
-        <div className="px-5 py-4 border-t border-emphasis/[0.08] flex items-center justify-between gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={saving || loadFailed}
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>{t("home.customizeReset")}</span>
-          </button>
-          <div className="flex items-center gap-2">
-            {shownError && <span className="text-[11px] text-danger font-mono max-w-[280px]">{shownError}</span>}
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="px-3 py-2 rounded-lg border border-line text-xs text-text-body hover:text-emphasis hover:bg-surfaceHover transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
-            >
-              {t("catalog.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || loadFailed}
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
-            >
-              {saving ? t("common.saving") : t("common.save")}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
 
       {/* 删除分区 / 恢复默认都是破坏性动作：确认框自绘（原生 confirm 不可本地化，
           按钮文案跟随浏览器语言），并把被删的分区名写进说明。 */}
@@ -445,6 +417,6 @@ export function HomeCustomizeModal({
         onClose={() => setPendingReset(false)}
         onConfirm={confirmReset}
       />
-    </div>
+    </>
   );
 }

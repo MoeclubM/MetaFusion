@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { ThemePicker } from "./ThemePicker";
+import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
@@ -300,7 +301,7 @@ export const Navbar: React.FC<{
         />
 
         {/* Right Controls */}
-        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 lg:gap-2.5 shrink-0">
           <button type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-expanded={mobilePanel === "search"} onClick={() => { setIsUserMenuOpen(false); setMobilePanel("search"); }} className="md:hidden grid h-11 w-11 place-items-center rounded-control text-text-body hover:bg-surfaceHover">
             <Search className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -340,7 +341,7 @@ export const Navbar: React.FC<{
             className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 h-9 max-md:min-h-11 max-md:min-w-11 rounded-control bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">{t("catalog.create")}</span>
+              <span className="hidden lg:inline">{t("catalog.create")}</span>
             </Link>
 
           {/* 私信与通知独立计数；手机入口在导航弹窗及用户菜单。 */}
@@ -505,13 +506,14 @@ export const Navbar: React.FC<{
               className="inline-flex items-center justify-center gap-1.5 px-3 h-9 max-md:min-h-11 max-md:min-w-11 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t("navbar.signIn")}</span>
+              <span className="hidden lg:inline">{t("navbar.signIn")}</span>
             </a>
           )}
 
           {/* Controls: Theme & Locale */}
           <div className="hidden md:flex items-center border-l border-line pl-2 gap-1.5">
             <LocaleSwitcher compact />
+            <ThemeModeSwitcher />
             <ThemePicker />
           </div>
         </div>
@@ -558,9 +560,10 @@ export const Navbar: React.FC<{
         {user && <Link href="/notifications" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Bell className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("navigation.notifications")}</span>{unreadNotifications !== null && unreadNotifications > 0 && <span className="text-primary">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>}
         {user && <Link href="/messages" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Mail className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("messages.title")}</span>{unreadCount !== null && unreadCount > 0 && <span className="text-primary">{unreadCount > 99 ? "99+" : unreadCount}</span>}</Link>}
       </nav>
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-t border-line-subtle pt-3">
-        <span className="text-xs text-text-muted">{t("settings.appearanceTitle")}</span>
-        <LocaleSwitcher compact />
+      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-t border-line-subtle pt-3">
+        <span className="order-1 text-xs text-text-muted">{t("settings.appearanceTitle")}</span>
+        <div className="order-1"><LocaleSwitcher compact /></div>
+        <ThemeModeSwitcher withinDialog />
         <ThemePicker withinDialog />
       </div>
     </Modal>

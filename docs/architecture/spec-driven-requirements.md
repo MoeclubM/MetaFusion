@@ -24,6 +24,8 @@
      - 支持全量实体的内容元数据编辑与状态流转（`draft` / `pending_review` / `published` / `deleted` / `merged` 五档）、实体合并（Merge）与修订历史（Revisions）审计。
        状态口径：发布 = PUT 实体写 `status: "published"`；`/api/catalog/entities/:id/lifecycle` 只做合并与停用（请求体无 `action` 字段）。
    - **无多余 Slogan**：全站禁止添加各类夸张、冗余的营销 Slogan，保持国家图书馆级别的严谨、纯净与高效。
+   - **窄屏编辑与主题**：首页推荐自定义表单在 320px 起保持完整可操作，长标题、规则码和多语言输入可换行；内容区独立滚动，保存操作区固定可见，嵌套确认与语言列表的 Esc 只关闭当前层并恢复焦点。
+     显示模式（跟随系统 / 浅色 / 深色）与调色板（配色 / 背景色调）使用独立控件并分别保留偏好。装饰背景使用主题主色与强调色；`frontend/scripts/gen-theme.mjs` 同源生成 CSS 原色及 RGB 令牌，避免背景与带透明度的表面脱离当前主题。
 
 2. **外围解耦系统**：
    - **账号系统 (Auth)**：独立微服务体系，支持 OAuth2 / OIDC 标准 SSO；前端通过顶栏或操作拦截跳转统一账号中心（默认 `/account` 或外部 `https://auth.findverse.cc`），本地仅保留无状态 JWT 验签。

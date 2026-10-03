@@ -69,6 +69,11 @@ const ThemeContext = createContext<ThemeContextType>({
 
 const isAccent = (v: string | null): v is ThemeAccent => !!v && (ACCENT_IDS as string[]).includes(v);
 const isTone = (v: string | null): v is ThemeTone => !!v && (TONE_IDS as string[]).includes(v);
+const isMode = (v: string | null): v is ThemeMode => v === "dark" || v === "light" || v === "system";
+const storedMode = (): ThemeMode => {
+  const saved = localStorage.getItem(MODE_STORAGE_KEY);
+  return isMode(saved) ? saved : "dark";
+};
 
 /** 把三组选择写到 <html> 上；同时同步浏览器地址栏/移动端状态栏配色。 */
 function applyTheme(mode: ThemeMode, accent: ThemeAccent, tone: ThemeTone): "dark" | "light" {
@@ -102,7 +107,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [resolvedMode, setResolvedMode] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    const savedMode = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode) || "dark";
+    const savedMode = storedMode();
     const savedAccentRaw = localStorage.getItem(ACCENT_STORAGE_KEY);
     const savedToneRaw = localStorage.getItem(TONE_STORAGE_KEY);
     const savedAccent = isAccent(savedAccentRaw) ? savedAccentRaw : DEFAULT_ACCENT;
@@ -116,7 +121,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 跟随系统时，系统主题变化要即时生效；换配色/色调不需要重挂监听。
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      const currentMode = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode) || "dark";
+      const currentMode = storedMode();
       if (currentMode !== "system") return;
       const a = localStorage.getItem(ACCENT_STORAGE_KEY);
       const tn = localStorage.getItem(TONE_STORAGE_KEY);
@@ -140,7 +145,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setAccent = useCallback((nextAccent: ThemeAccent) => {
     setAccentState(nextAccent);
     localStorage.setItem(ACCENT_STORAGE_KEY, nextAccent);
-    const m = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode) || "dark";
+    const m = storedMode();
     const tn = localStorage.getItem(TONE_STORAGE_KEY);
     setResolvedMode(applyTheme(m, nextAccent, isTone(tn) ? tn : DEFAULT_TONE));
   }, []);
@@ -148,7 +153,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setTone = useCallback((nextTone: ThemeTone) => {
     setToneState(nextTone);
     localStorage.setItem(TONE_STORAGE_KEY, nextTone);
-    const m = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode) || "dark";
+    const m = storedMode();
     const a = localStorage.getItem(ACCENT_STORAGE_KEY);
     setResolvedMode(applyTheme(m, isAccent(a) ? a : DEFAULT_ACCENT, nextTone));
   }, []);
