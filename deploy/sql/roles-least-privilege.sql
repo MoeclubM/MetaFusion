@@ -16,7 +16,7 @@
 -- 为什么运行角色仍持有本域 DDL（owner 成员身份 = Tier 1），而不是纯 CRUD：
 --   四个服务的启动路径都会执行建表 DDL（catalog `Store.Initialize`、auth `store.Init`、
 --   community `store.Init`、storage `store.Init`；DDL 见
---   `backend/migrations/000001_catalog_core.up.sql`、`../metafusion-auth/internal/store/store.go`、
+--   `backend/migrations/000021_catalog_baseline.up.sql`、`../metafusion-auth/internal/store/store.go`、
 --   `../metafusion-community/migrations/000001_init.up.sql`、
 --   `../metafusion-storage/internal/store/migrations/000001_init.up.sql`）。
 --   PostgreSQL 对 `CREATE SCHEMA IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`
@@ -219,7 +219,7 @@ $ops$;
 --     开启方式：psql ... -v audit_bootstrap=1 -f sql/roles-least-privilege.sql
 --
 --     下面这段 DDL 必须与四个服务各自那份**逐字一致**（契约见 docs/architecture/audit-log.md §1）：
---       backend/migrations/000002_audit_log.up.sql（catalog）
+--       backend/migrations/000021_catalog_baseline.up.sql 的 audit-ddl 区间（catalog）
 --       ../metafusion-auth/internal/audit/audit.go（auth）
 --       ../metafusion-community/migrations/000007_audit_log.up.sql 与 internal/audit/audit.go（community）
 --       ../metafusion-storage/internal/store/migrations/000002_audit_log.up.sql 与 internal/audit/audit.go（storage）
