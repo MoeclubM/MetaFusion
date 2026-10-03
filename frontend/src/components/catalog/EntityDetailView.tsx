@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
 import { COVER_PICTURE_INDEX, coverUrl, PICTURE_ROLE_VOCABULARY, resolveCover } from "@/lib/cover";
@@ -17,6 +17,7 @@ import { useCatalog } from "@/components/catalog/CatalogProvider";
 import {
   api,
   Entity,
+  fetchAllPages,
   mapLimit,
   Relation,
   title,
@@ -88,11 +89,9 @@ import {
   List,
   MessageSquare,
   Network,
-  Pencil,
   Send,
   Share2,
   Sparkles,
-  User,
   Users,
   Tag as TagIcon,
   Globe,
@@ -140,20 +139,6 @@ const relationGroupKey = (
     : FALLBACK_RELATION_GROUP;
 };
 
-async function allEntities(query: string): Promise<Entity[]> {
-  const items: Entity[] = [];
-  for (let offset = 0; ; offset += 100) {
-    const r = await api<{ items: Entity[] }>(
-      `/catalog/entities?${query}&offset=${offset}&limit=100`
-    );
-    // 契约漂移：直接取 r.items.length 会在缺字段时抛 "Cannot read properties of undefined"。
-    // 这里抛出**可读**错误交给调用方现有的失败路径（子实体列表整块降级），不白屏、也不静默半截列表。
-    if (!Array.isArray(r.items)) throw new Error("invalid_response: entities.items");
-    items.push(...r.items);
-    if (r.items.length < 100) return items;
-  }
-}
-
 export function EntityDetailView({ id }: { id: string }) {
   const { t, tr, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
@@ -171,7 +156,6 @@ export function EntityDetailView({ id }: { id: string }) {
   // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
   // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const readKey = JSON.stringify([id, user?.id || ""]);
   const currentReadKeyRef = useRef(readKey);
@@ -358,7 +342,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
       if (childQueries.length) {
         parentPromises.push(
-          Promise.all(childQueries.map((query) => allEntities(query).catch(() => { metadataFailed = true; failed.children = true; return [] as Entity[]; })))
+          Promise.all(childQueries.map((query) => fetchAllPages<Entity>(`/catalog/entities?${query}`).catch(() => { metadataFailed = true; failed.children = true; return [] as Entity[]; })))
             .then((pages) => Array.from(new Map(pages.flat().map((child) => [child.id, child])).values()))
             .then(async (ch) => {
               if (!current()) return;
@@ -366,7 +350,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 const tracks = await mapLimit(
                   ch.filter((x) => x.kind === "medium" && x.id),
                   8,
-                  (m) => allEntities(`medium_id=${m.id}`).catch(() => { metadataFailed = true; failed.children = true; return [] as Entity[]; })
+                  (m) => fetchAllPages<Entity>(`/catalog/entities?medium_id=${m.id}`).catch(() => { metadataFailed = true; failed.children = true; return [] as Entity[]; })
                 );
                 if (current()) setChildren([...ch, ...tracks.flat()]);
               } else {
@@ -434,70 +418,6 @@ export function EntityDetailView({ id }: { id: string }) {
       })),
     [entity, locale, pictureRoleLabel],
   );
-
-  // Extract Bangumi info with proper type routing (Strictly entity-owned, never borrowed)
-  const bangumiInfo = useMemo(() => {
-    if (!entity) return null;
-
-    const isAgent = entity.kind === "agent";
-
-    if (entity.external_ids?.bangumi) {
-      const id = String(entity.external_ids.bangumi);
-      return {
-        id,
-        url: isAgent ? `https://bangumi.tv/person/${id}` : `https://bangumi.tv/subject/${id}`,
-        label: isAgent ? t("authority.bangumiPerson") : t("authority.bangumiSubject"),
-        isDirect: true,
-      };
-    }
-    if (entity.external_ids?.bangumi_person) {
-      const id = String(entity.external_ids.bangumi_person);
-      return {
-        id,
-        url: `https://bangumi.tv/person/${id}`,
-        label: t("authority.bangumiPerson"),
-        isDirect: true,
-      };
-    }
-    if (entity.external_ids?.bangumi_character) {
-      const id = String(entity.external_ids.bangumi_character);
-      return {
-        id,
-        url: `https://bangumi.tv/character/${id}`,
-        label: t("authority.bangumiCharacter"),
-        isDirect: true,
-      };
-    }
-    if (entity.external_ids?.bangumi_ep) {
-      const id = String(entity.external_ids.bangumi_ep);
-      return {
-        id,
-        url: `https://bangumi.tv/ep/${id}`,
-        label: t("authority.bangumiEpisode"),
-        isDirect: true,
-      };
-    }
-    const m = entity.external_ids?.metafusion_import || "";
-    const match = m.match(/bgm:(subject|release|person|character):(\d+)/);
-    if (match) {
-      const kind = match[1];
-      const id = match[2];
-      const url =
-        kind === "person"
-          ? `https://bangumi.tv/person/${id}`
-          : kind === "character"
-          ? `https://bangumi.tv/character/${id}`
-          : `https://bangumi.tv/subject/${id}`;
-      return {
-        id,
-        url,
-        label: kind === "person" ? t("authority.bangumiPerson") : t("authority.bangumiSubject"),
-        isDirect: true,
-      };
-    }
-
-    return null;
-  }, [entity, locale]);
 
   // Extract official website and authority links (Strictly entity-owned, never borrowed)
   const officialInfo = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "@/components/Logo";

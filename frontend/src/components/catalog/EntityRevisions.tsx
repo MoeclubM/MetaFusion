@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { api, Entity } from "./api";
 import { useAuth } from "@/lib/authContext";
 import { EntityEditor } from "./EntityEditor";

@@ -12,7 +12,7 @@
 //   * 其余（5xx、超时、断网、浏览器原生 "Failed to fetch"）-> unavailable：说"暂时不可用"并给重试。
 // 任何情况下都不把裸错误码或浏览器英文错误当正文。
 
-import React from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";

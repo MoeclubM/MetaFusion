@@ -4,7 +4,7 @@
 // StaffCharacterSection。各实体详情页（作品/发行版/载体/通用详情）统一用它，
 // 不再各写一套演职员展示。无署名关系时渲染空。
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchApi } from "@/lib/api";
 import { useDefinitions } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";

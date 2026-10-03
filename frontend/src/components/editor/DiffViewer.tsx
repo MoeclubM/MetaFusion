@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { FileCode2, Plus, Minus, Edit3 } from "lucide-react";
 
@@ -8,10 +8,9 @@ interface Props {
   diff: Record<string, { old: any; new: any }>;
   editType?: string;
   className?: string;
-  compact?: boolean;
 }
 
-export function DiffViewer({ diff, editType = "update", className = "", compact = false }: Props) {
+export function DiffViewer({ diff, editType = "update", className = "" }: Props) {
   const { t } = useI18n();
   const [showRaw, setShowRaw] = useState(false);
 

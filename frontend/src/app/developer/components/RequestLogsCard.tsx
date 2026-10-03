@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Card } from "@/components/ui/Card";

@@ -135,8 +135,8 @@ export function ApiKeysPanel({ modalOpen, onModalClose }: { modalOpen: boolean; 
 
   return (
     <div className="space-y-4">
-
-
+      {error && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+      {notice && <p role="status" className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">{notice}</p>}
       {/* 已颁发令牌 */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">

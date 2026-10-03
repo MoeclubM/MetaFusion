@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TabPanel } from "@/components/ui/TabPanel";
 
 export interface TabItem {
   /** 面板标识，同时作为 URL hash，便于分享与直达。 */
@@ -137,41 +136,6 @@ export function TabBar({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-export interface DetailTab extends TabItem {
-  content: React.ReactNode;
-}
-
-/** DetailTabs：只渲染当前面板的整块式标签页（用于 works 等分节规模较大的页面）。 */
-export function DetailTabs({
-  tabs,
-  ariaLabel,
-  className = "",
-}: {
-  tabs: DetailTab[];
-  ariaLabel: string;
-  className?: string;
-}) {
-  const { active, select } = useHashTab(tabs);
-  const shown = tabs.filter((x: DetailTab) => x.visible !== false);
-  const current = shown.find((x: DetailTab) => x.id === active) || shown[0];
-  if (!current) return null;
-
-  return (
-    <div className={className}>
-      <TabBar items={tabs} active={current.id} onSelect={select} ariaLabel={ariaLabel} />
-      {/* 面板重挂载（key）与页签条→内容间距都由 TabPanel 统一。 */}
-      <TabPanel
-        activeKey={current.id}
-        role="tabpanel"
-        id={`panel-${current.id}`}
-        labelledBy={`tab-${current.id}`}
-      >
-        {current.content}
-      </TabPanel>
     </div>
   );
 }

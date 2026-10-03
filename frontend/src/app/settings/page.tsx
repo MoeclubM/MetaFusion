@@ -7,9 +7,6 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { UI_LOCALE_CODES, type UiLocale } from "@/lib/languages";
-import {
-  useTheme,
-} from "@/lib/themeContext";
 import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -52,7 +49,6 @@ const SETTINGS_LOCALE_LABELS: Record<UiLocale, string> = {
 export default function SettingsPage() {
   const { user, refreshProfile } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const { mode, accent, setMode, setAccent, accents } = useTheme();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const initialTab: SettingsTab = SETTINGS_TABS.includes(tabParam as SettingsTab) ? (tabParam as SettingsTab) : "profile";

@@ -1,4 +1,4 @@
-import { normalizeLocale, type Locale } from "./routing";
+import { normalizeLocale } from "./routing";
 import zhCN from "@/messages/zh-CN.json";
 import zhTW from "@/messages/zh-TW.json";
 import jaJP from "@/messages/ja-JP.json";

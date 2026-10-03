@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Check, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Navbar } from "@/components/Navbar";

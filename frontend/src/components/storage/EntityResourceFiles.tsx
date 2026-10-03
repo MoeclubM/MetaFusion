@@ -8,7 +8,7 @@
 //   → POST /upload/complete → POST /bind（binding_role 字段码）。
 // 前端判定只用于"别把用户引到注定失败的按钮"，真正的授权仍在服务端。
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Download, HardDrive, Loader2, Link2Off, RefreshCw, Upload, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { STORAGE_ASSET_MODERATE, can } from "@/lib/permissions";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useId, Suspense } from "react";
+import { useEffect, useState, useMemo, useId, Suspense } from "react";
 import { safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";

@@ -5,7 +5,7 @@
 // 回落到它，所以这里不再有第二条"模板"入口：唯一的追加入口是「添加分区」，候选里既列
 // 系统预设分区（把隐藏掉的预设加回列表），也提供空白自建分区；用户改的是自己的偏好副本
 // ——改标题 / 换规则 / 换图标 / 调顺序 / 隐藏，系统货架本身不被改动，也不影响别人。
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,

@@ -345,10 +345,6 @@ function completenessOf(item: CompareItemLike): CompareItemCompleteness {
   return { mediaWithoutTracks, tracksWithoutContents, empty: media.length === 0 && totalTracks === 0 };
 }
 
-function sortedUnique(values: string[]): string[] {
-  return Array.from(new Set(values)).sort();
-}
-
 function arraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {

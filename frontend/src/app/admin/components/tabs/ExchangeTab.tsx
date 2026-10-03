@@ -8,7 +8,7 @@
 // 文案一律走 t()/tr()；状态码与错误码交给 exchange.ts 的映射翻成人话，
 // 未登记的码带上状态码原样显示，不把失败说成成功。
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,

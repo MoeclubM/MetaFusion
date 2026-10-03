@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchMessageSettings, updateMessageSettings } from "@/lib/api";
 import { AlertCircle, Loader2, Mail, RotateCw } from "lucide-react";

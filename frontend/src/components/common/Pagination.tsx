@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 

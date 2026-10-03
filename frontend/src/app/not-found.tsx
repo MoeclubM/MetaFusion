@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";

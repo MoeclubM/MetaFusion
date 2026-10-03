@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { coverHash, coverIdentity, coverRefCode } from "@/lib/coverIdentity";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { localeCookieName, normalizeLocale } from "@/i18n/routing";
 import { getMessages, translate } from "@/i18n/getMessages";
 
@@ -11,7 +11,6 @@ function readCookieLocale(): string | null {
 }
 
 export default function GlobalError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+
 
 type BrandMarkProps = {
   size?: number;

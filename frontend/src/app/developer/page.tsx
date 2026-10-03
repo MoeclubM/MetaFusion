@@ -9,7 +9,7 @@
 // 归属与核验由服务端判定：这里只展示状态，不提供 trusted / verified 开关——
 // 免同意是平台自己的身份，只能由管理员在管理台设置。
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AppWindow,

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+
 import Link from "next/link";
 import { DynamicDefinitions, resolveLocalizedName, getTermName } from "@/lib/definitions";
 import { EntityLink } from "./Fields";

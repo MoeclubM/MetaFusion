@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
+import { api, Entity, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   useDefinitions,

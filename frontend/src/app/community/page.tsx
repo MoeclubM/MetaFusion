@@ -96,7 +96,6 @@ function CommunityContent() {
  const entityFilter = searchParams.get("entity_id") || "";
  const initialBoard = searchParams.get("board_code") || "all";
  const [selectedBoard, setSelectedBoard] = useState<string>(initialBoard);
- const [activeTab, setActiveTab] = useState<"latest" | "top">("latest");
  const [topics, setTopics] = useState<DiscussionTopic[]>([]);
  // 页码（与 URL 双向同步）与后端的结果总数：计数与翻页判定都用 total，不是当前页条数。
  const [page, setPage] = useState(pageFromUrl);
@@ -216,11 +215,7 @@ function CommunityContent() {
  `/community/topics?${params.toString()}`,
  { signal: controller.signal }
  );
- let list = Array.isArray(res.items) ? res.items : [];
- // 「热门」只在当前页窗口内排序：后端没有热度排序参数，跨页热度榜要后端先给排序口径。
- if (activeTab === "top") {
- list = [...list].sort((a, b) => b.reply_count + b.view_count - (a.reply_count + a.view_count));
- }
+ const list = Array.isArray(res.items) ? res.items : [];
  setTopics(list);
  setTotal(safeCount(res.total, list.length));
  } catch {
@@ -262,7 +257,7 @@ function CommunityContent() {
 
  useEffect(() => {
  loadTopics();
- }, [selectedBoard, activeTab, filterTagId, filterTagName, page]);
+ }, [selectedBoard, filterTagId, filterTagName, page]);
 
  // 后退/前进只改 URL 不改 state：页码必须从 URL 回灌，否则地址栏的页码与列表窗口会脱节。
  useEffect(() => {
@@ -713,7 +708,7 @@ function CommunityContent() {
 
  <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
- <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
+ <TabPanel activeKey={selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className={`hidden sm:grid ${TOPIC_COLUMNS} items-center py-2.5 bg-background/60 border-b border-line text-xs font-medium text-text-muted`}>
  <span className="min-w-0 px-4">{t("community.topic")}</span>
  <span className="min-w-0 px-1 text-center">{t("community.participants")}</span>

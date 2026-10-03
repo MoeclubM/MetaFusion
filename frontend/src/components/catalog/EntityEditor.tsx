@@ -17,7 +17,7 @@ import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { Select } from "@/components/ui/Select";
 import { Combobox } from "@/components/ui/Combobox";
-import { effectiveSchemeFields, getFieldName, getKindName, getTermName, matchSchemes, resolveKindOptions, templatesForEntity, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getKindName, getTermName, matchSchemes, resolveKindOptions, templatesForEntity, useDefinitions } from "@/lib/definitions";
 import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
 import {
   assetContentUrl,

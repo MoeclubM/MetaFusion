@@ -54,7 +54,7 @@ export const Navbar: React.FC<{
   onSearch?: (query: string) => void;
 }> = ({ searchQuery = "", onSearch }) => {
   const { user, logout } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState(searchQuery);

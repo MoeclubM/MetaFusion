@@ -72,8 +72,6 @@ export interface VocabularyDef {
  *  展示端按它判定署名/角色，不写死关系码、不拿分组码当语义用。 */
 export type ParticipantSlot = "person" | "character" | "peer";
 
-export const PARTICIPANT_SLOTS: ParticipantSlot[] = ["person", "character", "peer"];
-
 export interface RelationDef {
   names: Record<string, string>;
   reverse_names: Record<string, string>;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+
 import Link from "next/link";
 import { AdaptiveCardCover } from "./AdaptiveCardCover";
 import { ProceduralCover } from "./ProceduralCover";

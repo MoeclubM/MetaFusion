@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown, RotateCcw, Languages, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { LanguagePicker } from "@/components/common/LanguagePicker";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity } from "@/components/catalog/api";

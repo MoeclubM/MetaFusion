@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { ArrowLeft, ArrowRight, ExternalLink } from "lucide-react";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { Modal } from "@/components/ui/Modal";

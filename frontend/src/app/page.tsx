@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Compass, Database, LogIn } from "lucide-react";
 import { LoadingFallback } from "@/components/common/LoadingFallback";

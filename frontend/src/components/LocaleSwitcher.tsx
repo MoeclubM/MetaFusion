@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Languages, Check } from "lucide-react";
 import type { Locale } from "@/i18n/routing";

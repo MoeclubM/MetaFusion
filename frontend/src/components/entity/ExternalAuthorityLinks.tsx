@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ExternalLink, Globe, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchExternalDatabases, ExternalDatabaseDefinition, ExternalLinkDisplay, pickLocalizedName } from "@/lib/api";

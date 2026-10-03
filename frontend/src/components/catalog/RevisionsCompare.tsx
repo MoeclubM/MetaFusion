@@ -6,7 +6,7 @@
 // 数据源只有 GET /catalog/entities/{id}/revisions 的快照（RevisionItem.snapshot），
 // 选取器不再另发一次取版请求；渲染复用历史页签同一套 RevisionDiffInspector。
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, title } from "./api";
 import { RevisionDiffInspector, type DiffSnapshot } from "./RevisionDiffInspector";

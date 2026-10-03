@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { markConversationRead } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useI18n } from "@/i18n/I18nProvider";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, Check, Copy, KeyRound } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Modal } from "@/components/ui/Modal";

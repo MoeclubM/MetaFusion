@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useState, useMemo } from "react";
+import { useId, useState, useMemo } from "react";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { EntityCover } from "@/components/common/EntityCover";
