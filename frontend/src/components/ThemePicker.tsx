@@ -33,7 +33,7 @@ export const ThemePicker: React.FC<{ withinDialog?: boolean }> = ({ withinDialog
   }, [isOpen]);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={withinDialog ? "contents" : "relative"} ref={containerRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -56,7 +56,7 @@ export const ThemePicker: React.FC<{ withinDialog?: boolean }> = ({ withinDialog
           role="dialog"
           aria-label={t("settings.appearanceTitle")}
           onClick={(e) => e.stopPropagation()}
-          className={`absolute right-0 mt-1.5 w-[19rem] ${withinDialog ? "max-w-[calc(100vw-5rem)]" : "max-w-[calc(100vw-2rem)]"} rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3`}
+          className={`${withinDialog ? "col-span-full w-full" : "absolute right-0 mt-1.5 w-[19rem] max-w-[calc(100vw-2rem)]"} rounded-panel border border-line bg-surface shadow-elevated p-4 z-50 animate-scale-in space-y-3`}
         >
           <div className="flex items-center justify-between border-b border-line-subtle pb-2">
             <span className="flex items-center gap-2 text-xs font-semibold text-text-strong">

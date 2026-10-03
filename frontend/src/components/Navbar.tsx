@@ -558,9 +558,10 @@ export const Navbar: React.FC<{
         {user && <Link href="/notifications" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Bell className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("navigation.notifications")}</span>{unreadNotifications !== null && unreadNotifications > 0 && <span className="text-primary">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>}
         {user && <Link href="/messages" onClick={closeMobilePanel} className="flex min-h-11 items-center gap-2 rounded-control px-3 py-2 text-sm text-text-body hover:bg-surfaceHover"><Mail className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t("messages.title")}</span>{unreadCount !== null && unreadCount > 0 && <span className="text-primary">{unreadCount > 99 ? "99+" : unreadCount}</span>}</Link>}
       </nav>
-      <div className="flex items-center justify-between gap-3 border-t border-line-subtle pt-3">
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-t border-line-subtle pt-3">
         <span className="text-xs text-text-muted">{t("settings.appearanceTitle")}</span>
-        <div className="flex gap-2"><LocaleSwitcher compact /><ThemePicker withinDialog /></div>
+        <LocaleSwitcher compact />
+        <ThemePicker withinDialog />
       </div>
     </Modal>
     </>
