@@ -101,8 +101,8 @@ MetaFusion 备份（PostgreSQL + 对象存储（S3 API 逐对象）+ 配置快�
   MF_PG_CONTAINER      目录库容器名（默认 metafusion-postgres）
   MF_RUSTFS_CONTAINER  对象存储容器名（默认 metafusion-rustfs）
   MF_S3_ENDPOINT       对象存储端点（同 --s3-endpoint；默认按容器 IP 解析）
-  MF_S3_ACCESS_KEY / MF_S3_SECRET_KEY  对象存储凭据（默认取 .env 的 RUSTFS_ROOT_USER /
-                       RUSTFS_ROOT_PASSWORD，与编排同一份来源）
+  MF_S3_ACCESS_KEY / MF_S3_SECRET_KEY  对象存储凭据（默认取 .env 的 RUSTFS_ACCESS_KEY /
+                       RUSTFS_SECRET_KEY，与编排同一份来源）
   MF_S3_REGION / MF_S3_PORT            默认 us-east-1 / 9000
   MF_DB_USER/MF_DB_NAME 直接指定库身份，跳过 .env
 

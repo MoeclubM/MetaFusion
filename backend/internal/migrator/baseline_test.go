@@ -130,8 +130,18 @@ func TestBaselineFreshAndLegacySchemasMatch(t *testing.T) {
 			t.Fatalf("old ledger %d changed", v)
 		}
 	}
-	if len(after) != len(old)+1 {
-		t.Fatal("baseline must add exactly one entry")
+	files, err := up.LoadMigrationFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := len(old)
+	for _, file := range files {
+		if file.Direction == DirectionUp {
+			expected++
+		}
+	}
+	if len(after) != expected {
+		t.Fatal("baseline and subsequent migrations must each add exactly one entry")
 	}
 	a, b := schemaShape(t, fresh), schemaShape(t, legacy)
 	if !reflect.DeepEqual(a, b) {

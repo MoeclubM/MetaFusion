@@ -16,9 +16,7 @@ type Config struct {
 	DBUser     string
 	DBPassword string
 	DBName     string
-	// DBSSLMode 与 cmd/server 同一环境变量（DB_SSLMODE，见 deploy/docker-compose.yml）：
-	// 迁移此前把 sslmode=disable 写死在自己的内联串里，于是 DB_SSLMODE=require 的实例
-	// 只有服务连接加密、迁移连接不加密——同一条 DSN 规则两份实现就会这样漂移。
+	// DBSSLMode 只服务迁移工具；运行服务的 TLS 由 DATABASE_URL 自己指定。
 	DBSSLMode string
 }
 

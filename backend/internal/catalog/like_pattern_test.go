@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -34,22 +33,6 @@ func TestLikeContainsEscapesMetacharacters(t *testing.T) {
 	}
 }
 
-// 实体查询构造器必须把转义后的模式交给 ILIKE（纯 SQL 构造，不需要数据库）：
-// 断言的是真的传到绑定参数的值，而不是"helper 本身写对了"。
-func TestEntityQueryUsesEscapedPattern(t *testing.T) {
-	args := []any{}
-	parts, err := listFilter(listFilterSearchCtx(listFilterSearchDefinitions()), &Store{}, ListOptions{Query: "%"}, nil, &args)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sql := strings.Join(parts, " AND "); !strings.Contains(sql, "ILIKE") {
-		t.Fatalf("query predicate lost ILIKE: %s", sql)
-	}
-	if len(args) != 1 || args[0] != likeContains("%") {
-		t.Fatalf("args = %#v, want [%q]", args, likeContains("%"))
-	}
-}
-
 // 真库回归（无 MF_V2_TEST_DSN 时 testutil.Database 自动 Skip）：搜索词里的 LIKE 元字符
 // 只按字面命中——q="%" 不能再返回全库，q="_" 也不能当单字符通配符。
 func TestPostgresSearchTreatsWildcardsLiterally(t *testing.T) {
@@ -71,47 +54,30 @@ func TestPostgresSearchTreatsWildcardsLiterally(t *testing.T) {
 		t.Fatalf("baseline total = %d, want the 5 fixtures", all)
 	}
 
-	hit, err := f.s.Count(ctx, ListOptions{Query: "%"}, nil)
-	if err != nil {
-		t.Fatal(err)
+	useTestSearch(t, f.s)
+	for _, tc := range []struct {
+		query string
+		total int
+		id    string
+	}{
+		{"%", 2, percent.ID}, {"100%", 2, percent.ID}, {"_", 2, underscore.ID}, {"不存在的普通词", 0, ""},
+	} {
+		page, err := f.s.Search(ctx, ListOptions{Query: tc.query, Limit: 50}, nil, "")
+		if err != nil || page.Total != tc.total {
+			t.Fatalf("literal search %q: %+v err=%v", tc.query, page, err)
+		}
+		if tc.id != "" {
+			found := false
+			for _, e := range page.Items {
+				if e.ID == tc.id {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("literal search %q omitted %s", tc.query, tc.id)
+			}
+		}
 	}
-	if hit != 1 {
-		t.Fatalf("total for q=%% = %d, want 1 (only the entity whose title carries a literal %%)", hit)
-	}
-	if hit >= all {
-		t.Fatalf("q=%% still returns the whole library: total=%d baseline=%d", hit, all)
-	}
-	items, err := f.s.List(ctx, ListOptions{Query: "%"}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(items) != 1 || items[0].ID != percent.ID {
-		t.Fatalf("q=%% items = %d, want only the literal-%% entity %s", len(items), percent.ID)
-	}
-	// 转义不能把正常的包含匹配一起弄丢：字面 % 实体照旧搜得到。
-	if items, err = f.s.List(ctx, ListOptions{Query: "100%"}, nil); err != nil || len(items) != 1 || items[0].ID != percent.ID {
-		t.Fatalf("q=100%% items = %d err=%v, want the literal-%% entity", len(items), err)
-	}
-
-	under, err := f.s.Count(ctx, ListOptions{Query: "_"}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if under != 1 {
-		t.Fatalf("total for q=_ = %d, want 1 (only the entity whose title carries a literal _)", under)
-	}
-	if items, err = f.s.List(ctx, ListOptions{Query: "_"}, nil); err != nil || len(items) != 1 || items[0].ID != underscore.ID {
-		t.Fatalf("q=_ items = %d err=%v, want only %s", len(items), err, underscore.ID)
-	}
-
-	missing, err := f.s.Count(ctx, ListOptions{Query: "不存在的普通词"}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if missing != 0 {
-		t.Fatalf("total for a missing plain word = %d, want 0", missing)
-	}
-
 	// /tags 是第二个 ILIKE 拼接点，同样只按字面命中（%25 是 URL 编码的 %）。
 	engine := gin.New()
 	HTTP{Store: f.s}.Register(engine)

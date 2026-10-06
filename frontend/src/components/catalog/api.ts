@@ -206,17 +206,26 @@ export async function api<T = any>(
   });
 }
 
-// fetchAllPages：对列表端点按 offset 翻页直到取完（端点返回真实 total，长度不足一页即停），
-// 详情页的载体/曲目等完整目录依赖它，避免硬 limit 截断大型合集。
+// Browse uses offsets; search follows its PIT cursor even after a short page
+// caused by current visibility rechecks. has_more is the completion contract.
 export async function fetchAllPages<T = any>(query: string, pageSize = 100): Promise<T[]> {
-  const items: T[] = [];
-  const sep = query.includes("?") ? "&" : "?";
-  for (let offset = 0; ; offset += pageSize) {
-    const r = await api<{ items: T[] }>(`${query}${sep}offset=${offset}&limit=${pageSize}`);
-    if (!Array.isArray(r?.items)) throw new Error("invalid_response: entities.items");
-    items.push(...r.items);
-    if (r.items.length < pageSize) return items;
-  }
+	const items: T[] = [];
+	const [path, rawQuery = ""] = query.split("?", 2);
+	const params = new URLSearchParams(rawQuery);
+	params.delete("page");
+	params.set("limit", String(pageSize));
+	for (let offset = 0; ; offset += pageSize) {
+		if (!params.has("cursor")) params.set("offset", String(offset));
+		const r = await api<{ items: T[]; has_more: boolean; next_cursor?: string }>(`${path}?${params}`);
+		if (!Array.isArray(r?.items)) throw new Error("invalid_response: entities.items");
+		if (typeof r.has_more !== "boolean") throw new Error("invalid_response: entities.has_more");
+		items.push(...r.items);
+		if (!r.has_more) return items;
+		if (params.get("q")) {
+			if (!r.next_cursor) throw new Error("invalid_response: entities.next_cursor");
+			params.delete("offset"); params.set("cursor", r.next_cursor);
+		}
+	}
 }
 
 // mapLimit：带并发上限的顺序保底映射；详情页按实体逐个补取数据时防止请求风暴。

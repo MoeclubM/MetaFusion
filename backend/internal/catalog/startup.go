@@ -31,6 +31,7 @@ var requiredCatalogTables = []string{
 	"catalog.outbox",
 	"catalog.api_request_logs",
 	"catalog.idempotency_keys",
+	"catalog.schema_contract",
 }
 
 // CheckCompatibleVersion 是 HTTP 进程启动的唯一前置检查：只读校验必需表、已发布契约与
@@ -52,6 +53,13 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("incompatible_schema: missing %s (run mf-migrate up)", t)
 		}
+	}
+	var contractVersion int
+	if err := s.DB.QueryRowContext(ctx, "SELECT version FROM catalog.schema_contract WHERE singleton=true").Scan(&contractVersion); err != nil {
+		return fmt.Errorf("incompatible_schema: current schema contract required (run mf-migrate up): %w", err)
+	}
+	if contractVersion != 23 {
+		return fmt.Errorf("incompatible_schema: catalog schema contract 23 required (run mf-migrate up)")
 	}
 	var etag string
 	var currentContract bool

@@ -55,13 +55,13 @@
 ### 3. 🚀 云原生媒体处理与存储
 - **S3 兼容对象存储 (RustFS)**：由存储服务写入 RustFS（`STORAGE_S3_*`），按 sha256 内容寻址与秒传去重，
   支持分片预签名直传与服务端流式上传兜底；元数据与物理资产分离，目录侧不保存物理路径。
-- **数据库检索**：`GET /api/catalog/entities?q=...` 以 PostgreSQL 为事实源；配置 `OPENSEARCH_URL` 后，目录服务通过 outbox 维护可选的 OpenSearch 2.14 候选索引，检索题名、翻译、摘要、别名、标签与外部 ID。OpenSearch 不可用、无命中或超过有界候选窗口时自动回退 PostgreSQL。
+- **OpenSearch 检索**：关键词匹配、组合筛选与排序由 OpenSearch 2.14 执行，使用 PIT + search_after 逐页读取；PostgreSQL 回读当页权威内容并复核可见性。搜索不可用时明确返回503，无关键词浏览仍可用。支持深页游标，计数标明索引快照口径。
 - **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **数据库最小权限角色**：主仓 Compose 支持四个服务使用不同连接身份（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`）；只有目标实例已按 [数据层角色与最小权限](docs/architecture/database-roles.md) 执行授权脚本并验证，才能断言越权跨 schema 会被拒绝。授权与校验脚本为 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；各部署的实际启用状态需核实配置与目标库，不能从 compose 变量存在推断已启用。
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 数据库迁移工具，使用 PostgreSQL Advisory Lock 协调迁移进程的执行；多副本部署仍需使用同一数据库/锁键并遵循部署手册的迁移顺序。
-- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。安装基线为 `000021_catalog_baseline`，新库直接建立当前结构；已完成 000020 的存量库验证历史账本后登记基线，不重放 DDL。基线的 `down` 明确拒绝回滚。执行任何迁移前须核对目标、脚本与备份，并按部署与恢复手册确认回滚边界。
+- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。安装基线为 `000021_catalog_baseline`，新库直接建立当前结构；已完成 000020 的存量库验证历史账本后登记基线，不重放 DDL。基线和增量 `down` 明确拒绝回滚；022 增加查询索引，023 规范化声明引用并发布当前结构契约。执行任何迁移前须核对目标、脚本与备份，并按部署与恢复手册确认回滚边界。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
 
 ---
@@ -102,7 +102,7 @@
         └───────────────┴──── PostgreSQL 16 ────┬──────┘
                           catalog / auth / community / storage 四个 schema
                                                 ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
-                                                └──── OpenSearch（可选 --profile search；目录 outbox 增量索引）
+                                                └──── OpenSearch（正式文本搜索；目录 outbox 增量索引）
 ```
 
 ---
@@ -113,7 +113,7 @@
 - **前端系统 (Frontend)**：Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, RustFS (S3-compatible Object Storage)
-- **检索引擎 (Search Engine)**：OpenSearch 2.14.0（可选 Compose profile；配置 `OPENSEARCH_URL` 后启用候选索引，PostgreSQL 保持事实源与故障回退）
+- **检索引擎 (Search Engine)**：OpenSearch 2.14.0（默认编排启动；`OPENSEARCH_URL` 必填，PostgreSQL 保持事实源与权限复核）
 - **媒体处理**：不做转码（无 FFmpeg 依赖）；上传/下载契约见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
@@ -143,12 +143,12 @@ cd MetaFusion
 # 从模板创建环境变量
 cp .env.example .env
 
-# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY)；
+# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_SECRET_KEY, AUTH_JWT_PRIVATE_KEY)；
 # AUTH_JWT_PRIVATE_KEY 只给账号服务签发用；目录侧用 AUTH_JWT_PUBLIC_KEY 或 AUTH_JWKS_URL 验签
 # （两者都没配时才回退私钥兜底，启动会告警）
 #
 # 数据层隔离：按 .env.example 的说明填五个每服务 DSN（CATALOG_/AUTH_/COMMUNITY_/STORAGE_/
-# COMMUNITY_MIGRATE_DATABASE_URL），留空则四个服务仍共用 DB_USER（旧行为）。角色由
+# COMMUNITY_MIGRATE_DATABASE_URL）；四个运行 DSN 均必填，角色由
 # deploy/sql/roles-least-privilege.sql 建立，校验用 deploy/sql/verify-role-isolation.sql。
 ```
 

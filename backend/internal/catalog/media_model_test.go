@@ -177,13 +177,14 @@ func TestSingleInclusionEditsPreserveHiddenRecordsAndEvidence(t *testing.T) {
 	if _, err = f.s.EditTrackContent(ctx, track.ID, "delete", 1, TrackContentEdit{ExpectedVersion: updated.Version, EditNote: "guess hidden", Sources: fixtureSources()}, editor); !errors.Is(err, errForbidden) {
 		t.Fatalf("hidden inclusion edited: %v", err)
 	}
-	// Legacy whole-entity clients can omit sources without erasing evidence.
-	legacy := f.save(Entity{Kind: "track", Title: "Legacy whole-entity edit", MediumID: medium.ID, Contents: []Inclusion{updated.Contents[0]}})
-	legacy.Contents[0].Sources = nil
-	legacy.Title = "Retitled track"
-	again := f.save(legacy)
-	if len(again.Contents[0].Sources) != 1 || again.Contents[0].Sources[0].Kind != "url" {
-		t.Fatal("legacy PUT erased direct evidence")
+	// Explicit per-inclusion evidence is retained; missing evidence belongs to
+	// the current edit rather than being inferred from an old client shape.
+	edited := f.save(Entity{Kind: "track", Title: "Whole-entity edit", MediumID: medium.ID, Contents: []Inclusion{updated.Contents[0]}})
+	edited.Contents[0].Sources = nil
+	edited.Title = "Retitled track"
+	again := f.save(edited)
+	if len(again.Contents[0].Sources) != 1 || again.Contents[0].Sources[0].Kind != "self" {
+		t.Fatal("omitted inclusion evidence must inherit the current edit")
 	}
 	// Two editors reading one version cannot both overwrite the record.
 	var wg sync.WaitGroup

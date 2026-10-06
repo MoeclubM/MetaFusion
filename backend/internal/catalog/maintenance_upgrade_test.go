@@ -49,6 +49,11 @@ func TestRetiringIndexesPreservesCatalog(t *testing.T) {
 	if err := migrator.New(db, testutil.LegacyMigrations()).Up(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// A populated installation has published definitions. The new reference
+	// migration deliberately rejects a nonempty catalog without that contract.
+	if _, err := db.ExecContext(ctx, `INSERT INTO catalog.definition_config(singleton,etag,document) VALUES(true,'fixture',$1)`, encode(Defaults())); err != nil {
+		t.Fatal(err)
+	}
 	upgrade := migrator.New(db, migrations.FS)
 	if err := upgrade.Up(ctx); err != nil {
 		t.Fatal(err)

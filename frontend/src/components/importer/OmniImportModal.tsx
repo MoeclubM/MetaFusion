@@ -34,7 +34,7 @@ import {
   StaffAssociation,
 } from "@/lib/api";
 import { importerSourceIcon, importerSourceLabel } from "@/lib/importerSources";
-import { Entity, fetchAllPages, title } from "@/components/catalog/api";
+import { Entity, api, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -303,9 +303,9 @@ export function OmniImportModal({
       if (queryType === "work" && res.work) {
         const searchTitle = res.work?.title || res.work?.original_title;
         if (searchTitle && searchTitle.trim()) {
-          fetchAllPages<Entity>(`/catalog/entities?kind=work&q=${encodeURIComponent(searchTitle.trim())}&limit=5`)
-            .then((items) => {
-              if (items && items.length > 0) {
+          api<{ items: Entity[] }>(`/catalog/entities?kind=work&q=${encodeURIComponent(searchTitle.trim())}&limit=5`)
+            .then(({ items }) => {
+              if (items.length > 0) {
                 setDuplicateMatches(items);
                 setSelectedTargetWork(items[0]);
                 setLinkMode("append_release_to_work");

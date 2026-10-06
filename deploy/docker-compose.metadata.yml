@@ -1,5 +1,5 @@
 # ==============================================================================
-# 元数据-only 编排：只拉起目录侧（PostgreSQL + 目录服务 + 前端 + 可选文档站 + 网关）。
+# 元数据-only 编排：只拉起目录侧（PostgreSQL + OpenSearch + 目录服务 + 前端 + 可选文档站 + 网关）。
 # 账号 / 互动 / 存储缺席时前端仍会请求那三个上游（页面级 API 打到不存在的服务），所以这个组合
 # 只用于目录侧开发/验收，不是"部分部署"的受支持形态。
 # 镜像命名与构建入参一律以主编排 deploy/docker-compose.yml 为准：同一个服务不出现第二套名字，
@@ -55,21 +55,37 @@ services:
     container_name: metafusion-backend
     restart: unless-stopped
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: ${DB_USER:-metafusion}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
-      DB_NAME: ${DB_NAME:-metafusion_db}
-      # 与主编排同口径：显式化 SSL 模式（默认 disable，跨网部署时改 require）。
-      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DATABASE_URL: ${CATALOG_DATABASE_URL:?CATALOG_DATABASE_URL must be set}
+      OPENSEARCH_URL: ${OPENSEARCH_URL:-http://opensearch:9200}
+      OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME:-}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-}
       # 与主编排同口径：应用层限流按真实客户端 IP（只信网关注所在网段，见 backend/internal/nettrust）。
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     depends_on:
       postgres: {condition: service_healthy}
+      opensearch: {condition: service_healthy}
     healthcheck:
       test: [CMD, curl, -fsS, http://localhost:8080/ready]
       interval: 10s
       timeout: 3s
+      retries: 10
+    networks: [metafusion-net]
+
+  opensearch:
+    logging: *default-logging
+    image: opensearchproject/opensearch:2.14.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms${OPENSEARCH_HEAP:-512m} -Xmx${OPENSEARCH_HEAP:-512m}"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      DISABLE_SECURITY_PLUGIN: "true"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: [CMD-SHELL, "curl -fsS http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
       retries: 10
     networks: [metafusion-net]
 
@@ -121,6 +137,7 @@ services:
 
 volumes:
   pg_data:
+  opensearch_data:
   nginx_logs:
 networks:
   metafusion-net:

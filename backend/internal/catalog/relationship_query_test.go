@@ -32,7 +32,6 @@ func TestRelationshipQueryValidation(t *testing.T) {
 		{"negative limit", RelationshipQueryRequest{IDs: []string{id}, Limit: queryInt(-1)}, "invalid_limit"},
 		{"large limit", RelationshipQueryRequest{IDs: []string{id}, Limit: queryInt(101)}, "invalid_limit"},
 		{"negative offset", RelationshipQueryRequest{IDs: []string{id}, Offset: queryInt(-1)}, "invalid_offset"},
-		{"large offset", RelationshipQueryRequest{IDs: []string{id}, Offset: queryInt(10001)}, "invalid_offset"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -50,8 +49,8 @@ func TestRelationshipQueryValidation(t *testing.T) {
 	if err != nil || len(in.IDs) != 1 || in.IDs[0] != id || in.Direction != "both" || limit != 25 || offset != 0 || len(in.RuleCodes) != 1 || len(in.PeerKinds) != 1 {
 		t.Fatalf("normalized=%+v, limit=%d offset=%d err=%v", in, limit, offset, err)
 	}
-	_, limit, offset, err = normalizeRelationshipQuery(RelationshipQueryRequest{IDs: []string{id}, Limit: queryInt(100), Offset: queryInt(10000)})
-	if err != nil || limit != 100 || offset != 10000 {
+	_, limit, offset, err = normalizeRelationshipQuery(RelationshipQueryRequest{IDs: []string{id}, Limit: queryInt(100), Offset: queryInt(10100)})
+	if err != nil || limit != 100 || offset != 10100 {
 		t.Fatalf("valid boundary rejected: %v", err)
 	}
 }
@@ -245,11 +244,11 @@ func TestPostgresRelationshipQueryFiltersBeforePagination(t *testing.T) {
 	if _, err = f.s.QueryRelationships(ctx, RelationshipQueryRequest{IDs: []string{work.ID}, RuleCodes: []string{"relation:unknown_gui_rule"}}, nil); err == nil || err.Error() != "invalid_rule_code" {
 		t.Fatalf("unknown live rule: %v", err)
 	}
-	// Existing single-subject endpoint still has its full Entity schema and
-	// canonical keys, while the new endpoint returns bounded summaries.
-	legacy, err := f.s.EntityLinks(ctx, work.ID, 100, 0, nil)
-	if err != nil || legacy.SubjectID != work.ID || legacy.Entities[work.ID].Kind != "work" || len(legacy.Items) == 0 {
-		t.Fatalf("legacy links compatibility: %+v err=%v", legacy, err)
+	// The single-subject endpoint returns full records; the batch endpoint
+	// intentionally returns summaries to avoid unrelated hidden references.
+	single, err := f.s.EntityLinks(ctx, work.ID, 100, 0, nil)
+	if err != nil || single.SubjectID != work.ID || single.Entities[work.ID].Kind != "work" || len(single.Items) == 0 {
+		t.Fatalf("single-subject records: %+v err=%v", single, err)
 	}
 }
 
@@ -299,7 +298,7 @@ func TestOpenAPIRelationshipQuery(t *testing.T) {
 	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
 	request := schemas["RelationshipQueryRequest"].(map[string]any)
 	props := request["properties"].(map[string]any)
-	if request["additionalProperties"] != false || props["ids"].(map[string]any)["maxItems"] != 20 || props["limit"].(map[string]any)["default"] != 25 || props["offset"].(map[string]any)["maximum"] != 10000 {
+	if request["additionalProperties"] != false || props["ids"].(map[string]any)["maxItems"] != 20 || props["limit"].(map[string]any)["default"] != 25 || props["offset"].(map[string]any)["maximum"] != nil {
 		t.Fatalf("query schema constraints drift: %+v", request)
 	}
 	entity := schemas["RelationshipEntity"].(map[string]any)["properties"].(map[string]any)

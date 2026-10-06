@@ -241,23 +241,23 @@ function _env_val() {
     sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" | head -n1 | tr -d '"' | sed -e "s/^'//" -e "s/'\$//"
 }
 
-# 生产 DSN 门禁（审计 O01）：prod/pull 面向线上，四个本域 DSN 缺一不可。
+# 启动前 DSN 门禁：所有模式均要求四个本域 DSN。
 # 缺失即非零退出，不静默回退共用身份。只判空、不打印值（验收口径：只查有无）。
-function require_prod_dsns() {
+function require_business_dsns() {
     local missing=0 v val
     for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL; do
         val="${!v:-}"
         [ -n "$val" ] || val="$(_env_val "$v")"
         if [ -z "$val" ]; then
-            echo "❌ 生产模式缺 $v：四个业务 DSN 必须逐个填入 .env（见 .env.example 数据层隔离一节）" >&2
+            echo "❌ 缺少 $v：四个业务 DSN 必须逐个填入 .env（见 .env.example 数据层隔离一节）" >&2
             missing=1
         fi
     done
     if [ "$missing" = 1 ]; then
-        echo "   业务容器已不再持有 DB_* 共用身份：缺 DSN 会启动失败，不再回退（审计 O01）" >&2
+        echo "   请配置各服务独立的数据库身份后重试。" >&2
         exit 1
     fi
-    echo "✅ 生产 DSN 齐全（4/4 已设置，值不打印）"
+    echo "✅ 业务 DSN 齐全（4/4 已设置，值不打印）"
 }
 
 # 发布清单门禁（审计 P1/A08c）：pull 面向线上，三件事缺一不可——
@@ -297,19 +297,6 @@ function require_pinned_manifest() {
     fi
 }
 
-# 开发提醒（非阻塞）：fast 仍兼容未填 DSN 的旧工作区，只告警不拦。
-function warn_if_dsns_missing() {
-    local v val n=0
-    for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL; do
-        val="${!v:-}"
-        [ -n "$val" ] || val="$(_env_val "$v")"
-        [ -n "$val" ] || n=$((n + 1))
-    done
-    if [ "$n" != 0 ]; then
-        echo "⚠️  有 $n/4 个业务 DSN 为空：当前回退到默认连接（容器内连不上库即启动失败）；生产请逐个填入，prod/pull 会直接拒绝"
-    fi
-}
-
 # 编排凭据隔离断言（审计 O01，验收口径：只查键名与布尔结果，不打印值）。
 # 用法：assert_compose_credential_isolation [-f 额外 compose 文件...]
 # 判据：四个常驻业务服务的合并后 environment 里必须有 DATABASE_URL 键，
@@ -326,7 +313,7 @@ doc = json.load(sys.stdin)
 svcs = doc.get("services", {})
 banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
 banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
-              "RUSTFS_ROOT_USER", "RUSTFS_ROOT_PASSWORD",
+              "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY",
               "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
 bad = []
 for name in ("backend", "auth", "community", "storage"):
@@ -427,6 +414,7 @@ function print_usage() {
 
 case "$ACTION" in
     dev)
+        require_business_dsns
         echo "🚀 启动本地热重载开发模式 (Zero-Rebuild Dev Mode)..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.dev.yml up -d
@@ -436,7 +424,7 @@ case "$ACTION" in
     fast)
         check_version_lock
         export_version_identity
-        warn_if_dsns_missing
+        require_business_dsns
         export DOCKER_BUILDKIT=1
         # 候选先验（审计 §6）：整套 up 在前、检查在后会让坏配置先挂载再生效，
         # 因此 up 之前必须验过；只在可能更新网关时验（全量或目标即网关），
@@ -467,7 +455,7 @@ case "$ACTION" in
     prod)
         check_version_lock
         export_version_identity
-        require_prod_dsns
+        require_business_dsns
         assert_compose_credential_isolation
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
@@ -491,7 +479,7 @@ case "$ACTION" in
     pull)
         check_version_lock
         export_version_identity
-        require_prod_dsns
+        require_business_dsns
         assert_compose_credential_isolation -f docker-compose.prod.yml
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         PULL_OVERRIDE=$(mktemp "${TMPDIR:-/tmp}/metafusion-pull.XXXXXX.yml")

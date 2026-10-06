@@ -201,6 +201,7 @@ func TestPostgresEntityListPaginationContract(t *testing.T) {
 		t.Fatalf("越界页应为空 items + 真实 total=3: items=%v total=%d", outOfRange, totalOut)
 	}
 	// 合法 UTF-8 与中文查询不能被参数闸门误伤（对照上面的 400 用例）。
+	useTestSearch(t, f.s)
 	ids, total := listIDs(t, engine, "/api/catalog/entities?kind=work&q=%E4%B8%AD%E6%96%87&limit=100")
 	if total != 0 || len(ids) != 0 {
 		t.Fatalf("不存在的题名应 200 空结果: %v", ids)

@@ -88,7 +88,7 @@ func normalizeRelationshipQuery(in RelationshipQueryRequest) (RelationshipQueryR
 	if limit < 1 || limit > 100 {
 		return in, 0, 0, fmt.Errorf("invalid_limit")
 	}
-	if offset < 0 || offset > 10000 {
+	if offset < 0 {
 		return in, 0, 0, fmt.Errorf("invalid_offset")
 	}
 	return in, limit, offset, nil
@@ -108,7 +108,7 @@ func uniqueRelationshipFilters(values []string) []string {
 
 func validateRelationshipQueryRules(in RelationshipQueryRequest, d Definitions) error {
 	rules := map[string]bool{}
-	for _, rule := range RelationshipRules(d) {
+	for _, rule := range ReadRelationshipRules(d) {
 		rules[rule.Code] = true
 	}
 	for _, code := range in.RuleCodes {
@@ -212,6 +212,9 @@ func queryRelationshipsFrom(ctx context.Context, q queryer, in RelationshipQuery
 		out.Pages = append(out.Pages, RelationshipQueryPage{SubjectID: id, Items: page.Items, Limit: limit, Offset: offset, HasMore: page.HasMore})
 		for _, link := range page.Items {
 			endpointIDs = append(endpointIDs, link.SourceID, link.TargetID)
+			for _, ref := range link.References {
+				endpointIDs = append(endpointIDs, ref.EntityID)
+			}
 		}
 	}
 	peers, err := relationshipEntitiesFrom(ctx, q, endpointIDs, u)

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"net/http"
 	"strings"
 	"time"
@@ -39,7 +40,14 @@ func (s *Store) syncOpenSearch(ctx context.Context) error {
 	}
 	defer conn.Close()
 	var locked bool
-	if err := conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", openSearchLockID).Scan(&locked); err != nil || !locked {
+	if err := conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", openSearchLockID).Scan(&locked); err != nil {
+		return err
+	}
+	if !locked {
+		initialized, err := s.OpenSearch.isInitialized(ctx)
+		if err == nil {
+			s.OpenSearch.ready.Store(initialized)
+		}
 		return err
 	}
 	defer func() {
@@ -64,12 +72,17 @@ func (s *Store) syncOpenSearch(ctx context.Context) error {
 		if err := s.rebuildOpenSearchIndex(ctx, c); err != nil {
 			return err
 		}
-		if err := c.setInitialized(ctx); err != nil {
-			return err
-		}
 	}
 	if err := s.deliverOpenSearch(ctx, c); err != nil {
 		return err
+	}
+	if !initialized {
+		if err := c.attachAlias(ctx); err != nil {
+			return err
+		}
+		if err := c.setInitialized(ctx); err != nil {
+			return err
+		}
 	}
 	c.ready.Store(true)
 	return nil
@@ -80,7 +93,7 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 		FROM catalog.outbox o
 		WHERE o.type LIKE 'entity.%'
 		  AND NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id)
-		ORDER BY created_at,id LIMIT 100`, openSearchConsumer)
+		ORDER BY created_at,id LIMIT 500`, openSearchConsumer)
 	if err != nil {
 		return err
 	}
@@ -101,7 +114,7 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 	if len(events) == 0 {
 		return nil
 	}
-	docs := make([]searchDocument, 0, len(events))
+	ids := make([]string, 0, len(events))
 	for _, event := range events {
 		if !strings.HasPrefix(event.Type, "entity.") {
 			continue
@@ -116,9 +129,17 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 		if entity.Kind == "" {
 			return fmt.Errorf("entity outbox event %s has no kind", event.ID)
 		}
-		entity.ID = event.EntityID
-		entity.Version = event.Version
-		docs = append(docs, makeSearchDocument(entity))
+		ids = append(ids, event.EntityID)
+	}
+	// Events are durable change notifications. Index current facts, so a delayed
+	// pre-migration payload cannot overwrite canonicalized attributes/structures.
+	entities, err := s.searchIndexEntities(ctx, ids)
+	if err != nil {
+		return err
+	}
+	docs := make([]searchDocument, 0, len(entities))
+	for _, e := range entities {
+		docs = append(docs, makeSearchDocument(e))
 	}
 	// Bulk indexing is idempotent by entity ID and external version. If indexing
 	// or acknowledgement fails, the whole batch is safely replayed on the next poll.
@@ -139,8 +160,43 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 	return tx.Commit()
 }
 
+func (s *Store) searchIndexEntities(ctx context.Context, ids []string) (map[string]Entity, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT id::text,kind,version,title,status,created_by,updated_at,document FROM catalog.entities WHERE id=ANY($1::uuid[])", pq.Array(ids))
+	if err != nil {
+		return nil, err
+	}
+	entities := map[string]Entity{}
+	for rows.Next() {
+		var e Entity
+		var doc []byte
+		if err := rows.Scan(&e.ID, &e.Kind, &e.Version, &e.Title, &e.Status, &e.CreatedBy, &e.UpdatedAt, &doc); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		var content Entity
+		if err := json.Unmarshal(doc, &content); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		content.ID, content.Kind, content.Version, content.Title = e.ID, e.Kind, e.Version, e.Title
+		content.Status, content.CreatedBy, content.UpdatedAt = e.Status, e.CreatedBy, e.UpdatedAt
+		entities[e.ID] = content
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		if _, ok := entities[id]; !ok {
+			return nil, fmt.Errorf("OpenSearch event refers to a missing entity")
+		}
+	}
+	return fillStructural(ctx, s.DB, entities)
+}
+
 func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
-	status, _, err := c.request(ctx, http.MethodGet, "/_alias/"+openSearchAlias, nil, "")
+	status, _, err := c.request(ctx, http.MethodHead, "/"+openSearchIndex, nil, "")
 	if err != nil {
 		return err
 	}
@@ -148,11 +204,16 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 		return nil
 	}
 	if status != http.StatusNotFound {
-		return fmt.Errorf("OpenSearch alias check returned HTTP %d", status)
+		return fmt.Errorf("OpenSearch index check returned HTTP %d", status)
 	}
 	mapping := map[string]any{
-		"settings": map[string]any{"number_of_shards": 1, "number_of_replicas": 0},
-		"mappings": map[string]any{"dynamic": "strict", "properties": map[string]any{
+		"settings": map[string]any{"number_of_shards": 1, "number_of_replicas": 0,
+			"analysis": map[string]any{
+				"tokenizer": map[string]any{"substring_grams": map[string]any{"type": "ngram", "min_gram": 3, "max_gram": 3}},
+				"analyzer":  map[string]any{"substring_grams": map[string]any{"type": "custom", "tokenizer": "substring_grams", "filter": []string{"lowercase"}}},
+			},
+		},
+		"mappings": map[string]any{"dynamic": "strict", "dynamic_templates": []any{map[string]any{"localized_titles": map[string]any{"path_match": "titles.*", "mapping": map[string]any{"type": "keyword", "ignore_above": 8191}}}}, "properties": map[string]any{
 			"record_type":       map[string]any{"type": "keyword"},
 			"initialized":       map[string]any{"type": "boolean"},
 			"entity_id":         map[string]any{"type": "keyword"},
@@ -163,6 +224,10 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 			"tags":              map[string]any{"type": "keyword"},
 			"original_language": map[string]any{"type": "keyword"},
 			"work_id":           map[string]any{"type": "keyword"},
+			"work_ids":          map[string]any{"type": "keyword"},
+			"sort_title":        map[string]any{"type": "keyword", "ignore_above": 8191},
+			"titles":            map[string]any{"type": "object", "dynamic": true},
+			"fields":            map[string]any{"type": "nested", "properties": map[string]any{"path": map[string]any{"type": "keyword"}, "value": map[string]any{"type": "keyword", "ignore_above": 8191}}},
 			"content_unit_id":   map[string]any{"type": "keyword"},
 			"release_id":        map[string]any{"type": "keyword"},
 			"medium_id":         map[string]any{"type": "keyword"},
@@ -171,9 +236,9 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 			"updated_at":        map[string]any{"type": "date"},
 			"title_text":        map[string]any{"type": "search_as_you_type", "max_shingle_size": 3},
 			"search_text":       map[string]any{"type": "search_as_you_type", "max_shingle_size": 3},
+			"search_text_grams": map[string]any{"type": "text", "analyzer": "substring_grams"},
 			"search_text_exact": map[string]any{"type": "keyword", "ignore_above": 8191},
 		}},
-		"aliases": map[string]any{openSearchAlias: map[string]any{}},
 	}
 	body, err := json.Marshal(mapping)
 	if err != nil {
@@ -186,30 +251,24 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 	if status == http.StatusOK || status == http.StatusCreated {
 		return nil
 	}
-	// Another replica may have created the index between the alias check and PUT.
-	status, _, err = c.request(ctx, http.MethodGet, "/_alias/"+openSearchAlias, nil, "")
+	// Creation is idempotent even if a request completed before its connection failed.
+	status, _, err = c.request(ctx, http.MethodHead, "/"+openSearchIndex, nil, "")
 	if err == nil && status == http.StatusOK {
 		return nil
-	}
-	// A previous process may have created the index but failed before attaching
-	// the alias. Recover that partial state instead of retrying the same failing PUT.
-	indexStatus, _, indexErr := c.request(ctx, http.MethodHead, "/"+openSearchIndex, nil, "")
-	if indexErr == nil && indexStatus == http.StatusOK {
-		if err := c.attachAlias(ctx); err == nil {
-			return nil
-		}
 	}
 	return fmt.Errorf("OpenSearch index creation returned HTTP %d", status)
 }
 
 func (c *OpenSearchClient) attachAlias(ctx context.Context) error {
 	body, err := json.Marshal(map[string]any{"actions": []map[string]any{{
+		"remove": map[string]any{"index": "*", "alias": openSearchAlias, "must_exist": false},
+	}, {
 		"add": map[string]any{"index": openSearchIndex, "alias": openSearchAlias},
 	}}})
 	if err != nil {
 		return err
 	}
-	status, _, err := c.request(ctx, http.MethodPut, "/_aliases", body, "application/json")
+	status, _, err := c.request(ctx, http.MethodPost, "/_aliases", body, "application/json")
 	if err != nil {
 		return err
 	}
@@ -220,7 +279,7 @@ func (c *OpenSearchClient) attachAlias(ctx context.Context) error {
 }
 
 func (c *OpenSearchClient) isInitialized(ctx context.Context) (bool, error) {
-	status, raw, err := c.request(ctx, http.MethodGet, "/"+openSearchAlias+"/_doc/"+openSearchStateDocID, nil, "")
+	status, raw, err := c.request(ctx, http.MethodGet, "/"+openSearchIndex+"/_doc/"+openSearchStateDocID, nil, "")
 	if err != nil {
 		return false, err
 	}
@@ -243,7 +302,7 @@ func (c *OpenSearchClient) isInitialized(ctx context.Context) (bool, error) {
 
 func (c *OpenSearchClient) setInitialized(ctx context.Context) error {
 	body, _ := json.Marshal(map[string]any{"record_type": "state", "initialized": true})
-	status, _, err := c.request(ctx, http.MethodPut, "/"+openSearchAlias+"/_doc/"+openSearchStateDocID+"?refresh=wait_for", body, "application/json")
+	status, _, err := c.request(ctx, http.MethodPut, "/"+openSearchIndex+"/_doc/"+openSearchStateDocID+"?refresh=wait_for", body, "application/json")
 	if err != nil {
 		return err
 	}
@@ -255,7 +314,7 @@ func (c *OpenSearchClient) setInitialized(ctx context.Context) error {
 
 func (c *OpenSearchClient) clearEntityDocuments(ctx context.Context) error {
 	body, _ := json.Marshal(map[string]any{"query": map[string]any{"terms": map[string]any{"record_type": []string{"entity", "state"}}}})
-	status, _, err := c.request(ctx, http.MethodPost, "/"+openSearchAlias+"/_delete_by_query?conflicts=proceed&refresh=true", body, "application/json")
+	status, _, err := c.request(ctx, http.MethodPost, "/"+openSearchIndex+"/_delete_by_query?conflicts=proceed&refresh=true", body, "application/json")
 	if err != nil {
 		return err
 	}
@@ -280,6 +339,7 @@ func (s *Store) rebuildOpenSearchIndex(ctx context.Context, c *OpenSearchClient)
 			return err
 		}
 		batch := make([]searchDocument, 0, 500)
+		entities := map[string]Entity{}
 		for rows.Next() {
 			var e Entity
 			var id, kind, title, status, createdBy string
@@ -297,7 +357,7 @@ func (s *Store) rebuildOpenSearchIndex(ctx context.Context, c *OpenSearchClient)
 			// These values live in relational columns as well as in the API DTO.
 			e.ID, e.Kind, e.Version, e.Title = id, kind, version, title
 			e.Status, e.CreatedBy, e.UpdatedAt = status, createdBy, updatedAt
-			batch = append(batch, makeSearchDocument(e))
+			entities[e.ID] = e
 			lastID = e.ID
 		}
 		if err := rows.Err(); err != nil {
@@ -305,8 +365,15 @@ func (s *Store) rebuildOpenSearchIndex(ctx context.Context, c *OpenSearchClient)
 			return err
 		}
 		rows.Close()
-		if len(batch) == 0 {
+		if len(entities) == 0 {
 			return nil
+		}
+		entities, err = fillStructural(ctx, s.DB, entities)
+		if err != nil {
+			return err
+		}
+		for _, e := range entities {
+			batch = append(batch, makeSearchDocument(e))
 		}
 		if err := c.indexDocuments(ctx, batch); err != nil {
 			return err
@@ -326,7 +393,7 @@ func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocu
 			version = 1
 		}
 		if err := enc.Encode(map[string]any{"index": map[string]any{
-			"_index": openSearchAlias, "_id": doc.EntityID,
+			"_index": openSearchIndex, "_id": doc.EntityID,
 			"version": version, "version_type": "external_gte",
 		}}); err != nil {
 			return err
@@ -351,13 +418,13 @@ func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocu
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return fmt.Errorf("decode OpenSearch bulk response: %w", err)
 	}
-	if result.Errors {
-		for _, item := range result.Items {
-			for _, response := range item {
-				if response.Status >= 300 && response.Status != http.StatusConflict {
-					return fmt.Errorf("OpenSearch rejected a bulk item with HTTP %d", response.Status)
-				}
-			}
+	if len(result.Items) != len(docs) {
+		return fmt.Errorf("OpenSearch returned incomplete bulk acknowledgements")
+	}
+	for _, item := range result.Items {
+		response, ok := item["index"]
+		if !ok || len(item) != 1 || (response.Status != http.StatusConflict && (response.Status < 200 || response.Status >= 300)) {
+			return fmt.Errorf("OpenSearch rejected a bulk item with HTTP %d", response.Status)
 		}
 	}
 	return nil

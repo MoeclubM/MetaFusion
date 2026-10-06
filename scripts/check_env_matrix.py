@@ -51,19 +51,17 @@ REPO_BASE = {"catalog": "backend"}
 # 编排把变量交给镜像/基础运行时自己消费，本仓库代码里没有读者——逐条写清理由，
 # 不是白名单兜底：往这里加一条之前，先确认"没人读"是设计而不是遗漏。
 ALLOWED_INFRA = {
-    "POSTGRES_USER": "postgres 镜像初始化库用的账号（服务自己读的是 DB_USER）",
+    "POSTGRES_USER": "postgres 镜像初始化库用的账号（运行服务只读 DATABASE_URL）",
     "POSTGRES_PASSWORD": "postgres 镜像初始化库口令",
     "POSTGRES_DB": "postgres 镜像初始化的库名",
     "NODE_ENV": "Node/Next 自己读的运行模式（前端与三个管理台）",
     "RUSTFS_ACCESS_KEY": "rustfs 容器自己读的凭据 canonical 名",
     "RUSTFS_SECRET_KEY": "rustfs 容器自己读的凭据 canonical 名",
-    "RUSTFS_ROOT_USER": "rustfs 旧镜像的凭据别名（镜像 pin 到 digest 后删，见编排注释）",
-    "RUSTFS_ROOT_PASSWORD": "rustfs 旧镜像的凭据别名（同上）",
     "RUSTFS_STORAGE_DIR": "rustfs 容器的数据目录",
     "discovery.type": "opensearch 单节点模式配置",
     "OPENSEARCH_JAVA_OPTS": "opensearch 堆参数",
     "DISABLE_INSTALL_DEMO_CONFIG": "opensearch 演示配置开关",
-    "DISABLE_SECURITY_PLUGIN": "opensearch 安全插件开关（仅 --profile search 下启用）",
+    "DISABLE_SECURITY_PLUGIN": "opensearch 安全插件开关（内网单节点开发配置）",
     "GIN_MODE": "gin 框架自己读的运行模式（release 关掉调试输出）",
     "CGO_ENABLED": "Go 工具链自己读（dev 栈在容器里 go run 编译时用）",
     "WATCHPACK_POLLING": "Next/webpack 文件监听器自己读（dev 栈热重载）",
@@ -72,29 +70,30 @@ ALLOWED_INFRA = {
 # 环境变量登记表：键 -> 谁读（仓库 + 文件）、默认值、默认值是否安全、哪份编排的哪个服务必须注入。
 # safe=False 只用于"缺失/为 0 时行为不安全"的键：无上限的资源占用、明文链路。
 KEYS = {
+    # DB_* 仅为显式目录迁移作业的管理配置，运行服务不读取。
+    "DB_HOST": {"readers": [("catalog", "internal/config/config.go")], "default": "localhost", "safe": True},
+    "DB_PORT": {"readers": [("catalog", "internal/config/config.go")], "default": "5432", "safe": True},
+    "DB_USER": {"readers": [("catalog", "internal/config/config.go")], "default": "metafusion", "safe": True},
+    "DB_PASSWORD": {"readers": [("catalog", "internal/config/config.go")], "default": "空（迁移不可用）", "safe": True},
+    "DB_NAME": {"readers": [("catalog", "internal/config/config.go")], "default": "metafusion_db", "safe": True},
+    "DB_SSLMODE": {"readers": [("catalog", "internal/config/config.go")], "default": "disable（仅迁移工具）", "safe": True},
     # ── 目录服务（本仓库 backend/）────────────────────────────────────────
     "PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "8080", "safe": True},
-    "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("community", "cmd/migrate/main.go"), ("storage", "internal/config/config.go")], "default": "空 → 回退 DB_* 拼装", "safe": True},
-    "OPENSEARCH_URL": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 关闭可选检索并回退 PostgreSQL", "safe": True},
+    "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("community", "cmd/migrate/main.go"), ("storage", "internal/config/config.go")], "default": "必填，空值拒绝启动", "safe": True},
+    "OPENSEARCH_URL": {"readers": [("catalog", "cmd/server/main.go")], "default": "必填，空值拒绝启动", "safe": True},
     "OPENSEARCH_USERNAME": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
     "OPENSEARCH_PASSWORD": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
     # ── 数据层隔离：每服务各自的 DSN（编排侧插值键）────────────────────────
-    # 这五条以"键名 + 空默认"的插值形式注入成容器里的 DATABASE_URL（服务只读这个名字），
+    # 这五条插值成容器里的 DATABASE_URL（服务只读这个名字），
     # 因此它们自己没有 readers——读者路径就是上面那条 DATABASE_URL 的登记。
-    # 留空 = 回退共用 DB_* 拼装（向后兼容）；生产必须填，否则四个服务仍共用一个库用户
+    # 四个运行服务 DSN 均必填；迁移身份按显式任务注入，不由运行服务推导。
     # （2026-09 审计 P0：SQL 层零权限隔离）。interpolate 声明"哪份编排必须真的用到这个键"，
     # 由下面的 D 检查兜底，防止 .env 里配了却没人读。
-    "CATALOG_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "目录服务的独立角色 DSN（角色 mf_catalog，授权见 deploy/sql/roles-least-privilege.sql）"},
-    "AUTH_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "账号服务的独立角色 DSN（角色 mf_auth）"},
-    "COMMUNITY_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "互动服务的独立角色 DSN（角色 mf_community）"},
-    "STORAGE_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "存储服务的独立角色 DSN（角色 mf_storage）"},
-    "COMMUNITY_MIGRATE_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "切流搬运工具（community-migrate）的管理身份 DSN：唯一需要跨域读的进程，不拿任何服务运行角色"},
-    "DB_HOST": {"readers": [("catalog", "cmd/server/main.go")], "default": "localhost", "safe": True},
-    "DB_PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "5432", "safe": True},
-    "DB_USER": {"readers": [("catalog", "cmd/server/main.go")], "default": "metafusion", "safe": True},
-    "DB_PASSWORD": {"readers": [("catalog", "cmd/server/main.go")], "default": "空（连不上库）", "safe": True},
-    "DB_NAME": {"readers": [("catalog", "cmd/server/main.go")], "default": "metafusion_db", "safe": True},
-    "DB_SSLMODE": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "disable（明文连接）", "safe": False, "inject": [("deploy/docker-compose.yml", "backend"), ("deploy/docker-compose.yml", "auth"), ("deploy/docker-compose.yml", "community"), ("deploy/docker-compose.yml", "storage"), ("deploy/docker-compose.metadata.yml", "backend")]},
+    "CATALOG_DATABASE_URL": {"readers": [], "default": "必填，无共用身份回退", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "目录服务的独立角色 DSN（角色 mf_catalog，授权见 deploy/sql/roles-least-privilege.sql）"},
+    "AUTH_DATABASE_URL": {"readers": [], "default": "必填，无共用身份回退", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "账号服务的独立角色 DSN（角色 mf_auth）"},
+    "COMMUNITY_DATABASE_URL": {"readers": [], "default": "必填，无共用身份回退", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "互动服务的独立角色 DSN（角色 mf_community）"},
+    "STORAGE_DATABASE_URL": {"readers": [], "default": "必填，无共用身份回退", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "存储服务的独立角色 DSN（角色 mf_storage）"},
+    "COMMUNITY_MIGRATE_DATABASE_URL": {"readers": [], "default": "必填，无共用身份回退", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "切流搬运工具（community-migrate）的管理身份 DSN：唯一需要跨域读的进程，不拿任何服务运行角色"},
     "AUTH_JWT_ISSUER": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "cmd/server/main.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "https://findverse.cc/api", "safe": True},
     "AUTH_JWT_AUDIENCE": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "cmd/server/main.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "metafusion", "safe": True},
     "AUTH_JWT_PUBLIC_KEY": {"readers": [("catalog", "internal/catalog/token.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 → 回退 JWKS 地址", "safe": True},

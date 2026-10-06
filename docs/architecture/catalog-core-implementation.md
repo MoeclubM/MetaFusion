@@ -10,7 +10,7 @@
 
 读取投影：`GET /api/catalog/expressions/:id/composition` 返回有序 parts/wholes；`GET /api/catalog/releases/:id/editions` 返回显式 group/editions。两者在 RepeatableRead 事务内读取，带 `definition_etag`，裁剪不可见/终态对端；未分组发行返回 group=null、editions=[]。不另建图谱事实表。
 
-`track_contents.sources` 保存收录的直接证据。POST `/api/catalog/tracks/:id/contents` 增加一条，PUT/DELETE `/api/catalog/tracks/:id/contents/:position` 替换/删除已读位置；请求必须携带 Track 的 expected_version、edit_note、sources，替换可用 inclusion.position 重排。一次修改仍产生 Track 修订与 outbox，旧版本并发写返回 409。旧整实体 PUT 省略来源时保留未改变收录的证据；新/改变的收录用本次编辑证据。单条编辑保留其余不可见历史收录，并裁剪响应。
+`track_contents.sources` 保存收录的直接证据。POST `/api/catalog/tracks/:id/contents` 增加一条，PUT/DELETE `/api/catalog/tracks/:id/contents/:position` 替换/删除已读位置；请求必须携带 Track 的 expected_version、edit_note、sources，替换可用 inclusion.position 重排。一次修改仍产生 Track 修订与 outbox，旧版本并发写返回 409。整实体写入中，收录未显式填写 sources 时使用本次编辑证据；需要保留直接证据时必须原样提交。单条编辑保留其余不可见历史收录，并裁剪响应。
 
 模板 `match` 支持 exists/equals/contains 的 AND，priority 决定顺序，相同最高优先级回退通用布局；缺少 match 的模板不参与自动选择，仍可在编辑器中手工选用，显式空数组是该 kind 的兜底模板。`blocks` 是受支持区块的有序列表，缺省继承布局、[] 隐藏可选区块。通用详情据此组织目录/组合/收录/署名/关系/资源页签，发行页支持版本组/目录/相关收录/署名/关系的 DOM 顺序；固定事实与修订入口保持可读。creation_form 仅为可选属性与模板选择条件，不决定可写字段或实体身份。
 
@@ -20,15 +20,34 @@
 
 核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、结构侧表、动态定义、修订、outbox 与站内通知收件箱（`catalog.notifications`，安装基线 `000021_catalog_baseline`，读投递见 `/api/notifications/*`）；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 使用事务级 advisory lock。乐观版本避免静默覆盖，复合外键和延迟触发器拒绝跨域父子和循环。
 
-关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 按可见端点分页，从侧表、收录表和 `catalog.relations` 投影，不复制边。固定规则码以 `structure:` 开头，动态语义码以 `relation:` 开头；返回方向、类别、端点、位置、角色、定位、属性及本次读取的 definitions 版本，limit 默认 50、最大 100。
+关系读取由 `GET /api/catalog/definitions` 的 `relationship_rules` 和 `GET /api/catalog/entities/{id}/links` 提供：固定结构规则只读，普通语义关系由已发布 definitions 与现有关系写入口管理。links 从权威侧表、收录表、`catalog.relations` 和实体属性投影，不复制边。规则码分别为 `structure:`、`relation:` 和 `attribute:<path>`；属性规则按当前 definitions 的 entity/group/list 声明递归生成，`field` 标出具体数组位置。关系、subjects、contents 的属性及 locator 中声明的第三方引用随边返回 `references`，以引用实体为主体反查时用 `via` 标记。不可见端点或引用使整条边不可见。
 
-Agent 批量查询使用只读 `POST /api/catalog/relationships/query`：`ids` 为1–20个主体，`direction` 为 both/outgoing/incoming，`rule_codes` 取当前 relationship_rules 完整码，`peer_kinds` 过滤相对主体的对端层级。limit 默认25、最大100，offset 为0–10000，均按主体独立分页；筛选与可见性检查先于分页。响应为 definition_etag、pages、去重的 entities 摘要与 unavailable_ids（不存在和不可见不区分）；摘要仅包含 id、kind、version、title、original_language、translations，不是完整实体编辑载荷。定义、主体和直接边在同一 RepeatableRead 只读事务中装配；多次分页请求不共享快照。固定与语义边复用现有投影，不新增关系事实表；查询不执行写入，不递归遍历。默认限流60次/分钟，仍由现行账户/组策略调整。
+Agent 批量查询使用只读 `POST /api/catalog/relationships/query`：`ids` 为1–20个主体，`direction` 为 both/outgoing/incoming，`rule_codes` 取当前 relationship_rules 完整码，`peer_kinds` 过滤相对主体的对端层级。limit 默认25、最大100，offset 为非负整数，均按主体独立分页；筛选与可见性检查先于分页。响应为 definition_etag、pages、去重的 entities 摘要与 unavailable_ids（不存在和不可见不区分）；摘要覆盖主体、端点和第三方引用，仅包含 id、kind、version、title、original_language、translations。完整编辑载荷须另取实体。定义、主体和直接边在同一 RepeatableRead 只读事务中装配；多次分页请求不共享快照。客户端按 has_more 翻完每个主体，再用已访问 ID 集合逐层遍历；接口自身不递归。默认限流60次/分钟，由现行账户/组策略调整。
 
 归属与位置的权威来源是结构侧表的 `work_id`、`release_id`、`medium_id`、`parent_id` 和 `content_unit_id`；发行收录来自 `release_subjects`，轨位收录来自 `track_contents`，署名、改编、聚合等语义来自 `catalog.relations`。固定边须在所属实体或收录写入口编辑。当前 links 不提供逐边证据或历史规则版本；旧外键没有保存这些信息，未来须先在权威写入处设计来源记录与迁移。新增结构写入仍须有现有骨架无法表达的带来源样本，见[演进方案](./metadata-structure-evolution-plan.md)。媒体样本与身份判断见[媒体编目与前端复核](./media-catalog.md)。
 
 作品目录共用 ContentUnit、Expression 与聚合关系读取结果；没有可见内容时隐藏，失败时显示重试，同题名 Expression 标为“内容表达”。通用游戏不推断为独立游戏；Bangumi 来源类型映射为 `game` 预览标记，不在实体上虚构业务类型。旧误分类须有来源再更正，定义种子须按部署流程显式执行。
 
-`cmd/server/main.go` 作为纯净的单一启动入口：核心依赖 PostgreSQL；OpenSearch 是可选的实体搜索候选索引，不影响目录启动与编辑。配置 `OPENSEARCH_URL` 后，后台先从目录实体表建立索引，再按 `entity.*` 事件消费同事务写入的 `catalog.outbox`；消费者用 PostgreSQL advisory lock 保证多后端副本只有一个索引器，bulk 写入等待 refresh 以缩短可见性延迟。索引文档覆盖题名、翻译、摘要、别名、标签和外部 ID，状态代际变更时自动清理并重建候选索引；搜索候选仍由 PostgreSQL 复核子串命中、外部 ID、可见性、筛选并读取实体。索引未就绪/不可用、查询无索引命中、结构关系/自定义字段筛选或匹配量超过 10,000 时回退原 PostgreSQL 搜索。未配置时检索完全走 PostgreSQL。Redis 与 S3 不由目录核心强制初始化。
+`cmd/server/main.go` 要求 `DATABASE_URL` 与 `OPENSEARCH_URL`。`q` 文本查询由 OpenSearch 2.14 执行匹配、组合过滤、排序与分页，PostgreSQL 仅按当页 ID 批量回读权威实体并复核当前可见性与筛选。不再执行 ILIKE 故障回退；未就绪或不可用明确返回 503 search_unavailable。无 q 的浏览仍由 PostgreSQL 执行，total_relation=eq；搜索 total_relation=index_snapshot，计数属于索引快照，当前权限变化可使 items 短页甚至空页。
+
+搜索采用一分钟 PIT + search_after 游标。offset+limit 只允许落在前10,000条，深页必须沿 next_cursor；只要 has_more=true，即使 items=[] 也继续。游标绑定身份、查询、筛选、排序、语言及 limit，过期后重新开始。索引覆盖题名、翻译、摘要、别名、标签、外部 ID、结构 ID 与可检索的动态属性；三字符及以上子串通过 ngram 预筛，短查询仍可能命中很大范围。
+
+索引器由 advisory lock 保证只有一个写入者；全量重建包含结构侧表，完成后原子切换 `metafusion-entities` 别名至 v3。索引是派生数据，outbox 仅作变更通知，消费时读取最新权威事实，避免延迟的旧载荷重写迁移后的引用。bulk 成功才确认 deliveries，实体版本阻止旧数据覆盖新版本。其它后端副本读取完成标记后也能提供搜索。`/health.search_ready` 表示索引就绪；`/ready` 仍检查 PostgreSQL，因此发布验收必须另验搜索。
+
+## 查询规模、费用与接口边界
+
+当前实现具备分离搜索与事实存储、索引增量更新、按页批量回读和直接关系批量查询的基础，但默认编排不能作为大规模容量承诺：OpenSearch 为单节点、1主分片、0副本、512m heap；PostgreSQL 每进程连接池上限20；限流计数仍在各进程内。多副本不会自动获得全局额度或搜索高可用。
+
+| 路径 | 已有能力 | 扩容前需要验证 |
+| --- | --- | --- |
+| 文本搜索 | 索引组合过滤、游标超过10,000命中、当页权限复核 | 真实文档体积与索引膨胀、短查询/动态字段过滤、P95/P99延迟、索引滞后、heap和磁盘 |
+| 无关键词浏览 | 结构/JSONB查询索引、批量读取 | 大集合精确COUNT、深OFFSET、连接池等待、热点缓存需求 |
+| 关系遍历 | 声明的嵌套引用双向查询，端点与引用共享批量缓存 | 固定无附加引用与纯属性边直接SQL分页；混合语义页仍需扫描可见边计算offset，高扇出重复翻页成本须压测 |
+| 多副本 | 单索引写入者、各读取副本可就绪 | 全局限流、索引器积压与故障恢复、主分片/副本布局、数据库连接总预算 |
+
+Agent 能读取当前调用者可见且由模型或 definitions **声明**的数据关系，包括结构归属、跨作品收录、语义关系和嵌套属性引用。任意文本中的隐含关联、跨服务论坛/资源数据与历史规则图不在自动遍历范围；分页请求之间也没有共享数据库快照。故应称“当前声明关系的完整分页读取”，不能承诺单请求导出全站图谱。
+
+尚未提供机器规格、供应商套餐价格、数据量、峰值QPS与延迟目标，无法判断当前费用能否支撑需求，也没有生产负载证据。评估应按目录/短查询/关系高扇出/写入同步的真实比例压测，测错误率、尾延迟、PG池等待、CPU/IO、堆与索引滞后；费用应计入搜索节点及副本、PG、持久盘、备份和网络流量，再计算每百万查询成本。功能回归通过不等于容量达标。
 
 外围能力（账号、互动、存储）由独立服务承担：它们不持有指向核心表的外键，只能通过 HTTP 契约查询实体与提交提案。合并事件包含旧 ID 和目标 ID；outbox 与修订同事务写入、去重按事件 ID 幂等。OpenSearch 是目前唯一生产 outbox 消费者；跨业务服务事件仍靠同步查询目录接口收敛，见迁移基准 §3。
 

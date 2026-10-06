@@ -142,20 +142,10 @@ services:
       # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）。
       # 本容器只持有这一条 DSN：DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME 等共用身份
       # 刻意不再注入（2026-09 审计 O01）——进程环境一旦持有管理凭据，SQL 层隔离即被绕过。
-      # 留空 = 代码走默认连接（容器内无库可连，启动失败，不静默降级）；生产**必须**填。
-      # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 CATALOG_DATABASE_URL 同源。
-      # 值的形状：postgres://mf_catalog:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
-      # （刻意不写 <键名>=<连接串> 的字面行：gitleaks 的 generic-api-key 规则会误判成密钥，见 .env.example）
-      # 本地开发：按上面形状填本域 DSN。确实需要旧共用身份的，自建一份被 git 忽略的
-      # deploy/docker-compose.local.yml 补 DB_* 再用 -f 叠加（仓库里没有这份文件）。
-      - DATABASE_URL=${CATALOG_DATABASE_URL:-}
-      # 库与各服务同在 metafusion-net（PostgreSQL 未开 TLS）：显式写 disable 与原行为一致，
-      # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
-      # 不注入这个键时默认值也是 disable，但没人能从编排看出这一层。
-      - DB_SSLMODE=${DB_SSLMODE:-disable}
-      # OpenSearch 是可选的全文候选索引：留空时检索走 PostgreSQL；配置后目录仍在
-      # PostgreSQL 侧复核可见性、筛选与实体内容。单机容器需同时用 --profile search 启动。
-      - OPENSEARCH_URL=${OPENSEARCH_URL:-}
+      # 运行服务只接受本域 DSN，管理身份只用于迁移作业。
+      - DATABASE_URL=${CATALOG_DATABASE_URL:?CATALOG_DATABASE_URL must be set}
+      # OpenSearch 是正式文本查询服务；外部集群可覆盖 URL 和认证。
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
       - OPENSEARCH_USERNAME=${OPENSEARCH_USERNAME:-}
       - OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD:-}
       # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
@@ -211,9 +201,8 @@ services:
       # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 AUTH_DATABASE_URL 同源。
       # 值的形状：postgres://mf_auth:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
-      - DATABASE_URL=${AUTH_DATABASE_URL:-}
+      - DATABASE_URL=${AUTH_DATABASE_URL:?AUTH_DATABASE_URL must be set}
       # SSL 模式说明见 backend 段。账号库最敏感，跨网部署第一个要改就是这里。
-      - DB_SSLMODE=${DB_SSLMODE:-disable}
       # 签发私钥是**必填**：留空时账号服务拒绝启动（不再静默生成进程内临时密钥——那会让
       # 每次重启都作废全部已签发令牌并换掉 JWKS，审计 S-9）。这里仍用 ":-" 而不是 ":?" 是刻意的
       # 选择：compose 层拦住会连带挡住不含 auth 的部署路径，让服务自己在日志里给出原因更直接；
@@ -257,14 +246,13 @@ services:
       - GIN_MODE=release
       - PORT=8083
       # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
-      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 本域独立 DSN 必填；运行服务不持有 DB_* 管理身份。
       # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 COMMUNITY_DATABASE_URL 同源。
       # 本容器只持有这一条 DSN：DB_* 共用身份刻意不再注入（2026-09 审计 O01），
       # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 值的形状：postgres://mf_community:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
-      - DATABASE_URL=${COMMUNITY_DATABASE_URL:-}
-      - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
+      - DATABASE_URL=${COMMUNITY_DATABASE_URL:?COMMUNITY_DATABASE_URL must be set}
       # auth 是唯一签发方，JWKS 指向账号服务（不再回指目录服务）。
       - COMMUNITY_JWKS_URL=http://auth:8081/api/oidc/jwks
       # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
@@ -310,14 +298,9 @@ services:
     environment:
       # 一次性搬运工具：**需要跨域读的进程之一**（读 modules.* 与 catalog.favorites，
       # 写 community.*），因此它用独立的管理身份，不拿任何服务的运行角色——
-      # 见 docs/architecture/database-roles.md 第 4 节。DB_* 在这里是刻意的：
-      # 管理凭据只给这类一次性迁移/运维作业（审计 O01），常驻业务容器一律不持有。
+      # 见 docs/architecture/database-roles.md 第 4 节。只给显式管理 DSN，
+      # 不把数据库 owner 凭据作为缺省身份注入。
       - DATABASE_URL=${COMMUNITY_MIGRATE_DATABASE_URL:-}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-metafusion}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      - DB_NAME=${DB_NAME:-metafusion_db}
     depends_on:
       postgres:
         condition: service_healthy
@@ -352,7 +335,7 @@ services:
     entrypoint: ["/app/migrate"]
     environment:
       # 迁移/运维身份（库 owner）：业务容器拿不到的共用凭据只出现在这里
-      # 与 community-migrate 里（审计 O01），不进任何常驻服务。
+      # 不进任何常驻服务；community-migrate 使用自己的显式管理 DSN。
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -381,14 +364,13 @@ services:
       - GIN_MODE=release
       - PORT=8082
       # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
-      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 本域独立 DSN 必填；运行服务不持有 DB_* 管理身份。
       # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 STORAGE_DATABASE_URL 同源。
       # 本容器只持有这一条 DSN：DB_* 共用身份刻意不再注入（2026-09 审计 O01），
       # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 值的形状：postgres://mf_storage:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
-      - DATABASE_URL=${STORAGE_DATABASE_URL:-}
-      - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
+      - DATABASE_URL=${STORAGE_DATABASE_URL:?STORAGE_DATABASE_URL must be set}
       - STORAGE_ROOT=/app/storage-data
       # 上传与回读校验的上限：代码默认 0 = 不限制，编排必须显式收口，否则只剩网关
       # client_max_body_size 的 1 GiB 兜底（2026-09 审计 ops#30 / storage S24）。
@@ -409,12 +391,12 @@ services:
       - STORAGE_S3_TLS=false
       # 对象存储凭据（RustFS 的 root 用户/口令）的唯一来源；服务侧只认 S3 协议，与具体实现无关。
       # 读取方只有 metafusion-storage（internal/config 的 STORAGE_S3_ACCESS_KEY/_SECRET_KEY）
-      # 与备份作业（scripts/backup.sh，经 .env 的 RUSTFS_ROOT_*）；目录/账号/互动三个容器
+      # 与备份作业（scripts/backup.sh，经 .env 的 RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY）；目录/账号/互动三个容器
       # 永不注入 S3 凭据。RustFS 当前是单 root 用户，这组别名即最小可用凭据（审计 O01）；
       # 桶级作用域密钥待对象存储支持 IAM 后再切，届时这里只换值、不加接收方。
       # 对象存储容器自己读的是 RUSTFS_*，见下面服务 10。
-      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
-      - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set in .env}
+      - STORAGE_S3_SECRET_KEY=${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set in .env}
       - STORAGE_S3_BUCKET=metafusion-master
       # 最小权限切换口（默认 false = 现状：root 凭据 + 服务自建桶，见上面对象存储凭据注释）。
       # 切到仅目标桶服务凭据的那次部署，才把这里改 true，且桶必须已由运维身份事先建好，
@@ -467,13 +449,12 @@ services:
     profiles: ["maintenance"]
     command: ["worker"]
     environment:
-      - DATABASE_URL=${STORAGE_DATABASE_URL:-}
-      - DB_SSLMODE=${DB_SSLMODE:-disable}
+      - DATABASE_URL=${STORAGE_DATABASE_URL:?STORAGE_DATABASE_URL must be set}
       - STORAGE_ROOT=/app/storage-data
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
-      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
-      - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set in .env}
+      - STORAGE_S3_SECRET_KEY=${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set in .env}
       - STORAGE_S3_BUCKET=metafusion-master
       - STORAGE_S3_SKIP_BUCKET_ENSURE=${STORAGE_S3_SKIP_BUCKET_ENSURE:-false}
       - CATALOG_URL=http://backend:8080
@@ -580,19 +561,17 @@ services:
 
   # --------------------------------------------------------------------------
   # 8. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
-  #    可选候选索引；后端通过 PostgreSQL outbox 补建/增量更新。默认不启动以节省资源；
-  #    启用时同时设置 OPENSEARCH_URL=http://opensearch:9200 并加 --profile search。
+  #    正式文本查询服务；PostgreSQL outbox 补建/增量更新。默认随本栈启动。
   #    存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
   opensearch:
     logging: *default-logging
     image: opensearchproject/opensearch:2.14.0
     container_name: metafusion-opensearch
-    profiles: ["search"]
     restart: unless-stopped
     environment:
       - discovery.type=single-node
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-512m} -Xmx${OPENSEARCH_HEAP:-512m}"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
       - "DISABLE_SECURITY_PLUGIN=true"
     volumes:
@@ -625,18 +604,10 @@ services:
     restart: unless-stopped
     environment:
       # 这两行只给 rustfs 容器自己读（canonical 名，源码里是 ENV_RUSTFS_ACCESS_KEY /
-      # ENV_RUSTFS_SECRET_KEY）；本仓库的 Go 代码都不读 RUSTFS_* —— 目录服务只读 DB_*/PORT/
+      # ENV_RUSTFS_SECRET_KEY）；本仓库的 Go 代码都不读 RUSTFS_* —— 目录服务只读 DATABASE_URL/OPENSEARCH_*/PORT/
       # AUTH_*，存储服务读上面的 STORAGE_S3_*。
-      - RUSTFS_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
-      - RUSTFS_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
-      # RUSTFS_ROOT_USER / RUSTFS_ROOT_PASSWORD 是同一镜像的旧名别名（源码里标为 legacy，
-      # 只在 canonical 名缺席时兜底）。值与上面两行完全相同，保留是因为镜像 tag 还浮动在
-      # :latest（见上方 pin 备忘）：旧版本里旧名才是主名，删掉等于把凭据押在"镜像已升级"
-      # 这个未验证前提上。
-      # 删除窗口：镜像 pin 到具体 digest（并验证存储服务连得上、桶仍能创建）之后，
-      # 随那次编排更新一起删掉这两行——在那之前它们是旧镜像的唯一凭据来源。
-      - RUSTFS_ROOT_USER=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
-      - RUSTFS_ROOT_PASSWORD=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set in .env}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set in .env}
       - RUSTFS_STORAGE_DIR=/data
     volumes:
       - s3_data:/data
@@ -649,7 +620,7 @@ networks:
 
 volumes:
   pg_data:
-  # opensearch 只在 --profile search 下启用，卷保留以免存量索引数据丢失。
+  # 索引卷独立于 PostgreSQL，可由目录事实重建。
   opensearch_data:
   s3_data:
   storage_data:

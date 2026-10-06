@@ -1,6 +1,9 @@
 package catalog
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -8,30 +11,144 @@ import (
 )
 
 type searchDocument struct {
-	RecordType       string    `json:"record_type"`
-	EntityID         string    `json:"entity_id"`
-	EntityVersion    int64     `json:"entity_version"`
-	Kind             string    `json:"kind"`
-	Status           string    `json:"status"`
-	CreatedBy        string    `json:"created_by"`
-	Tags             []string  `json:"tags"`
-	OriginalLanguage string    `json:"original_language"`
-	WorkID           string    `json:"work_id"`
-	ContentUnitID    string    `json:"content_unit_id"`
-	ReleaseID        string    `json:"release_id"`
-	MediumID         string    `json:"medium_id"`
-	ParentID         string    `json:"parent_id"`
-	HasPictures      bool      `json:"has_pictures"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	TitleText        []string  `json:"title_text"`
-	SearchText       []string  `json:"search_text"`
-	SearchTextExact  []string  `json:"search_text_exact"`
+	RecordType       string            `json:"record_type"`
+	EntityID         string            `json:"entity_id"`
+	EntityVersion    int64             `json:"entity_version"`
+	Kind             string            `json:"kind"`
+	Status           string            `json:"status"`
+	CreatedBy        string            `json:"created_by"`
+	Tags             []string          `json:"tags"`
+	OriginalLanguage string            `json:"original_language"`
+	WorkID           string            `json:"work_id"`
+	ContentUnitID    string            `json:"content_unit_id"`
+	ReleaseID        string            `json:"release_id"`
+	MediumID         string            `json:"medium_id"`
+	ParentID         string            `json:"parent_id"`
+	WorkIDs          []string          `json:"work_ids"`
+	SortTitle        string            `json:"sort_title"`
+	Titles           map[string]string `json:"titles"`
+	Fields           []searchField     `json:"fields"`
+	HasPictures      bool              `json:"has_pictures"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	TitleText        []string          `json:"title_text"`
+	SearchText       []string          `json:"search_text"`
+	SearchTextGrams  []string          `json:"search_text_grams"`
+	SearchTextExact  []string          `json:"search_text_exact"`
+}
+
+type searchField struct {
+	Path  string `json:"path"`
+	Value string `json:"value"`
+}
+
+// Flatten lists without their row indexes so field=a.b means any record's b.
+func searchFields(path string, value any, out *[]searchField) {
+	if value == nil {
+		return
+	}
+	var text string
+	switch v := value.(type) {
+	case string:
+		text = v
+	case map[string]any:
+		if path != "" {
+			*out = append(*out, searchField{path, searchJSONText(v)})
+		}
+		for key, child := range v {
+			p := key
+			if path != "" {
+				p = path + "." + key
+			}
+			searchFields(p, child, out)
+		}
+		return
+	case []any:
+		for _, child := range v {
+			switch child.(type) {
+			case map[string]any, []any:
+				searchFields(path, child, out)
+			}
+		}
+		// A list leaf is queried as its JSON text, as with PostgreSQL ->>.
+		text = searchJSONText(v)
+	case []string:
+		values := make([]any, len(v))
+		for i, s := range v {
+			values[i] = s
+		}
+		text = searchJSONText(values)
+	default:
+		text = fmt.Sprint(v)
+	}
+	*out = append(*out, searchField{path, text})
+}
+
+// jsonb ->> serializes container values with PostgreSQL's key ordering and
+// spaces; indexing that representation preserves exact field/value filters.
+func searchJSONText(value any) string {
+	switch v := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			if len(keys[i]) != len(keys[j]) {
+				return len(keys[i]) < len(keys[j])
+			}
+			return keys[i] < keys[j]
+		})
+		parts := make([]string, 0, len(keys))
+		for _, key := range keys {
+			parts = append(parts, searchJSONText(key)+": "+searchJSONText(v[key]))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			parts = append(parts, searchJSONText(item))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	default:
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false)
+		_ = enc.Encode(value)
+		return strings.TrimSuffix(b.String(), "\n")
+	}
 }
 
 func makeSearchDocument(e Entity) searchDocument {
 	titles := make([]string, 0, len(e.Translations)+1)
 	text := make([]string, 0, 1+len(e.Translations)*3)
 	exact := make([]string, 0, 1+len(e.Translations)*3)
+	fields := []searchField{}
+	searchFields("", e.Attributes, &fields)
+	workIDs := []string{}
+	if (e.Kind == "content_unit" || e.Kind == "expression") && e.WorkID != "" {
+		workIDs = append(workIDs, e.WorkID)
+	}
+	for _, subject := range e.Subjects {
+		workIDs = append(workIDs, subject.WorkID)
+		searchFields("subject_attributes", subject.Attributes, &fields)
+	}
+	for _, content := range e.Contents {
+		searchFields("locator", map[string]any(content.Locator), &fields)
+		searchFields("inclusion_attributes", content.Attributes, &fields)
+	}
+	titleMap := map[string]string{}
+	for locale, row := range e.Translations {
+		if sortLocaleOK(locale) && row.Title != "" {
+			titleMap[locale] = row.Title
+		}
+	}
+	sortTitle := e.Title
+	if row, ok := e.Translations["en-US"]; ok && row.Title != "" {
+		sortTitle = row.Title
+	}
+	if row, ok := e.Translations[e.OriginalLanguage]; ok && row.Title != "" {
+		sortTitle = row.Title
+	}
 	add := func(dst *[]string, value string) {
 		value = strings.TrimSpace(value)
 		if value == "" {
@@ -67,9 +184,10 @@ func makeSearchDocument(e Entity) searchDocument {
 		}
 	}
 
-	// External IDs are searchable alongside titles, aliases, and summaries. Keep them
-	// in the existing analyzed fields so older indexes remain compatible while an
-	// entity is reindexed after this change.
+	for _, tag := range searchTags(e.Attributes["tags"]) {
+		addText(tag)
+	}
+	// External IDs are searchable alongside titles, aliases, and summaries.
 	externalKeys := make([]string, 0, len(e.ExternalIDs))
 	for key := range e.ExternalIDs {
 		externalKeys = append(externalKeys, key)
@@ -97,16 +215,21 @@ func makeSearchDocument(e Entity) searchDocument {
 		ReleaseID:        e.ReleaseID,
 		MediumID:         e.MediumID,
 		ParentID:         e.ParentID,
+		WorkIDs:          workIDs,
+		SortTitle:        sortTitle,
+		Titles:           titleMap,
+		Fields:           fields,
 		HasPictures:      len(e.Pictures) > 0,
 		UpdatedAt:        e.UpdatedAt,
 		TitleText:        titles,
 		SearchText:       text,
+		SearchTextGrams:  exact,
 		SearchTextExact:  exact,
 	}
 }
 
 // Keyword values are split into overlapping chunks so the exact substring
-// fallback can cover long summaries without OpenSearch's per-term size limit.
+// matching covers long summaries without OpenSearch's per-term size limit.
 func splitSearchText(value string) []string {
 	runes := []rune(value)
 	const chunkSize, overlap = 2048, 255

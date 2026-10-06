@@ -58,11 +58,11 @@ func TestMakeSearchDocumentIncludesExternalIDs(t *testing.T) {
 	}
 }
 
-func TestSearchIDsBuildsBoundedQuery(t *testing.T) {
+func TestSearchPageOnlyRequestsOnePage(t *testing.T) {
 	firstID := uuid.NewString()
 	secondID := uuid.NewString()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/"+openSearchAlias+"/_search" {
+		if r.Method != http.MethodPost || r.URL.Path != "/_search" {
 			t.Errorf("unexpected search request: %s %s", r.Method, r.URL.Path)
 			http.Error(w, "unexpected request", http.StatusBadRequest)
 			return
@@ -80,6 +80,9 @@ func TestSearchIDsBuildsBoundedQuery(t *testing.T) {
 		if payload["track_total_hits"] != true {
 			t.Errorf("track_total_hits = %#v, want true", payload["track_total_hits"])
 		}
+		if payload["size"] != float64(2) {
+			t.Errorf("expected a two-item page: %s", body)
+		}
 		if !strings.Contains(string(body), "search_text_exact") {
 			t.Error("search query does not include exact substring fallback")
 		}
@@ -87,7 +90,7 @@ func TestSearchIDsBuildsBoundedQuery(t *testing.T) {
 			t.Error("anonymous search query does not restrict to published entities")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"hits":{"total":{"value":2,"relation":"eq"},"hits":[{"_id":"` + firstID + `"},{"_id":"` + secondID + `"}]}}`))
+		_, _ = w.Write([]byte(`{"hits":{"total":{"value":20000,"relation":"eq"},"hits":[{"_id":"` + firstID + `","sort":[1,"` + firstID + `"]},{"_id":"` + secondID + `","sort":[1,"` + secondID + `"]}]}}`))
 	}))
 	defer server.Close()
 
@@ -96,16 +99,16 @@ func TestSearchIDsBuildsBoundedQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.ready.Store(true)
-	ids, total, err := client.searchIDs(context.Background(), ListOptions{Query: "外部 ID", Kind: "work"}, nil)
+	page, err := client.searchPage(context.Background(), ListOptions{Query: "外部 ID", Kind: "work", Limit: 2}, nil, searchCursor{PIT: "test-pit"})
 	if err != nil {
 		t.Fatalf("searchIDs returned error: %v", err)
 	}
-	if total != 2 || len(ids) != 2 || ids[0] != firstID || ids[1] != secondID {
-		t.Fatalf("searchIDs = %#v, total = %d", ids, total)
+	if page.Total != 20000 || len(page.IDs) != 2 || page.IDs[0] != firstID || page.IDs[1] != secondID {
+		t.Fatalf("searchPage = %#v", page)
 	}
 }
 
-func TestOpenSearchOptionsFallsBackWhenUnavailable(t *testing.T) {
+func TestOpenSearchUnavailableIsExplicit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 	}))
@@ -117,30 +120,26 @@ func TestOpenSearchOptionsFallsBackWhenUnavailable(t *testing.T) {
 	}
 	client.ready.Store(true)
 	store := &Store{OpenSearch: client}
-	got, used := store.openSearchOptions(context.Background(), ListOptions{Query: "missing"}, nil)
-	if used || len(got.SearchIDs) != 0 {
-		t.Fatalf("unavailable OpenSearch used candidates: %#v", got)
+	_, err = store.Search(context.Background(), ListOptions{Query: "missing", Limit: 50}, nil, "")
+	if err != errSearchUnavailable {
+		t.Fatalf("unavailable OpenSearch error = %v", err)
 	}
 }
 
-func TestEnsureIndexRepairsExistingIndexWithoutAlias(t *testing.T) {
+func TestEnsureIndexUsesCurrentGeneration(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/_alias/"+openSearchAlias:
+		case r.Method == http.MethodHead && r.URL.Path == "/"+openSearchIndex:
 			http.NotFound(w, r)
 		case r.Method == http.MethodPut && r.URL.Path == "/"+openSearchIndex:
-			http.Error(w, "index already exists", http.StatusBadRequest)
-		case r.Method == http.MethodHead && r.URL.Path == "/"+openSearchIndex:
-			w.WriteHeader(http.StatusOK)
-		case r.Method == http.MethodPut && r.URL.Path == "/_aliases":
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Errorf("read alias body: %v", err)
 			}
-			if !strings.Contains(string(body), openSearchIndex) || !strings.Contains(string(body), openSearchAlias) {
-				t.Errorf("alias body does not attach expected index: %s", body)
+			if !strings.Contains(string(body), "substring_grams") || strings.Contains(string(body), "aliases") {
+				t.Errorf("index must contain current mappings and remain unaliased until rebuilt: %s", body)
 			}
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -157,8 +156,8 @@ func TestEnsureIndexRepairsExistingIndexWithoutAlias(t *testing.T) {
 	if err := client.ensureIndex(context.Background()); err != nil {
 		t.Fatalf("ensureIndex recovery returned error: %v", err)
 	}
-	if calls != 5 {
-		t.Fatalf("recovery made %d requests, want 5", calls)
+	if calls != 2 {
+		t.Fatalf("creation made %d requests, want 2", calls)
 	}
 }
 
@@ -183,7 +182,7 @@ func TestIndexDocumentsWaitsForRefreshAndSendsExternalVersions(t *testing.T) {
 			t.Errorf("decode bulk action: %v", err)
 		}
 		metadata := action["index"]
-		if metadata["_index"] != openSearchAlias || metadata["version_type"] != "external_gte" {
+		if metadata["_index"] != openSearchIndex || metadata["version_type"] != "external_gte" {
 			t.Errorf("unexpected bulk metadata: %#v", metadata)
 		}
 		if !strings.Contains(lines[1], "external-id") {
@@ -207,18 +206,11 @@ func TestIndexDocumentsWaitsForRefreshAndSendsExternalVersions(t *testing.T) {
 	}
 }
 
-func TestListFilterRechecksExternalIDs(t *testing.T) {
+func TestPostgresBrowseRejectsTextSearch(t *testing.T) {
 	args := []any{}
-	parts, err := listFilter(context.Background(), &Store{}, ListOptions{Query: "bangumi:42"}, nil, &args)
-	if err != nil {
-		t.Fatal(err)
-	}
-	joined := strings.Join(parts, " ")
-	if !strings.Contains(joined, "external_ids") || !strings.Contains(joined, "jsonb_each_text") {
-		t.Fatalf("list filter does not recheck external IDs: %s", joined)
-	}
-	if len(args) != 1 || args[0] != "%bangumi:42%" {
-		t.Fatalf("list filter args = %#v", args)
+	_, err := listFilter(context.Background(), &Store{}, ListOptions{Query: "bangumi:42"}, nil, &args)
+	if err == nil || err.Error() != "text_query_requires_search" {
+		t.Fatalf("text search must use OpenSearch: %v", err)
 	}
 }
 

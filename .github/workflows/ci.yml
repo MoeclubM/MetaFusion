@@ -30,8 +30,20 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      opensearch:
+        image: opensearchproject/opensearch:2.14.0
+        env:
+          discovery.type: single-node
+          OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+          DISABLE_INSTALL_DEMO_CONFIG: "true"
+          DISABLE_SECURITY_PLUGIN: "true"
+        ports: ["9200:9200"]
+        options: >-
+          --health-cmd "curl -fsS http://localhost:9200/_cluster/health"
+          --health-interval 10s --health-timeout 5s --health-retries 20
     env:
       MF_V2_TEST_DSN: postgres://postgres:test-only-password@127.0.0.1:5432/mf_v2_test?sslmode=disable
+      MF_OPENSEARCH_TEST_URL: http://127.0.0.1:9200
       # cmd/migrate 读的是 DB_*（不是 MF_V2_TEST_DSN）。服务容器里的用户是 postgres，
       # 而 config 的默认值是 metafusion —— 迁移回滚步骤因为这条不匹配长期失败。
       DB_HOST: 127.0.0.1
@@ -71,7 +83,7 @@ jobs:
             echo "irreversible migration unexpectedly rolled back" >&2
             exit 1
           fi
-          grep -q '000021_catalog_baseline is irreversible' /tmp/mf-down.log
+          grep -q '000023_reference_canonicalization is irreversible' /tmp/mf-down.log
           /tmp/mf-migrate up
           /tmp/mf-migrate status
       - name: 悬挂引用体检（check-refs 冒烟）
@@ -147,8 +159,12 @@ jobs:
         env:
           # docker-compose.yml 使用 :? 校验的必填变量，CI 中一律注入 test-only 假值
           DB_PASSWORD: test-only-password
-          RUSTFS_ROOT_USER: test-only-user
-          RUSTFS_ROOT_PASSWORD: test-only-password
+          CATALOG_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          AUTH_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          COMMUNITY_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          STORAGE_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          RUSTFS_ACCESS_KEY: test-only-user
+          RUSTFS_SECRET_KEY: test-only-password
           # RUSTFS_IMAGE 是 rustfs 服务的 :? 必填插值（与 .env.example 占位示例同形）：
           # config 只做插值不拉镜像，给 test-only 假值即可，干净 runner 可过解析
           RUSTFS_IMAGE: rustfs/rustfs:test-only
@@ -156,6 +172,10 @@ jobs:
       - name: metadata-only compose config
         env:
           DB_PASSWORD: test-only-password
+          CATALOG_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          AUTH_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          COMMUNITY_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          STORAGE_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
         run: docker compose -f deploy/docker-compose.metadata.yml config --quiet
       - name: nginx syntax check
         run: docker run --rm -v $PWD/deploy/nginx.conf:/etc/nginx/nginx.conf:ro nginx:1.25-alpine nginx -t
@@ -166,8 +186,12 @@ jobs:
       - name: dev & prod override config
         env:
           DB_PASSWORD: test-only-password
-          RUSTFS_ROOT_USER: test-only-user
-          RUSTFS_ROOT_PASSWORD: test-only-password
+          CATALOG_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          AUTH_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          COMMUNITY_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          STORAGE_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          RUSTFS_ACCESS_KEY: test-only-user
+          RUSTFS_SECRET_KEY: test-only-password
           # 同上：覆盖文件合并仍解析 base 的 :? 必填项，假值与上一步同口径
           RUSTFS_IMAGE: rustfs/rustfs:test-only
         run: |
@@ -179,8 +203,12 @@ jobs:
         # 因此断言只打印键名与通过/失败结论，值永不进日志。
         env:
           DB_PASSWORD: test-only-password
-          RUSTFS_ROOT_USER: test-only-user
-          RUSTFS_ROOT_PASSWORD: test-only-password
+          CATALOG_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          AUTH_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          COMMUNITY_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          STORAGE_DATABASE_URL: postgres://postgres:test-only-password@postgres:5432/metafusion_db?sslmode=disable
+          RUSTFS_ACCESS_KEY: test-only-user
+          RUSTFS_SECRET_KEY: test-only-password
           # 同上：断言前两处 config 合并都要先过 :? 插值，假值与上同口径
           RUSTFS_IMAGE: rustfs/rustfs:test-only
         run: |
@@ -193,7 +221,7 @@ jobs:
           svcs = doc.get("services", {}) or {}
           banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
           banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
-                       "RUSTFS_ROOT_USER", "RUSTFS_ROOT_PASSWORD",
+                       "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY",
                        "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
           bad = []
           for name in ("backend", "auth", "community", "storage"):

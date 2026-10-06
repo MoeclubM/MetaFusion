@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useId, Suspense } from "react";
+import { useEffect, useState, useMemo, useRef, useId, Suspense } from "react";
 import { safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -84,6 +84,7 @@ function ExploreInner() {
   // 页码解析必须挡住 NaN：`?page=abc` 经 parseInt 得到 NaN，Math.max(1, NaN) 仍是 NaN，
   // 于是 offset=NaN 被原样发给服务端（现在会被按非法参数 400 拒绝，页面就以"加载失败"告终）。
   // 非数字或小于 1 一律当第 1 页；数字但超出结果范围的越界页另有可读提示（见 outOfRange）。
+  const cursorParam = searchParams.get("cursor") || "";
   const rawPageParam = searchParams.get("page") || "";
   const parsedPage = /^\d+$/.test(rawPageParam) ? parseInt(rawPageParam, 10) : 1;
   const currentPage = parsedPage >= 1 ? parsedPage : 1;
@@ -91,9 +92,11 @@ function ExploreInner() {
   // 这里只把 URL 原样传给服务端——前端不静默改写用户给的参数。
   const sortParam = searchParams.get("sort") || "";
   const orderParam = searchParams.get("order") || "";
-  const sortKey = sortParam + (orderParam ? ":" + orderParam : "");
+  const sortKey = sortParam + ":" + (orderParam || (sortParam === "title" ? "asc" : "desc"));
   // 下拉的选中值：默认（不带参）= 最近更新，与后端空值口径一致。
-  const sortValue = sortParam ? sortKey : "";
+  const sortValue = !currentQ && sortKey === "updated_at:desc" ? "" : sortParam ? sortKey : "";
+  const searchLocale = sortParam === "title" ? locale : "";
+  const previousSearchLocale = useRef(searchLocale);
   const limit = 24;
   const offset = (currentPage - 1) * limit;
 
@@ -103,13 +106,15 @@ function ExploreInner() {
   // 结果总数（后端 total）：翻页判定必须以它为准——items.length 只是当前窗口，结果数是页宽整数倍时
   // 会误判"还有下一页"，点进去是没有数据的空页。
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState("");
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const [loading, setLoading] = useState(true);
   // 加载失败态："" 无错误 / "rate_limited" 429 / "invalid_params" 400 / "failed" 其它失败。
   // 与"真的没有条目"必须是两种状态——把 429、5xx、断网都渲染成"未找到匹配的元数据实体"
   // 会让用户以为库里没有这个条目（并据此去建重复条目），也让排障无从知道是限流。
   // 400 更要单独说：那是"参数非法"，既不是没有结果、也不是服务故障，而且重试同样非法。
-  const [loadError, setLoadError] = useState<"" | "rate_limited" | "invalid_params" | "failed">("");
+  const [loadError, setLoadError] = useState<"" | "rate_limited" | "invalid_params" | "search_expired" | "failed">("");
   const [reloadKey, setReloadKey] = useState(0);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
@@ -171,6 +176,16 @@ function ExploreInner() {
 
   useEffect(() => {
     let alive = true;
+    if (previousSearchLocale.current !== searchLocale) {
+      previousSearchLocale.current = searchLocale;
+      if (currentQ && cursorParam) {
+        const firstPage = new URLSearchParams(searchParams.toString());
+        firstPage.delete("cursor");
+        firstPage.set("page", "1");
+        router.replace(`/explore?${firstPage}`);
+        return;
+      }
+    }
     setLoading(true);
     setLoadError("");
     const params = new URLSearchParams();
@@ -186,7 +201,8 @@ function ExploreInner() {
     // 与页面上显示的题名同源，而不是恒按基础题名排。
     if (sortParam === "title") params.set("locale", locale);
     params.set("limit", limit.toString());
-    params.set("offset", offset.toString());
+    if (currentQ && cursorParam) params.set("cursor", cursorParam);
+    else params.set("offset", offset.toString());
 
     fetch("/api/catalog/entities?" + params.toString(), { credentials: "same-origin" })
       .then(async (res) => {
@@ -201,7 +217,7 @@ function ExploreInner() {
             } catch {
               // 非 JSON 错误体不阻断判定：仍然按 400 处理。
             }
-            throw new Error("invalid_params:" + code);
+            throw new Error(code === "search_cursor_expired" || code === "invalid_search_cursor" ? "search_expired" : "invalid_params:" + code);
           }
           throw new Error(res.status === 429 ? "rate_limited" : "load_failed:" + res.status);
         }
@@ -211,15 +227,21 @@ function ExploreInner() {
         if (!alive) return;
         setItems(Array.isArray(data.items) ? data.items : []);
         setTotal(safeCount(data.total, 0));
+        setHasMore(data.has_more === true);
+        setNextCursor(typeof data.next_cursor === "string" ? data.next_cursor : "");
       })
       .catch((err: any) => {
         if (!alive) return;
         setItems([]);
         setTotal(0);
+        setHasMore(false);
+        setNextCursor("");
         const message = String(err?.message || "");
         setLoadError(
           message === "rate_limited"
             ? "rate_limited"
+            : message === "search_expired"
+              ? "search_expired"
             : message.startsWith("invalid_params")
               ? "invalid_params"
               : "failed",
@@ -227,7 +249,7 @@ function ExploreInner() {
       })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [currentKind, currentStatus, currentQ, currentTags, currentOriginalLanguage, currentHasPictures, offset, sortParam, orderParam, locale, reloadKey]);
+  }, [currentKind, currentStatus, currentQ, currentTags, currentOriginalLanguage, currentHasPictures, cursorParam, offset, sortParam, orderParam, locale, searchLocale, reloadKey, router]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -236,6 +258,7 @@ function ExploreInner() {
       else next.delete(k);
     });
     if (!updates.page) next.delete("page");
+    if (!updates.cursor) next.delete("cursor");
     router.push("/explore?" + next.toString());
   };
 
@@ -248,6 +271,7 @@ function ExploreInner() {
     params.delete("tags");
     next.forEach((tag) => params.append("tags", tag));
     params.delete("page");
+    params.delete("cursor");
     router.push("/explore?" + params.toString());
   };
 
@@ -282,7 +306,7 @@ function ExploreInner() {
 
   const clearFilters = () => {
     const next = new URLSearchParams(searchParams.toString());
-    for (const key of ["q", "kind", "status", "tags", "original_language", "has_pictures", "page"]) next.delete(key);
+    for (const key of ["q", "kind", "status", "tags", "original_language", "has_pictures", "page", "cursor"]) next.delete(key);
     router.push(next.size ? "/explore?" + next.toString() : "/explore");
   };
 
@@ -446,6 +470,7 @@ function ExploreInner() {
                       const p = new URLSearchParams(searchParams.toString());
                       p.delete("tags");
                       p.delete("page");
+                      p.delete("cursor");
                       router.push("/explore?" + p.toString());
                     }}
                     className="text-[11px] text-primary hover:underline"
@@ -562,7 +587,7 @@ function ExploreInner() {
             {/* 搜索统一在顶栏；本栏只保留排序与视图切换。 */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-line shadow-xs">
               <p role="status" className="w-full sm:w-auto sm:mr-auto text-sm font-medium text-text-body">
-                {loading ? t("catalog.loading") : loadError ? t("catalog.loadFailed") : t("pagination.totalItems", { total })}
+                {loading ? t("catalog.loading") : loadError ? t("catalog.loadFailed") : t(currentQ ? "catalog.searchTotal" : "pagination.totalItems", { total })}
               </p>
               <div className="flex w-full sm:w-auto items-center gap-2">
                 {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
@@ -575,7 +600,8 @@ function ExploreInner() {
                       updateFilters({ sort: sort || "", order: sort ? order || "" : "" });
                     }}
                     options={[
-                      { value: "", label: t("catalog.sortUpdated") },
+                      { value: "", label: t(currentQ ? "catalog.sortRelevance" : "catalog.sortUpdated") },
+                      ...(currentQ ? [{ value: "updated_at:desc", label: t("catalog.sortUpdated") }] : []),
                       { value: "created_at:desc", label: t("catalog.sortCreated") },
                       { value: "title:asc", label: t("catalog.sortTitleAsc") },
                       { value: "title:desc", label: t("catalog.sortTitleDesc") },
@@ -655,6 +681,8 @@ function ExploreInner() {
                     ? t("catalog.rateLimited")
                     : loadError === "invalid_params"
                       ? t("catalog.invalidQueryParams")
+                      : loadError === "search_expired"
+                        ? t("catalog.searchExpired")
                       : t("catalog.loadFailed")}
                 </p>
                 {loadError === "invalid_params" ? (
@@ -669,7 +697,7 @@ function ExploreInner() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setReloadKey((n) => n + 1)}
+                    onClick={() => loadError === "search_expired" ? updateFilters({ page: "1" }) : setReloadKey((n) => n + 1)}
                     className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
@@ -809,14 +837,27 @@ function ExploreInner() {
                         t("catalog.loadFailed")
                       : // 空结果与越界页都报真实 total（后端在越界页也照常返回它），
                         // 不再写死 0：写死 0 会与侧栏"全部实体 N"直接矛盾。
-                        t("pagination.totalItems", { total })}
+                        t(currentQ ? "catalog.searchTotal" : "pagination.totalItems", { total })}
                 </span>
               </div>
-              <Pagination
-                page={currentPage}
-                totalPages={totalPages}
-                onChange={(n) => updateFilters({ page: n.toString() })}
-              />
+              {currentQ ? (
+                <div className="flex items-center gap-3">
+                  {currentPage > 1 && (
+                    <button type="button" onClick={() => updateFilters({ page: "1" })} className="text-primary hover:underline">
+                      {t("pagination.first")}
+                    </button>
+                  )}
+                  <span>{t("pagination.pageN", { n: currentPage })}</span>
+                  <button type="button" disabled={loading || !!loadError || !hasMore || !nextCursor}
+                    onClick={() => updateFilters({ page: String(currentPage + 1), cursor: nextCursor })}
+                    className="text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed">
+                    {t("pagination.next")}
+                  </button>
+                </div>
+              ) : (
+                <Pagination page={currentPage} totalPages={totalPages}
+                  onChange={(n) => updateFilters({ page: n.toString() })} />
+              )}
             </div>
           </div>
         </div>

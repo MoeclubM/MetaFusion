@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,16 +32,7 @@ func main() {
 	}
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		u := url.URL{
-			Scheme: "postgres",
-			Host:   env("DB_HOST", "localhost") + ":" + env("DB_PORT", "5432"),
-			Path:   env("DB_NAME", "metafusion_db"),
-			User:   url.UserPassword(env("DB_USER", "metafusion"), os.Getenv("DB_PASSWORD")),
-		}
-		q := u.Query()
-		q.Set("sslmode", env("DB_SSLMODE", "disable"))
-		u.RawQuery = q.Encode()
-		dsn = u.String()
+		log.Fatal("DATABASE_URL is required for the catalog runtime")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -66,18 +56,13 @@ func main() {
 	// 策略只有一处写入入口，但服务是多副本的，保存方只刷新自己的快照，
 	// 其余副本靠 etag 轮询收敛（没有变化就一次索引查询，不反序列化）。
 	go s.RunRateLimitPolicyRefresher(ctx)
-	if searchURL := strings.TrimSpace(os.Getenv("OPENSEARCH_URL")); searchURL != "" {
-		search, searchErr := catalog.NewOpenSearchClient(searchURL, os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))
-		if searchErr != nil {
-			log.Printf("OpenSearch configuration invalid; PostgreSQL search remains active: %v", searchErr)
-		} else {
-			s.OpenSearch = search
-			go s.RunOpenSearchIndexer(ctx)
-			log.Print("OpenSearch configured as an optional entity search index; PostgreSQL remains authoritative")
-		}
-	} else {
-		log.Print("OPENSEARCH_URL is not configured; entity search uses PostgreSQL")
+	search, searchErr := catalog.NewOpenSearchClient(os.Getenv("OPENSEARCH_URL"), os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))
+	if searchErr != nil {
+		log.Fatalf("OpenSearch configuration invalid: %v", searchErr)
 	}
+	s.OpenSearch = search
+	go s.RunOpenSearchIndexer(ctx)
+	log.Print("OpenSearch entity search enabled; PostgreSQL supplies authoritative content and authorization")
 
 	// 审计写入器（跨服务契约 §3）：一个后台 goroutine + 有界队列，挂在 Store 上供
 	// registerGroup 的中间件使用。关停时排空队列——进程直接退会把队列里最后一批行丢掉。
@@ -183,7 +168,7 @@ func main() {
 	// "重启到好为止"的循环，那正是要根除的 CrashLoop。探针判据：definitions.degraded == true。
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog", "definitions": s.DefinitionStatus()})
+		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog", "definitions": s.DefinitionStatus(), "search_ready": s.OpenSearch.Ready()})
 	})
 	// 浅探针只探本进程自己的依赖（PG），必须保持毫秒级：编排的 healthcheck 每 10 秒打它一次。
 	// 跨服务依赖另开 deep=1（编排与常规探针都不带这个参数），因此不会把探针拖慢。

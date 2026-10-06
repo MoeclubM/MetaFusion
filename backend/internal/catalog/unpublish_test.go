@@ -88,7 +88,7 @@ func TestUnpublishDemotesToDraftOnPostgres(t *testing.T) {
 	if _, err := f.s.Get(ctx, pub.ID, &editor); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("草稿不该对外人可见: %v", err)
 	}
-	if items, err := f.s.List(ctx, ListOptions{Query: "待下架作品"}, nil); err != nil || len(items) != 0 {
+	if items, err := f.s.List(ctx, ListOptions{Kind: "work"}, nil); err != nil || len(items) != 0 {
 		t.Fatalf("下架后不该出现在公开列表: %v %d", err, len(items))
 	}
 	// 留痕：既有修订机制写了一条修订（首次创建 + 下架 = 2 条），说明与来源都来自本次下架。

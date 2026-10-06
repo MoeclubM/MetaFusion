@@ -3,7 +3,10 @@ package catalog
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,24 +16,24 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
 
 const (
-	openSearchAlias    = "metafusion-entities"
-	openSearchIndex    = "metafusion-entities-v1"
-	openSearchConsumer = "opensearch"
-	// Bump the state generation when the document/search contract changes. The
-	// indexer will rebuild the optional candidate index once on the next start.
-	openSearchIndexGeneration = "v2"
+	openSearchAlias           = "metafusion-entities"
+	openSearchIndex           = "metafusion-entities-v3"
+	openSearchConsumer        = "opensearch"
+	openSearchIndexGeneration = "v3"
 	openSearchLockID          = int64(740219)
-	openSearchMaxCandidates   = 10000
+	openSearchResultWindow    = 10000
 )
 
-// OpenSearchClient is optional. PostgreSQL remains the source of truth and the
-// directory list handler falls back to its existing query whenever this client
-// is unavailable or the result set exceeds OpenSearch's bounded result window.
+var errSearchUnavailable = errors.New("search_unavailable")
+
+// OpenSearch performs text matching and pagination. PostgreSQL supplies current
+// entity content and authorization; a failed index is an explicit service error.
 type OpenSearchClient struct {
 	baseURL  string
 	username string
@@ -40,6 +43,8 @@ type OpenSearchClient struct {
 	logMu    sync.Mutex
 	lastLog  time.Time
 }
+
+func (c *OpenSearchClient) Ready() bool { return c != nil && c.ready.Load() }
 
 func NewOpenSearchClient(rawURL, username, password string) (*OpenSearchClient, error) {
 	u, err := url.Parse(strings.TrimSpace(rawURL))
@@ -87,19 +92,16 @@ func (c *OpenSearchClient) logIssue(message string, err error) {
 	log.Printf("%s: %v", message, err)
 }
 
-// SearchIDs returns the relevance-ordered candidate IDs and the exact hit count
+// searchPage returns one ordered page of IDs and the exact snapshot hit count
 // reported by OpenSearch. The caller still applies PostgreSQL visibility and
 // list filters before returning any entity data.
-func (c *OpenSearchClient) searchIDs(ctx context.Context, o ListOptions, u *User) ([]string, int, error) {
+func (c *OpenSearchClient) searchPage(ctx context.Context, o ListOptions, u *User, cursor searchCursor) (searchHitPage, error) {
 	if !c.ready.Load() {
-		return nil, 0, fmt.Errorf("OpenSearch index is not ready")
-	}
-	if o.Field != "" || o.WorkID != "" || o.ContentUnitID != "" || o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" {
-		return nil, 0, fmt.Errorf("query uses a PostgreSQL-only filter")
+		return searchHitPage{}, errSearchUnavailable
 	}
 	query := strings.TrimSpace(o.Query)
 	if query == "" {
-		return nil, 0, fmt.Errorf("empty OpenSearch query")
+		return searchHitPage{}, fmt.Errorf("invalid_query_param")
 	}
 
 	filters := []any{map[string]any{"term": map[string]any{"record_type": "entity"}}}
@@ -113,6 +115,11 @@ func (c *OpenSearchClient) searchIDs(ctx context.Context, o ListOptions, u *User
 	substring := map[string]any{"wildcard": map[string]any{"search_text_exact": map[string]any{
 		"value": "*" + escapeOpenSearchWildcard(query) + "*", "case_insensitive": true,
 	}}}
+	if utf8.RuneCountInString(query) >= 3 {
+		substring = map[string]any{"bool": map[string]any{"must": []any{
+			map[string]any{"match": map[string]any{"search_text_grams": map[string]any{"query": query, "operator": "and"}}}, substring,
+		}}}
+	}
 	must := []any{map[string]any{"bool": map[string]any{
 		"should": []any{match, substring}, "minimum_should_match": 1,
 	}}}
@@ -130,6 +137,19 @@ func (c *OpenSearchClient) searchIDs(ctx context.Context, o ListOptions, u *User
 	terms("kind", o.Kinds)
 	term("status", o.Status)
 	term("original_language", o.OriginalLanguage)
+	term("work_ids", o.WorkID)
+	term("content_unit_id", o.ContentUnitID)
+	term("release_id", o.ReleaseID)
+	term("medium_id", o.MediumID)
+	term("parent_id", o.ParentID)
+	if o.Field != "" {
+		filters = append(filters, map[string]any{"nested": map[string]any{
+			"path": "fields", "query": map[string]any{"bool": map[string]any{"filter": []any{
+				map[string]any{"term": map[string]any{"fields.path": o.Field}},
+				map[string]any{"term": map[string]any{"fields.value": o.Value}},
+			}}},
+		}})
+	}
 	if o.HasPictures {
 		filters = append(filters, map[string]any{"term": map[string]any{"has_pictures": true}})
 	}
@@ -146,71 +166,225 @@ func (c *OpenSearchClient) searchIDs(ctx context.Context, o ListOptions, u *User
 	}
 
 	sort := []any{map[string]any{"_score": "desc"}, map[string]any{"entity_id": "asc"}}
-	if o.Sort != "" {
-		sort = []any{map[string]any{"entity_id": "asc"}}
+	dir := "desc"
+	if o.Sort == "title" {
+		dir = "asc"
 	}
-	body, err := json.Marshal(map[string]any{
-		"size":             openSearchMaxCandidates,
+	if o.Order != "" {
+		dir = o.Order
+	}
+	switch o.Sort {
+	case "created_at":
+		sort = []any{map[string]any{"entity_id": dir}}
+	case "updated_at":
+		sort = []any{map[string]any{"updated_at": dir}, map[string]any{"entity_id": "asc"}}
+	case "title":
+		sort = []any{map[string]any{"_script": map[string]any{
+			"type": "string", "order": dir, "script": map[string]any{
+				"lang": "painless", "source": "String f = 'titles.' + params.locale; if (doc.containsKey(f) && doc[f].size() != 0) return doc[f].value; return doc['sort_title'].value;",
+				"params": map[string]any{"locale": o.Locale},
+			},
+		}}, map[string]any{"entity_id": "asc"}}
+	}
+	payload := map[string]any{
+		"size":             o.Limit,
 		"track_total_hits": true,
 		"_source":          false,
 		"query":            map[string]any{"bool": map[string]any{"must": must, "filter": filters, "must_not": mustNot}},
 		"sort":             sort,
-	})
+		"pit":              map[string]any{"id": cursor.PIT, "keep_alive": "1m"},
+	}
+	if len(cursor.After) > 0 {
+		payload["search_after"] = cursor.After
+	} else {
+		payload["from"] = o.Offset
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, 0, err
+		return searchHitPage{}, err
 	}
 	reqCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
 	defer cancel()
-	status, raw, err := c.request(reqCtx, http.MethodPost, "/"+openSearchAlias+"/_search", body, "application/json")
+	status, raw, err := c.request(reqCtx, http.MethodPost, "/_search", body, "application/json")
 	if err != nil {
-		return nil, 0, err
+		return searchHitPage{}, err
 	}
 	if status < 200 || status >= 300 {
-		return nil, 0, fmt.Errorf("OpenSearch search returned HTTP %d", status)
+		if status == http.StatusNotFound {
+			return searchHitPage{}, fmt.Errorf("search_cursor_expired")
+		}
+		return searchHitPage{}, fmt.Errorf("OpenSearch search returned HTTP %d", status)
 	}
 	var result struct {
+		TimedOut bool   `json:"timed_out"`
+		PIT      string `json:"pit_id"`
+		Shards   struct {
+			Failed int `json:"failed"`
+		} `json:"_shards"`
 		Hits struct {
 			Total struct {
 				Value    int    `json:"value"`
 				Relation string `json:"relation"`
 			} `json:"total"`
 			Hits []struct {
-				ID string `json:"_id"`
+				ID   string            `json:"_id"`
+				Sort []json.RawMessage `json:"sort"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, 0, fmt.Errorf("decode OpenSearch response: %w", err)
+		return searchHitPage{}, fmt.Errorf("decode OpenSearch response: %w", err)
 	}
-	if result.Hits.Total.Relation != "eq" || result.Hits.Total.Value > openSearchMaxCandidates || len(result.Hits.Hits) != result.Hits.Total.Value {
-		return nil, result.Hits.Total.Value, fmt.Errorf("OpenSearch result exceeds the bounded candidate window")
+	if result.TimedOut || result.Shards.Failed > 0 || result.Hits.Total.Relation != "eq" {
+		return searchHitPage{}, fmt.Errorf("OpenSearch returned incomplete search results")
 	}
-	ids := make([]string, 0, len(result.Hits.Hits))
+	page := searchHitPage{Total: result.Hits.Total.Value, PIT: cursor.PIT}
+	if result.PIT != "" {
+		page.PIT = result.PIT
+	}
 	for _, hit := range result.Hits.Hits {
 		if _, err := uuid.Parse(hit.ID); err != nil {
-			return nil, 0, fmt.Errorf("OpenSearch returned an invalid entity ID")
+			return searchHitPage{}, fmt.Errorf("OpenSearch returned an invalid entity ID")
 		}
-		ids = append(ids, hit.ID)
+		if len(hit.Sort) != len(sort) {
+			return searchHitPage{}, fmt.Errorf("OpenSearch returned invalid sort values")
+		}
+		page.IDs = append(page.IDs, hit.ID)
+		page.After = hit.Sort
 	}
-	return ids, result.Hits.Total.Value, nil
+	return page, nil
 }
 
-func (s *Store) openSearchOptions(ctx context.Context, o ListOptions, u *User) (ListOptions, bool) {
-	if s.OpenSearch == nil || o.Query == "" || o.Field != "" || o.WorkID != "" || o.ContentUnitID != "" || o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" {
-		return o, false
+type searchCursor struct {
+	PIT         string            `json:"pit"`
+	After       []json.RawMessage `json:"after"`
+	Fingerprint string            `json:"fingerprint"`
+	Position    int               `json:"position"`
+}
+
+type searchHitPage struct {
+	IDs   []string
+	Total int
+	PIT   string
+	After []json.RawMessage
+}
+
+type EntitySearchPage struct {
+	Items         []Entity `json:"items"`
+	Total         int      `json:"total"`
+	TotalRelation string   `json:"total_relation"`
+	HasMore       bool     `json:"has_more"`
+	NextCursor    string   `json:"next_cursor,omitempty"`
+}
+
+// Search keeps a PIT for one minute between pages. Counts describe that index
+// snapshot, while returned documents are rechecked against current PostgreSQL.
+func (s *Store) Search(ctx context.Context, o ListOptions, u *User, rawCursor string) (EntitySearchPage, error) {
+	out := EntitySearchPage{Items: []Entity{}, TotalRelation: "index_snapshot"}
+	if s.OpenSearch == nil || !s.OpenSearch.ready.Load() {
+		return out, errSearchUnavailable
 	}
-	ids, total, err := s.OpenSearch.searchIDs(ctx, o, u)
+	if o.Offset > openSearchResultWindow-o.Limit {
+		return out, fmt.Errorf("search_window_exceeded")
+	}
+	if rawCursor != "" && o.Offset != 0 {
+		return out, fmt.Errorf("pagination_conflict")
+	}
+	// Validate published field paths with exactly the same rules as browsing.
+	validation := o
+	validation.Query = ""
+	if _, err := listFilter(ctx, s, validation, u, &[]any{}); err != nil {
+		return out, err
+	}
+	identity := "anonymous"
+	if u != nil {
+		identity = u.ID + fmt.Sprint(u.Can(PermissionLifecycleManage))
+	}
+	bound := o
+	bound.Offset = 0
+	b, _ := json.Marshal(struct {
+		Options  ListOptions
+		Identity string
+	}{bound, identity})
+	fingerprint := fmt.Sprintf("%x", sha256.Sum256(b))
+	cursor := searchCursor{Fingerprint: fingerprint, Position: o.Offset}
+	if rawCursor != "" {
+		if len(rawCursor) > 16384 {
+			return out, fmt.Errorf("invalid_search_cursor")
+		}
+		b, err := base64.RawURLEncoding.DecodeString(rawCursor)
+		if err != nil || json.Unmarshal(b, &cursor) != nil || cursor.PIT == "" || len(cursor.After) == 0 || cursor.Fingerprint != fingerprint {
+			return out, fmt.Errorf("invalid_search_cursor")
+		}
+	} else {
+		status, raw, err := s.OpenSearch.request(ctx, http.MethodPost, "/"+openSearchAlias+"/_search/point_in_time?keep_alive=1m", nil, "")
+		if err != nil || status != http.StatusOK {
+			return out, errSearchUnavailable
+		}
+		var pit struct {
+			ID string `json:"pit_id"`
+		}
+		if json.Unmarshal(raw, &pit) != nil || pit.ID == "" {
+			return out, errSearchUnavailable
+		}
+		cursor.PIT = pit.ID
+	}
+	page, err := s.OpenSearch.searchPage(ctx, o, u, cursor)
 	if err != nil {
-		s.OpenSearch.logIssue("OpenSearch search unavailable; using PostgreSQL search", err)
-		return o, false
+		if err.Error() == "search_cursor_expired" {
+			return out, err
+		}
+		s.OpenSearch.logIssue("OpenSearch search failed", err)
+		return out, errSearchUnavailable
 	}
-	if total == 0 || len(ids) == 0 {
-		// Keep PostgreSQL's substring behavior for queries that the search analyzer
-		// does not tokenize to a hit (for example a mid-token fragment).
-		return o, false
+	out.Total = page.Total
+	// Only the requested page reaches PostgreSQL, never a 10,000-ID candidate set.
+	validation.SearchIDs = page.IDs
+	if len(page.IDs) > 0 {
+		args := []any{}
+		parts, err := listFilter(ctx, s, validation, u, &args)
+		if err != nil {
+			return out, err
+		}
+		rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.entities WHERE "+strings.Join(parts, " AND "), args...)
+		if err != nil {
+			return out, err
+		}
+		ids := []string{}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return out, err
+			}
+			ids = append(ids, id)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return out, err
+		}
+		entities, err := s.getMany(ctx, ids, u)
+		if err != nil {
+			return out, err
+		}
+		for _, id := range page.IDs {
+			if e, ok := entities[id]; ok {
+				out.Items = append(out.Items, e)
+			}
+		}
 	}
-	o.SearchIDs = ids
-	return o, true
+	cursor.Position += len(page.IDs)
+	out.HasMore = len(page.IDs) == o.Limit && cursor.Position < page.Total
+	if out.HasMore {
+		cursor.PIT, cursor.After = page.PIT, page.After
+		b, _ := json.Marshal(cursor)
+		out.NextCursor = base64.RawURLEncoding.EncodeToString(b)
+	} else {
+		b, _ := json.Marshal(map[string]any{"pit_id": []string{page.PIT}})
+		_, _, _ = s.OpenSearch.request(ctx, http.MethodDelete, "/_search/point_in_time", b, "application/json")
+	}
+	return out, nil
 }
 
 func escapeOpenSearchWildcard(value string) string {

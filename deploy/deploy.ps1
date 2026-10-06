@@ -30,15 +30,15 @@ function Show-Usage {
 }
 
 function Invoke-DeploySh {
-    param([string]$Args)
-    # 将 Windows 路径转换为 WSL 路径，兼容任意克隆位置
-    $WslPath = (wsl wslpath -a "$DeployDir" 2>$null).Trim()
-    if (-not $WslPath) {
-        # 回退：若 wslpath 失败则直接使用 /mnt/c 拼接（兼容旧版）
-        $WslPath = $DeployDir -replace '^([A-Za-z]):', '/mnt/$1' -replace '\\', '/'
-        $WslPath = $WslPath.ToLower()
+    param([string[]]$DeployArguments)
+    $WslPath = ([string](wsl wslpath -a "$DeployDir" 2>$null)).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $WslPath) {
+        throw "无法将仓库路径转换为 WSL 路径，请检查 WSL 后重试。"
     }
-    wsl bash -c "cd '$WslPath' && ./deploy.sh $Args"
+    wsl --cd "$WslPath" bash ./deploy.sh @DeployArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "部署脚本执行失败（退出码 $LASTEXITCODE）。"
+    }
 }
 
 switch ($Action.ToLower()) {
@@ -48,7 +48,7 @@ switch ($Action.ToLower()) {
     }
     "fast" {
         Write-Host "⚡ 增量极速更新部署..." -ForegroundColor Green
-        if ($Target) { Invoke-DeploySh "fast $Target" } else { Invoke-DeploySh "fast" }
+        if ($Target) { Invoke-DeploySh @("fast", $Target) } else { Invoke-DeploySh "fast" }
     }
     "prod" {
         Write-Host "🏭 启动生产集群模式..." -ForegroundColor Green
@@ -60,7 +60,7 @@ switch ($Action.ToLower()) {
     }
     "migrate" {
         Write-Host "🗄️ 执行数据库版本迁移..." -ForegroundColor Cyan
-        if ($Target) { Invoke-DeploySh "migrate $Target" } else { Invoke-DeploySh "migrate" }
+        if ($Target) { Invoke-DeploySh @("migrate", $Target) } else { Invoke-DeploySh "migrate" }
     }
     "seed" {
         Write-Host "🌱 显式合并种子定义..." -ForegroundColor Cyan
@@ -72,14 +72,14 @@ switch ($Action.ToLower()) {
     }
     "restart" {
         Write-Host "🔄 重启容器..." -ForegroundColor Yellow
-        if ($Target) { Invoke-DeploySh "restart $Target" } else { Invoke-DeploySh "restart" }
+        if ($Target) { Invoke-DeploySh @("restart", $Target) } else { Invoke-DeploySh "restart" }
     }
     "prune" {
         Write-Host "🧹 清理 Docker 磁盘占用..." -ForegroundColor Yellow
         Invoke-DeploySh "prune"
     }
     "logs" {
-        if ($Target) { Invoke-DeploySh "logs $Target" } else { Invoke-DeploySh "logs" }
+        if ($Target) { Invoke-DeploySh @("logs", $Target) } else { Invoke-DeploySh "logs" }
     }
     "status" {
         Invoke-DeploySh "status"

@@ -34,7 +34,9 @@ func respond(c *gin.Context, v any, err error) {
 	status := 400
 	code := err.Error()
 	var pg *pq.Error
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, errSearchUnavailable) {
+		status, code = http.StatusServiceUnavailable, "search_unavailable"
+	} else if errors.Is(err, sql.ErrNoRows) {
 		status = 404
 		code = "not_found"
 	} else if errors.As(err, &pg) {
@@ -345,7 +347,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		respond(c, gin.H{"etag": v.ETag, "document": v.Document, "updated_at": v.UpdatedAt, "kinds": KindNameRecords(), "relationship_rules": RelationshipRules(v.Document)}, nil)
+		respond(c, gin.H{"etag": v.ETag, "document": v.Document, "updated_at": v.UpdatedAt, "kinds": KindNameRecords(), "relationship_rules": ReadRelationshipRules(v.Document)}, nil)
 	})
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
@@ -415,7 +417,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), OriginalLanguage: c.Query("original_language"), HasPictures: c.Query("has_pictures") == "1", Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
+		o := ListOptions{Kind: c.Query("kind"), Query: strings.TrimSpace(c.Query("q")), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), OriginalLanguage: c.Query("original_language"), HasPictures: c.Query("has_pictures") == "1", Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
 		// 排序参数走白名单校验：未知字段/方向返回 400 invalid_sort / invalid_order，
 		// 而不是静默按 updated_at 返回另一套顺序（调用方会以为排序生效了）。
 		if err := normalizeListSort(&o); err != nil {
@@ -433,24 +435,28 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			}
 		}
 		requestUser := user(c)
-		postgresOptions := o
-		o, usedOpenSearch := s.openSearchOptions(c.Request.Context(), o, requestUser)
+		if strings.TrimSpace(o.Query) != "" {
+			if c.Query("cursor") != "" && (c.Query("offset") != "" || c.Query("page") != "") {
+				respond(c, nil, fmt.Errorf("pagination_conflict"))
+				return
+			}
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+			defer cancel()
+			v, err := s.Search(ctx, o, requestUser, c.Query("cursor"))
+			respond(c, v, err)
+			return
+		}
+		if c.Query("cursor") != "" {
+			respond(c, nil, fmt.Errorf("invalid_search_cursor"))
+			return
+		}
 		items, err := s.List(c.Request.Context(), o, requestUser)
 		if err != nil {
 			respond(c, nil, err)
 			return
 		}
 		total, err := s.Count(c.Request.Context(), o, requestUser)
-		if err == nil && usedOpenSearch && total == 0 {
-			// An index can lag while an entity is renamed, unpublished, or newly
-			// created. Preserve the PostgreSQL substring path if its final filters
-			// show that the indexed candidate set has gone stale.
-			items, err = s.List(c.Request.Context(), postgresOptions, requestUser)
-			if err == nil {
-				total, err = s.Count(c.Request.Context(), postgresOptions, requestUser)
-			}
-		}
-		respond(c, gin.H{"items": items, "total": total}, err)
+		respond(c, gin.H{"items": items, "total": total, "total_relation": "eq", "has_more": int64(offset+len(items)) < total}, err)
 	})
 	// 状态计数：概览卡片的待审/已发布/墓碑三个数只从这一条 GROUP BY 拿（列表端点给不出墓碑数）。
 	// 闸门是 catalog.lifecycle.manage——只有它的持有者能在 /entities 列表里看全量状态，

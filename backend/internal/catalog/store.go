@@ -33,7 +33,7 @@ var (
 
 type Store struct {
 	DB *sql.DB
-	// OpenSearch 是可选的实体搜索候选索引；数据库过滤仍负责最终可见性与 DTO 回读。
+	// OpenSearch 提供文本匹配、排序和分页；数据库负责当页可见性与权威 DTO 回读。
 	OpenSearch *OpenSearchClient
 	// Verifier 是账号服务令牌的验签器（只有公钥）。为 nil 或未配置密钥时，
 	// 需要身份的接口按匿名处理——目录不再有"查库兜底"这条路径。
@@ -419,7 +419,7 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 // 不在写路径里静默改写目标（静默改写会让调用方记错自己引的是谁）。
 func reference(ctx context.Context, q queryer, u *User) func(string, []string) error {
 	return func(id string, kinds []string) error {
-		if _, err := uuid.Parse(id); err != nil {
+		if parsed, err := uuid.Parse(id); err != nil || parsed.String() != id {
 			return fmt.Errorf("invalid_reference")
 		}
 		e, err := get(ctx, q, id)
@@ -540,7 +540,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if old.Status == "published" && e.Status != "published" {
 			return fmt.Errorf("use_lifecycle_endpoint")
 		}
-		retainInclusionSources(old, &e, input.Sources)
+		assignInclusionSources(&e, input.Sources)
 		if err = preserveHiddenTrackContents(ctx, tx, old, e, u); err != nil {
 			return err
 		}
@@ -918,11 +918,7 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		parts = append(parts, "(CASE WHEN jsonb_typeof(document->'pictures')='array' THEN jsonb_array_length(document->'pictures') ELSE 0 END>0)")
 	}
 	if o.Query != "" {
-		// 标题/翻译/外部 ID 的回退查询走保守的 ILIKE；OpenSearch 不可用或
-		// 候选窗口越界时仍由 PostgreSQL 完成子串复核与可见性过滤。这里不为
-		// 单个表达式再建索引，避免改变既有查询计划。模式由 likeContains 编译：
-		// 用户输入里的 %/_/\ 按字面处理（like_pattern.go）。
-		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d OR (document->'external_ids')::text ILIKE $%[1]d OR EXISTS (SELECT 1 FROM jsonb_each_text(CASE WHEN jsonb_typeof(document->'external_ids')='object' THEN document->'external_ids' ELSE '{}'::jsonb END) AS external_id(key,value) WHERE external_id.key || ':' || external_id.value ILIKE $%[1]d))", likeContains(o.Query))
+		return nil, fmt.Errorf("text_query_requires_search")
 	}
 	if len(o.SearchIDs) > 0 {
 		*args = append(*args, pq.Array(o.SearchIDs))

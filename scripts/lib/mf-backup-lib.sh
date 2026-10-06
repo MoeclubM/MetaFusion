@@ -172,10 +172,10 @@ mf_s3_init() {
   local dir=$1 ak sk esc_ak esc_sk
   mf_s3_need_tools
   mf_s3_resolve_endpoint
-  ak=${MF_S3_ACCESS_KEY:-$(mf_env_value RUSTFS_ROOT_USER)}
-  sk=${MF_S3_SECRET_KEY:-$(mf_env_value RUSTFS_ROOT_PASSWORD)}
+  ak=${MF_S3_ACCESS_KEY:-$(mf_env_value RUSTFS_ACCESS_KEY)}
+  sk=${MF_S3_SECRET_KEY:-$(mf_env_value RUSTFS_SECRET_KEY)}
   if [ -z "${ak}" ] || [ -z "${sk}" ]; then
-    mf_die "读不到对象存储凭据：${MF_ENV_FILE} 需要 RUSTFS_ROOT_USER / RUSTFS_ROOT_PASSWORD（与编排同一份来源），或用 MF_S3_ACCESS_KEY / MF_S3_SECRET_KEY 覆盖"
+    mf_die "读不到对象存储凭据：${MF_ENV_FILE} 需要 RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY（与编排同一份来源），或用 MF_S3_ACCESS_KEY / MF_S3_SECRET_KEY 覆盖"
   fi
   MF_S3_CURL_CFG=${dir}/.s3-curl.cfg
   # curl 配置值里的 " 与 \ 需要转义；口令含这两个字符时照原样写进去会被解析成别的值。

@@ -85,9 +85,8 @@ func applyTrackContentPatch(ctx context.Context, q queryer, old Entity, patch *t
 	return Entity{}, sql.ErrNoRows
 }
 
-// Omitted sources from an older whole-entity client preserve unchanged facts.
-// A changed/new fact receives this edit's evidence unless explicitly supplied.
-func retainInclusionSources(old Entity, next *Entity, sources []Source) {
+// Each inclusion carries explicit evidence or inherits this edit's evidence.
+func assignInclusionSources(next *Entity, sources []Source) {
 	if next.Kind != "track" {
 		return
 	}
@@ -95,16 +94,6 @@ func retainInclusionSources(old Entity, next *Entity, sources []Source) {
 		if c.Sources != nil {
 			continue
 		}
-		found := false
-		for _, previous := range old.Contents {
-			if previous.ExpressionID == c.ExpressionID && encode(previous.Locator) == encode(c.Locator) && encode(previous.Attributes) == encode(c.Attributes) {
-				next.Contents[i].Sources = previous.Sources
-				found = true
-				break
-			}
-		}
-		if !found {
-			next.Contents[i].Sources = append([]Source{}, sources...)
-		}
+		next.Contents[i].Sources = append([]Source{}, sources...)
 	}
 }

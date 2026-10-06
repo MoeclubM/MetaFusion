@@ -351,7 +351,7 @@ func TestPostgresCatalog(t *testing.T) {
 			t.Fatalf("revision/outbox mismatch: revisions=%d matching_events=%d", revisions, matchingEvents)
 		}
 	})
-	if _, err = s.List(ctx, ListOptions{Query: "原创"}, nil); err != nil {
+	if _, err = s.List(ctx, ListOptions{Kind: "work"}, nil); err != nil {
 		t.Fatal(err)
 	}
 }
