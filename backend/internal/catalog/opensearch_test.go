@@ -201,8 +201,121 @@ func TestIndexDocumentsWaitsForRefreshAndSendsExternalVersions(t *testing.T) {
 		makeSearchDocument(Entity{ID: uuid.NewString(), Kind: "work", Version: 1, Title: "A", ExternalIDs: map[string]string{"source": "external-id"}}),
 		makeSearchDocument(Entity{ID: uuid.NewString(), Kind: "work", Version: 1, Title: "B"}),
 	}
-	if err := client.indexDocuments(context.Background(), docs); err != nil {
-		t.Fatalf("indexDocuments returned error: %v", err)
+	if err := client.writeDocuments(context.Background(), docs, nil, true); err != nil {
+		t.Fatalf("writeDocuments returned error: %v", err)
+	}
+}
+
+func TestWriteDocumentsMixedDeletesAndAcknowledgements(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		wantError      bool
+	}{
+		{"delete existing", `{"items":[{"index":{"status":201}},{"delete":{"status":200,"result":"deleted"}}]}`, false},
+		{"delete absent", `{"errors":true,"items":[{"index":{"status":201}},{"delete":{"status":404,"result":"not_found"}}]}`, false},
+		{"stale index version", `{"errors":true,"items":[{"index":{"status":409,"error":{"type":"version_conflict_engine_exception"}}},{"delete":{"status":404,"result":"not_found"}}]}`, false},
+		{"missing index", `{"items":[{"index":{"status":201}},{"delete":{"status":404,"error":{"type":"index_not_found_exception"}}}]}`, true},
+		{"delete absent with error", `{"items":[{"index":{"status":201}},{"delete":{"status":404,"result":"not_found","error":{"type":"index_not_found_exception"}}}]}`, true},
+		{"unexplained delete 404", `{"items":[{"index":{"status":201}},{"delete":{"status":404}}]}`, true},
+		{"delete conflict", `{"items":[{"index":{"status":201}},{"delete":{"status":409,"error":{"type":"version_conflict_engine_exception"}}}]}`, true},
+		{"delete failed", `{"items":[{"index":{"status":201}},{"delete":{"status":500}}]}`, true},
+		{"index failed", `{"items":[{"index":{"status":500}},{"delete":{"status":200}}]}`, true},
+		{"unexplained index conflict", `{"items":[{"index":{"status":409}},{"delete":{"status":200}}]}`, true},
+		{"wrong conflict type", `{"items":[{"index":{"status":409,"error":{"type":"other_error"}}},{"delete":{"status":200}}]}`, true},
+		{"incomplete acknowledgement", `{"items":[{"index":{"status":201}}]}`, true},
+		{"wrong action", `{"items":[{"index":{"status":201}},{"index":{"status":200}}]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			liveID, deletedID := uuid.NewString(), uuid.NewString()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != "/_bulk" || r.URL.Query().Get("refresh") != "wait_for" {
+					t.Errorf("unexpected bulk request: %s %s", r.Method, r.URL)
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Errorf("read bulk: %v", err)
+					return
+				}
+				lines := strings.Split(strings.TrimSpace(string(body)), "\n")
+				if len(lines) != 3 {
+					t.Errorf("expected index action/source and one delete action: %s", body)
+					return
+				}
+				var action map[string]map[string]any
+				if err := json.Unmarshal([]byte(lines[2]), &action); err != nil {
+					t.Errorf("decode delete action: %v", err)
+				}
+				metadata := action["delete"]
+				if len(action) != 1 || len(metadata) != 2 || metadata["_id"] != deletedID || metadata["_index"] != openSearchIndex {
+					t.Errorf("delete must use current absence, without a historical version/source: %#v", action)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.response))
+			}))
+			defer server.Close()
+			client, err := NewOpenSearchClient(server.URL, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc := makeSearchDocument(Entity{ID: liveID, Kind: "work", Version: 7, Title: "Current"})
+			err = client.writeDocuments(context.Background(), []searchDocument{doc}, []string{deletedID}, true)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("writeDocuments error=%v, wantError=%v", err, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestWriteDocumentsDeleteOnlyAndRebuildRefresh(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("refresh") != "false" {
+			t.Errorf("rebuild bulk should not wait for a per-batch refresh: %s", r.URL)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if strings.Count(string(body), "\n") != 1 || !strings.Contains(string(body), `"delete"`) {
+			t.Errorf("delete-only bulk must contain one action line: %s", body)
+		}
+		_, _ = w.Write([]byte(`{"items":[{"delete":{"status":404,"result":"not_found"}}]}`))
+	}))
+	defer server.Close()
+	client, err := NewOpenSearchClient(server.URL, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.writeDocuments(context.Background(), nil, []string{uuid.NewString()}, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRefreshIndexRequiresSuccessfulShards(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		status         int
+		wantError      bool
+	}{
+		{"success", `{"_shards":{"total":1,"successful":1,"failed":0}}`, 200, false},
+		{"failed shard", `{"_shards":{"total":1,"successful":0,"failed":1}}`, 200, true},
+		{"missing shards", `{}`, 200, true},
+		{"invalid response", `{`, 200, true},
+		{"unavailable", `{}`, 503, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != "/"+openSearchIndex+"/_refresh" {
+					t.Errorf("unexpected refresh request: %s %s", r.Method, r.URL)
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.response))
+			}))
+			defer server.Close()
+			client, err := NewOpenSearchClient(server.URL, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := client.refreshIndex(context.Background()); (err != nil) != tc.wantError {
+				t.Fatalf("refreshIndex error=%v, wantError=%v", err, tc.wantError)
+			}
+		})
 	}
 }
 

@@ -6,10 +6,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/lib/pq"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 const openSearchStateDocID = "metafusion-index-state-" + openSearchIndexGeneration
@@ -115,6 +116,7 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 		return nil
 	}
 	ids := make([]string, 0, len(events))
+	seen := make(map[string]bool, len(events))
 	for _, event := range events {
 		if !strings.HasPrefix(event.Type, "entity.") {
 			continue
@@ -129,7 +131,10 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 		if entity.Kind == "" {
 			return fmt.Errorf("entity outbox event %s has no kind", event.ID)
 		}
-		ids = append(ids, event.EntityID)
+		if !seen[event.EntityID] {
+			ids = append(ids, event.EntityID)
+			seen[event.EntityID] = true
+		}
 	}
 	// Events are durable change notifications. Index current facts, so a delayed
 	// pre-migration payload cannot overwrite canonicalized attributes/structures.
@@ -138,12 +143,17 @@ func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) erro
 		return err
 	}
 	docs := make([]searchDocument, 0, len(entities))
-	for _, e := range entities {
-		docs = append(docs, makeSearchDocument(e))
+	deletedIDs := make([]string, 0, len(ids)-len(entities))
+	for _, id := range ids {
+		if e, ok := entities[id]; ok {
+			docs = append(docs, makeSearchDocument(e))
+		} else {
+			deletedIDs = append(deletedIDs, id)
+		}
 	}
-	// Bulk indexing is idempotent by entity ID and external version. If indexing
-	// or acknowledgement fails, the whole batch is safely replayed on the next poll.
-	if err := c.indexDocuments(ctx, docs); err != nil {
+	// Missing current rows are deletions, regardless of historical event payloads
+	// or versions. Both writes and deletes can be replayed if acknowledgement fails.
+	if err := c.writeDocuments(ctx, docs, deletedIDs, true); err != nil {
 		return err
 	}
 	tx, err := s.DB.BeginTx(ctx, nil)
@@ -186,11 +196,6 @@ func (s *Store) searchIndexEntities(ctx context.Context, ids []string) (map[stri
 	rows.Close()
 	if err != nil {
 		return nil, err
-	}
-	for _, id := range ids {
-		if _, ok := entities[id]; !ok {
-			return nil, fmt.Errorf("OpenSearch event refers to a missing entity")
-		}
 	}
 	return fillStructural(ctx, s.DB, entities)
 }
@@ -366,7 +371,8 @@ func (s *Store) rebuildOpenSearchIndex(ctx context.Context, c *OpenSearchClient)
 		}
 		rows.Close()
 		if len(entities) == 0 {
-			return nil
+			// Publish the completed rebuild only after every batch is searchable.
+			return c.refreshIndex(ctx)
 		}
 		entities, err = fillStructural(ctx, s.DB, entities)
 		if err != nil {
@@ -375,14 +381,36 @@ func (s *Store) rebuildOpenSearchIndex(ctx context.Context, c *OpenSearchClient)
 		for _, e := range entities {
 			batch = append(batch, makeSearchDocument(e))
 		}
-		if err := c.indexDocuments(ctx, batch); err != nil {
+		if err := c.writeDocuments(ctx, batch, nil, false); err != nil {
 			return err
 		}
 	}
 }
 
-func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocument) error {
-	if len(docs) == 0 {
+func (c *OpenSearchClient) refreshIndex(ctx context.Context) error {
+	status, raw, err := c.request(ctx, http.MethodPost, "/"+openSearchIndex+"/_refresh", nil, "")
+	if err != nil {
+		return err
+	}
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("OpenSearch rebuild refresh returned HTTP %d", status)
+	}
+	var result struct {
+		Shards *struct {
+			Failed int `json:"failed"`
+		} `json:"_shards"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return fmt.Errorf("decode OpenSearch rebuild refresh response: %w", err)
+	}
+	if result.Shards == nil || result.Shards.Failed != 0 {
+		return fmt.Errorf("OpenSearch rebuild refresh did not acknowledge all shards")
+	}
+	return nil
+}
+
+func (c *OpenSearchClient) writeDocuments(ctx context.Context, docs []searchDocument, deletedIDs []string, waitForRefresh bool) error {
+	if len(docs)+len(deletedIDs) == 0 {
 		return nil
 	}
 	var body bytes.Buffer
@@ -402,7 +430,18 @@ func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocu
 			return err
 		}
 	}
-	status, raw, err := c.request(ctx, http.MethodPost, "/_bulk?refresh=wait_for", body.Bytes(), "application/x-ndjson")
+	for _, id := range deletedIDs {
+		// The row no longer exists. Its old event version must not prevent removal
+		// of a newer stale projection already present in the index.
+		if err := enc.Encode(map[string]any{"delete": map[string]any{"_index": openSearchIndex, "_id": id}}); err != nil {
+			return err
+		}
+	}
+	refresh := "false"
+	if waitForRefresh {
+		refresh = "wait_for"
+	}
+	status, raw, err := c.request(ctx, http.MethodPost, "/_bulk?refresh="+refresh, body.Bytes(), "application/x-ndjson")
 	if err != nil {
 		return err
 	}
@@ -410,20 +449,38 @@ func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocu
 		return fmt.Errorf("OpenSearch bulk request returned HTTP %d", status)
 	}
 	var result struct {
-		Errors bool `json:"errors"`
-		Items  []map[string]struct {
-			Status int `json:"status"`
+		Items []map[string]struct {
+			Status int             `json:"status"`
+			Result string          `json:"result"`
+			Error  json.RawMessage `json:"error"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return fmt.Errorf("decode OpenSearch bulk response: %w", err)
 	}
-	if len(result.Items) != len(docs) {
+	if len(result.Items) != len(docs)+len(deletedIDs) {
 		return fmt.Errorf("OpenSearch returned incomplete bulk acknowledgements")
 	}
-	for _, item := range result.Items {
-		response, ok := item["index"]
-		if !ok || len(item) != 1 || (response.Status != http.StatusConflict && (response.Status < 200 || response.Status >= 300)) {
+	for i, item := range result.Items {
+		action := "index"
+		if i >= len(docs) {
+			action = "delete"
+		}
+		response, ok := item[action]
+		hasError := len(response.Error) != 0 && string(response.Error) != "null"
+		accepted := !hasError && response.Status >= 200 && response.Status < 300
+		if action == "delete" && response.Status == http.StatusNotFound && response.Result == "not_found" && !hasError {
+			accepted = true
+		}
+		if action == "index" && response.Status == http.StatusConflict {
+			var conflict struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(response.Error, &conflict); err == nil && conflict.Type == "version_conflict_engine_exception" {
+				accepted = true
+			}
+		}
+		if !ok || len(item) != 1 || !accepted {
 			return fmt.Errorf("OpenSearch rejected a bulk item with HTTP %d", response.Status)
 		}
 	}
