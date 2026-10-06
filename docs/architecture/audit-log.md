@@ -1,20 +1,15 @@
 # 统一审计留痕（audit log）跨服务契约
 
-状态：**本轮实现**（2026-09-19 起）。本文是四个服务写审计行的**唯一契约**：表结构、动作码、
-写入语义、读取面、脱敏规则、测试要求。四个服务各自实现，**DDL 逐字复制**，不做共享 Go 模块
-（四仓是独立 module，没有跨仓依赖通道）。
-
-背景（审计 S-24）：账号管理类操作零留痕，只有 OAuth 有一张 `auth.oauth_audit`。本轮把
-catalog / auth / community / storage 的**全部写操作**纳入同一张审计表。
+本文维护四服务统一审计的表结构、动作码、写入、读取、脱敏与验证契约。DDL 在独立仓库复制，
+自动检查保证一致；业务修订与 OAuth 子域事务审计另有职责，不能把统一审计称为完整业务账本。
 
 ## 1. 表结构（唯一来源，逐字复制到四个服务）
 
 ```sql
 -- 表由部署时的 mf_audit_owner 预建；四个服务的运行角色执行这段 DDL 时整段空转。
 -- 为什么必须用 to_regclass 守卫：PostgreSQL 的 CREATE INDEX IF NOT EXISTS 会**先做表所有权检查**、
--- 再看索引是否存在（CREATE TABLE IF NOT EXISTS 不同，它只要求 schema 的 CREATE）。四个服务启动都会执行
--- 整段 DDL，不做守卫的话非 owner 的运行角色会拿到 42501 must be owner of table audit_log，服务直接起不来
--- （2026-09-19 由数据库分离任务真库实测，见 §6.1）。
+-- 再看索引是否存在（CREATE TABLE IF NOT EXISTS 不同，它只要求 schema 的 CREATE）。各仓建表路径复用
+-- 整段 DDL，不做守卫时非 owner 会遇到 42501 must be owner of table audit_log。
 DO $audit_ddl$
 BEGIN
   PERFORM pg_advisory_xact_lock(740205);   -- 四个服务共用的建表锁：先取锁再判断，才能串行化首次建表
@@ -59,7 +54,7 @@ $audit_ddl$;
 | `action` | 稳定机器码 `域.动作`，如 `user.role_changed` | 只增不改；改名等于改历史 |
 | `actor_user_id` | 操作者 id | **不建外键**：账号删了审计还得在（与 `auth.oauth_audit.client_id` 同一理由） |
 | `actor_username` | 操作者用户名**快照** | 账号改名/删号后仍可读 |
-| `credential_type` | `session` / `pat` / `oauth` / `anonymous` / `system` | 实际可取的值比这一列的设计上限窄：账号服务只能给 `session`（它签发的会话令牌与 OAuth 访问令牌是同密钥同声明的 RS256 JWT，令牌内容区分不了；PAT 不是登录态，`/api/auth/*` 一律不受理），其余服务按 `Principal.FromPAT` 给 `pat` 或 `session`；`oauth` / `system` 目前没有写入方（见 §7） |
+| `credential_type` | `session` / `pat` / `oauth` / `anonymous` / `system` | 当前账号审计将登录身份映射为 session，其余服务按 FromPAT 映射为 pat/session，未登录为 anonymous；oauth/system 尚无写入方，不能据 session 断言凭据来源（见 §7） |
 | `actor_ip` | 来源 IP（gin `c.ClientIP()`，取网关透传后的值） | |
 | `actor_user_agent` | User-Agent，截断到 512 字符 | |
 | `target_type` / `target_id` | 被动对象类型与 id（`user` / `entity` / `topic` / `asset`…） | id 一律用字符串，跨服务类型不一 |
@@ -85,8 +80,7 @@ $audit_ddl$;
 
 ## 3. 写入语义
 
-每个服务自带 `internal/audit` 包（**四份代码同源**，语法按各仓风格微调；因为四仓是独立 module）。
-不追求共享 module：那需要新建仓库或 replace 指令，成本高于四份 200 行同源代码。
+每个服务自带 `internal/audit` 包，动作码由本服务的路由注册表管理。
 
 - `Recorder`：一个后台 goroutine + 有界 channel（容量 1024）。
   - `Record(entry)`：**非阻塞**入队；入队失败（队列满）时打 error 级日志并丢弃，**绝不阻塞业务响应**。
@@ -101,11 +95,8 @@ $audit_ddl$;
 - 处理器补充被动对象与变更摘要：`audit.Describe(c, audit.Detail{TargetType, TargetID, Changes})`。
   为拿"变更前"值而多做一次读是允许的（只有写端点会多一次读）。
 
-**强一致 vs 最终一致**：本设计选择「审计是旁路，不参与业务事务」。业务成功但审计写失败 →
-error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（审计的用途是事后追责与排障，不是
-业务约束）。例外：**没有任何动作要求强一致**——包括封禁与改角色（这两者已有各自的业务不变量）。
-`auth.oauth_audit` 保留原样（它在事务内、与业务同生共死，是 OAuth 子域的历史契约），
-本轮**不回填、不迁移**它；新审计表与它是并存关系（见 §7）。
+统一审计旁路写入，不参与业务事务；当前动作没有强一致例外。业务成功而审计失败时记录错误并丢行。
+OAuth 子域的 auth.oauth_audit 继续在业务事务内写入，历史行不复制到统一表，两者不能互相替代。
 
 ## 4. 脱敏（硬性）
 
@@ -118,8 +109,7 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
   （账号服务的实现额外遮了 `code_challenge`：它不是凭据（哈希），多遮一个属**允许偏差**，
   其余三个服务严格按上面这份清单实现。）
 - 键名子串黑名单：含 `password` / `secret` / `token` / `hash` 的键一律 `"[redacted]"`。
-  **注意子串匹配的副作用**：`hash_verified`、`token_prefix` 这类键名会被整键吃掉（storage 侧真库用例抓到过
-  `hash_verified` → `[redacted]`，已改键名）。要保留这类信息就换个不含黑名单词根的键名。
+  `hash_verified`、`token_prefix` 等也会被遮罩；需保留非敏感信息时使用不含这些词根的键名。
 - **邀请码**（`auth.invites.code`）是准凭据：调用方必须用 `audit.MaskSecret(code)`
   写成 `abcd…`（保留前 4 位）后再放进 `changes`。
 - **邮箱**：值里任何匹配邮箱正则的字符串 → `a***@domain`（保留首字母与域名）；键名含
@@ -146,7 +136,7 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
   带上**自己**的 `actor_user_id` 是允许的，结果与不带一致（客户端可以统一带这个参数）。
 - **第三方 OAuth 令牌拒绝**（`403`）。审计行含登录 IP、User-Agent、凭据类型与失败原因，
   构成本人的安全历史；把它交给一个当初只为"展示身份"而授权的应用，超出了 scope 的含义。
-  会话（`session`）与 PAT 不受影响。
+  账号服务的身份闸门和该路由作用域仍须分别通过。
 
 匿名一律 `401 authentication_required`（两种档次都要先有身份，区别只在能不能看别人）。
 
@@ -170,13 +160,7 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 
 匿名/系统操作的 `actor_username` 是空串（该列 NOT NULL DEFAULT ''），只有 `credential_type`（`anonymous`）能区分"匿名"与"用户名恰好为空"。
 
-**为什么读取面只在账号服务**：审计表是跨服务的平台表（不属于任何单个服务的领域数据），
-必须有恰好一个地方能看全。账号服务已经是"账号与权限"的管理面，且已经托管
-`GET /api/admin/oauth/audits`；再加聚合读取面不引入新的跨服务调用。
-备选方案（每服务各自一个端点 + 网关聚合）被否决：网关是声明式路由，没有聚合逻辑。
-自助档刻意**复用同一条路由**而不是新开一个"我的记录"端点：多一条端点就多一份授权边界要维护，
-且"读取面只有一个"这条论证会立刻失效。作用域由服务端按会话收敛，客户端不需要（也不应该）
-自己判断"我是不是管理员"。
+账号服务提供统一读取面，管理员与本人视角共用同一路由，作用域由服务端按身份收敛。
 
 管理台：账号服务 `admin/` 的最小只读页（列表 + 过滤 + 分页），不做导出/图表/详情抽屉。
 本人视角：站点设置页的「我的操作记录」（列表 + 分页，不做过滤/导出），展示 `service`、
@@ -202,33 +186,15 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 
 四个服务都**不修改**已应用的迁移文件（改了会让校验和/记账不一致）；四份 DDL **逐字一致**。
 
-### 6.1.1 建表守卫（必须，否则多服务共存部署直接起不来）
+### 6.1.1 建表守卫
 
-建表段必须整段包在 §1 的 `to_regclass` 守卫里。理由与实测：PostgreSQL 的 `CREATE INDEX IF NOT EXISTS` 会
-**先做表所有权检查、再看索引是否存在**（`CREATE TABLE IF NOT EXISTS` 不同，它只要求 schema 的 `CREATE`）。
-四个服务的启动/迁移路径都会执行整段 DDL，而表由部署时的 `mf_audit_owner` **预建**；不做守卫时非 owner 的
-运行角色会拿到 `42501 must be owner of table audit_log`，**四个服务全部起不来**（数据库分离任务真库实测：
-预建 owner 后四个服务全挂；不预建、让先启动的服务建表，其余三个全挂）。
-
-守卫后的行为：表已存在 → 整段纯空转（不触发任何所有权检查）；表不存在 → 取 740205 锁后建 schema / 表 / 四条索引。
-每个仓都有回归断言钉住这三点：守卫存在、**不得**再出现 `CREATE INDEX IF NOT EXISTS`、锁必须是守卫内的 `PERFORM`。
-
-**已应用过旧版迁移的实例不需要回填、也不需要重跑**：账本里已有该版本记录，迁移器会空转；新旧文件的建表形状完全相同，
-改的只是执行语义（从「无条件语句」变成「表已存在则整段空转」）。真正的修复点是**首次启动**那条路径。
+回归须断言 §1 的完整守卫、守卫内 PERFORM 锁，以及不使用 CREATE INDEX IF NOT EXISTS。
+表已存在时不执行所有权相关 DDL；缺表时锁内创建 schema、表与索引。迁移文件发布后不可改写已记账内容。
 
 ### 6.1.2 库侧授权（部署时必查）
 
-`audit` schema 与 `audit.audit_log` 由 bootstrap 以 `mf_audit_owner` 预建（owner 唯一）；四个运行角色只有
-`USAGE`（schema）+ `SELECT, INSERT`（表），**不依赖「建表后重跑授权脚本」**（表已存在，一次授完）。
-`deploy/sql/roles-least-privilege.sql` 另 `REVOKE UPDATE, DELETE, TRUNCATE` 让审计对应用角色只可追加，
-`verify-role-isolation.sql` 的 F 段断言这一点。
-
-**运行角色必须有 audit schema 的 `USAGE`**：`to_regclass('audit.audit_log')` 要先能解析名字，否则守卫会误判成「表不存在」
-而走进建表分支（随后因权限不足报错）。这正是角色脚本授的 `USAGE, CREATE ON SCHEMA audit`，两者缺一不可。
-
-两条注意：① 若某实例没预建（服务自己建表），那张表的 owner 就是先启动的运行角色，PostgreSQL 的 owner 隐式持权、
-`REVOKE` 对它无效，F 段的「不得 UPDATE/DELETE」断言会失败——所以预建不是优化而是前提；
-② 审计行的清理/归档只能用 `mf_audit_owner`（应用角色被显式禁止改写/删除）。
+共享对象归 mf_audit_owner，运行角色只有表 SELECT/INSERT，不能是 owner；schema 权限、显式预建和 F 段断言
+见[数据库角色](./database-roles.md#41-共享审计表)。清理或归档使用运维身份，不能依赖应用角色权限。
 
 ### 6.2 真库用例（必须有）
 - 每个被审计动作各产生**恰好一行**（按 request_id / 动作码查）；
@@ -245,10 +211,9 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 ## 7. 已知取舍与未覆盖
 
 - **不含读取操作**：审计只记写操作（含登录/登出这类写会话的动作）；GET 不记。
-- **`credential_type` 的 `oauth` / `system` 目前无写入方**：没有服务能可靠判定"这次调用用的是 OAuth 访问令牌"（账号服务签发的两类 JWT 同形），系统内部动作（种子、迁移）也不走 HTTP 写路径。列保留是为了以后有判定依据时不必改表。
+- **oauth/system 当前无写入方**：审计身份投影未使用 OAuth 判定，种子和迁移也不走 HTTP 审计路径，不能据此判断系统内部动作不存在。
 - **`auth.oauth_audit` 保留不迁移**：OAuth 子域已有的事务内审计继续写入；新表不复制它的历史行，
-  两表并存期间看"完整 OAuth 史"要看两处（记为遗留项，不在本轮合并）。
-- **credential_type 在非账号服务是近似值**：catalog / community / storage 只验签，
-  无法区分"会话令牌"与"OAuth 令牌"，只能给 `pat` / `session`。
+  完整 OAuth 史须核对事务审计与统一审计两处。
+- **credential_type 是当前写入映射**：catalog/community/storage 记录 pat/session，不能仅凭该列区分 JWT 用途。
 - **不做保留策略与分区**：表会持续增长，清理/归档是运维议题（需要时再加）。
 - **审计行对应用角色只可追加**（`deploy/sql/roles-least-privilege.sql` 已 REVOKE UPDATE/DELETE/TRUNCATE），但**不做防篡改的哈希链**：拥有 `mf_audit_owner` 的人仍可改写历史行。清理/归档只能用该 owner 角色。

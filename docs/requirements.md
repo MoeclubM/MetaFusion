@@ -1,98 +1,80 @@
-# MetaFusion 产品需求文档（PRD）
+# MetaFusion 产品需求
 
-> 状态：产品边界文档 | 维护人：MoeClubM
-> **维护范围**：产品定位、访问模型（L0/L1）与邀请制风控意图；端点、字段与错误码以 [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) 的 `api-*.md`、服务实现和已执行迁移为准。
+MetaFusion 是开放的多媒介元数据目录与受控资源分享站。普通用户可浏览公开条目、检索和比较发行版本；贡献者按来源补充内容；开发者和 Agent 通过统一 API 查询与维护获准访问的数据。
 
-## 0. 摘要
+本文只维护产品定位、访问模型与验收原则。模型与界面约束见[架构基准](architecture/spec-driven-requirements.md)，字段和实现边界见[核心实现](architecture/catalog-core-implementation.md)，请求格式和错误码见[公开 API 文档](https://github.com/MoeclubM/metafusion-docs)。
 
-MetaFusion 是**元数据开放、媒体按绑定实体可见性受控**的多媒介目录。公开实体所绑定的资产可匿名读取；未绑定或不可见实体所绑定的资产返回 404。上传与绑定等写操作需登录并具备相应权限。邀请制是可配置的风控措施，不是付费墙。
+## 1. 访问模型
 
----
+### 1.1 公开元数据与受控媒体
 
-## 1. 访问模型（Access Model）
+| 范围 | 用户可做什么 | 权限边界 |
+| --- | --- | --- |
+| L0 公开元数据 | 浏览公开的八类实体、翻译、标签、货架、搜索结果与社区公开文字 | 游客和搜索引擎可访问；前端不强制登录 |
+| L1 媒体读取 | 经存储服务读取资产 | 上传者本人或管理员可读；其他调用者按资产绑定实体的可见性判定，公开绑定允许匿名读取，未绑定或绑定不可见时返回 404 |
+| 登录后的写操作 | 编目、上传、绑定、发帖、回帖和个人数据管理 | 需要登录及相应权限；登录本身不授予任意写入权 |
 
-### 1.1 公开访问与受控访问
+目录库不保存文件物理路径，对象存储不能绕过存储服务的访问判定。封面是元数据展示的一部分；自托管封面同样遵守资产权限。具体上传、绑定、稳定引用与下载约定见[存储运行约定](architecture/storage-operations.md)。
 
-**L0 — 开放（无需登录，允许游客与搜索引擎）**
-- 作品（Work）详情、发行版（Release）元数据、载体（Medium）与曲目（Track）结构、责任者（Agent）档案、标签（Tag）与虚拟货架（Virtual Shelf）体系、内容单元（ContentUnit）/ 表达（Expression）结构（不含 `media_type` 维度）
-- 搜索（`/api/catalog/entities?q=...`：标题与译文的子串匹配）、社区帖子列表与详情的文字部分
-- 首页、探索页、榜单等聚合页
-- 封面缩略图（低分辨率封面视为元数据的一部分）
+### 1.2 可配置的邀请风控
 
-**L1 — 受控媒体与需登录的写操作**
-- 媒体资产二进制：只能经存储服务的内容接口取用，是否可读取决于资产所绑定实体对调用者是否可见。绑定到公开实体的资产可匿名读取；未绑定或实体不可见时返回 `404`。目录库不持有文件物理路径。
-- 上传链路：`/api/storage/upload/*` 直传与 `POST /api/storage/bind` 绑定，需登录且持有 `storage.asset.upload`（`member` 组默认持有；缺码 `403 forbidden`）；实体本身用 `POST /api/catalog/entities` 创建
-- 社区写入：发帖、回帖、评注
-- 个人数据：邀请信息、已邀请用户列表
+邀请制用于抑制批量注册和垃圾内容，并保留可追溯的邀请链。它不是付费墙，不作为内容分级依据，也不与积分挂钩。
 
-> 原则：元数据可公开索引；对象存储不得绕过存储服务的绑定实体可见性判定；前端不得全站强制登录。
-
-### 1.2 邀请制的真实目的
-
-- **风控**：抑制批量注册、机器爬取媒体、女巫刷取与垃圾内容。
-- **合规缓冲**：为媒体内容的二次分发提供可追溯的邀请链（`auth.invites`：`code` + `max_uses` / `used_count` / 可选 `expires_at` / `revoked` → 核销记录 `auth.invite_uses`，即哪个邀请码邀请了哪个用户），便于事后审计与封禁溯源。
-- **非功能性**：不作为付费墙、不作为内容分级依据、不与 Karma/积分挂钩。
-- **可开关**：`auth.instance_settings.registration_enabled`（总闸）与 `invite_required`（是否强制邀请）由持 `auth.settings.manage` 的角色在后台 `系统设置` 中动态切换（系统组里只有 `admin` 持 `*`）；`/api/auth/settings` 暴露公开子集，具体字段以该端点实际响应为准。临时开放注册（如活动期）只切 `invite_required=false`，不改代码与文案；调整配额只改 `auth.instance_settings` 与配额逻辑，不改变“邀请=风控”的定性。
-
----
+账号管理台可分别控制是否允许注册、是否要求邀请和邀请额度。临时开放注册只改变配置，不改变产品定位；首管初始化与管理员建号按各自入口管理。
 
 ## 2. 功能需求
 
-### 2.1 认证与注册
+### 2.1 账号与邀请
 
-| ID | 需求 | 说明 |
-|---|---|---|
-| AUTH-01 | 注册开关 | `registration_enabled=false` 时 `POST /api/auth/register` 拒绝（错误码 `registration_closed`，前端文案键 `auth.error.registration_closed`）；首管初始化仍走 `/api/setup`，管理员建号走 `/api/admin/users` |
-| AUTH-02 | 邀请开关 | `invite_required=true` 时注册必带有效 `invite_code`（缺失报 `invite_required`、无效报 `invalid_invite_code`），核销写入 `auth.invite_uses` 并累计 `auth.invites.used_count`；`false` 时 `invite_code` 可选。开关与配额在后台「系统设置」里改 |
-| AUTH-03 | 登录、续期与账号封禁 | `email_or_username + password`，口令错误统一 `invalid_credentials`（401）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号封禁**：`auth.users.banned` 由 `PUT /api/admin/users/{id}/ban`（需 `auth.users.manage`）维护，被封禁账号的登录与续期一律 `403 account_banned`，封禁同时删除其服务端会话、第三方令牌与未兑换授权码，并让验签路径立即拒绝（不必等令牌自然过期）；不能封自己、不能封掉最后一个可登录的管理员。用户可 `GET /api/auth/oauth-grants` 查看、`DELETE /api/auth/oauth-grants/{client_id}` 撤回自己的第三方授权。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权）；**个人访问令牌（PAT）已落地**：账号服务签发 `mfp_` 前缀长期令牌（明文只在创建响应出现一次，库里只存 sha256），目录侧经账号服务的 `POST /api/auth/tokens/introspect` 内省判定（进程内缓存 60 秒；`401`/`403`=令牌无效回 `401 invalid_token`，5xx/超时/限流回 `503 auth_unavailable`）；认证写入类接口按 IP 限流，速率与开关来自实例设置（默认 15 次/分钟） |
-| AUTH-04 | 邀请链 | 注册成功写入 `auth.invite_uses`（邀请码 → 用户）；邀请码在后台 `/api/admin/invites` 签发与作废，`code` 形如 `XXXX-XXXX-XXXX-XXXX` |
+| ID | 需求 |
+| --- | --- |
+| AUTH-01 | 管理员可关闭公开注册，界面准确显示关闭状态 |
+| AUTH-02 | 管理员可启用或取消邀请码要求；开启时必须核验有效邀请 |
+| AUTH-03 | 支持登录、会话续期、封禁、第三方授权撤回与个人访问令牌；凭据无效和账号服务不可用须分别呈现 |
+| AUTH-04 | 邀请签发、使用与作废可追溯到相关账号 |
 
-### 2.2 元数据开放
+### 2.2 公开编目与检索
 
-| ID | 需求 | 说明 |
-|---|---|---|
-| META-01 | 游客可浏览 | `GET /api/catalog/entities?kind=work`、`GET /api/catalog/entities/:id`、`GET /api/catalog/entities?kind=release`、`GET /api/community/entities/:id/posts`（需部署互动服务）等无需鉴权 |
-| META-02 | 搜索开放 | `GET /api/catalog/entities?q=...` 对游客开放（标题/译文的子串匹配），不得因鉴权导致搜索引擎无法收录 |
-| META-03 | 多语言开放 | 实体翻译随元数据一并开放：统一 DTO 的 `translations` 按 locale 分组，每语种含 `title` / `summary` / `aliases`；展示语言由客户端 locale 决定，不影响可见性 |
+| ID | 需求 |
+| --- | --- |
+| META-01 | 游客可浏览公开实体及其结构；不可见数据不得经关联、比较或历史快照泄漏 |
+| META-02 | 搜索对游客开放，支持元数据文本和结构筛选；搜索故障须明确提示，不能伪装为空结果 |
+| META-03 | 翻译随元数据开放；展示语言由客户端选择，不改变数据可见性 |
 
-### 2.3 媒体受控
+实体身份、发行版本和收录位置的判据见[媒体编目与展示](architecture/media-catalog.md)。标签表达描述性分类，不决定身份、结构归属或字段权限。
 
-| ID | 需求 | 说明 |
-|---|---|---|
-| MEDIA-01 | 下载受控 | `GET /api/storage/assets/:id/content` 内联返回内容；`GET /api/storage/download/:assetId` 在对象存储模式下返回预签名 URL。访问权限按资产绑定实体的可见性判定：公开实体的资产可匿名读取；未绑定、不可见或不存在均回 `404 not_found`。 |
-| MEDIA-02 | 预览流未实现 | HLS 切片与音频/图像转码预览尚未实现；存储服务只收原始文件、不做转码或媒体分析。 |
-| MEDIA-03 | 秒传不绕过鉴权 | `POST /api/storage/upload/initiate` 的 SHA-256 秒传命中仍需登录，秒传只复用已验内容的存储对象，不复用他人的访问授权 |
-| MEDIA-04 | 封面策略 | 外部封面按来源与实体展示规则处理；若作为存储资产提供，访问权限按 MEDIA-01 判定。独立的原图分辨率阈值当前未实现 |
-| MEDIA-05 | 多图、版本与封面顺序 | 一个实体可挂多张图（`pictures[]`）：**数组顺序就是展示顺序，首张即当前展示封面**，服务端保存时不重排；`taken_at` 只是图自身拍摄／发布时间。每张图可选 `version_label`（四语版本／活动期名称）、`usage_period: {begin?, end?}`（借鉴 IFLA LRM E11 Time-span 表达已知使用期，允许只知一端、部分日期及重叠区间），旧图留在图集中，不因新主视觉出现而变成错误图；不填时间跨度表示未知，日期不会自动选择封面。版别专属商品封面应挂 Release，作品跨期主视觉应挂 Work，页面借图须标明来源。每张图还可选 `role`（definitions 的 `picture_role` 用途码，空=未声明）与 `asset_id`（存储资产 UUID）。服务端拒绝：同实体内 URL 重复 `duplicate_picture`、超过 40 张 `too_many_pictures`、非法用途 `invalid_term`、非 UUID 资产 `invalid_picture_asset`、非法或确定倒置的区间 `invalid_picture_period`。目录侧**不跨服务校验**资产存在或封禁，取不到对象时前端退化为程序封面 |
+### 2.3 媒体与封面
 
-### 2.4 社区与论坛
+| ID | 需求与当前边界 |
+| --- | --- |
+| MEDIA-01 | 内容、下载、资产列表和哈希校验遵守同一读取权限 |
+| MEDIA-02 | 存储服务收存和分发原始文件；转码、HLS 与媒体分析尚未提供 |
+| MEDIA-03 | 秒传只复用已校验的对象，不能复用他人的访问授权 |
+| MEDIA-04 | 封面按来源与实体展示；独立的原图分辨率阈值尚未提供 |
+| MEDIA-05 | 同一实体可保留多图和图像版本；数组顺序决定展示顺序，首张为当前封面。版别图片归对应发行，旧图不因新图出现而失效；字段与校验见[图片契约](architecture/catalog-core-implementation.md#图片与封面) |
 
-- 读开放、写需登录；默认板块 `announcement` / `casual` / `qa` / `reviews` / `bug_report` / `comment`，其中 `comment` 在 `show_in_feed=false` 时不进入 `board_code=all` 信息流。
-- 论坛接口不带语种维度：话题列表不接受 `?language=` 筛选，发帖/改帖不传 `language`；数据库列保留（`community.topics.language` 默认空串、不再读写，板块 `names`/`descriptions` 多语言 JSONB 保留），站点 UI 四语不受影响。
+### 2.4 社区
 
----
+公开讨论可读，发帖、回帖、短评和个人收藏需登录并满足权限。讨论与合集通过实体 UUID 引用目录，论坛语言不作为话题过滤维度。四语 UI 与板块多语言名称独立于用户内容语言。
 
-## 3. 非功能与合规
+## 3. 质量与验收原则
 
-- **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；跨服务统一审计表 `audit.audit_log` 已落地，四个服务写操作各记一行。唯一读取路由是账号服务的 `GET /api/admin/audit-logs`，作用域分两档：持 `auth.audit.read` 者按任意条件查全量，其余登录用户被收敛到本人（设置页「我的操作记录」，指定他人一律 403）；口径与"完整"的边界（旁路写入会丢行、`changes` 已脱敏截断）见 [审计留痕契约](architecture/audit-log.md)。
-- **速率限制**：网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s）；目录服务另有按路由的额度（`routeLimiter`，内置列表 120/min、导入预检 10/min 等）。额度逐级解析：**账号 > 用户组 > 全局默认 > 路由内置**；登录请求以账号为主体（同一账号的多标签页共用一份配额），匿名请求以真实客户端 IP 为主体，保留组码 `anonymous` 单独作用于后者。策略是**运行配置**而非元数据（单例表 `catalog.rate_limit_policy`，读写走 `GET/PUT /api/admin/rate-limits`，需 `catalog.definitions.manage`）：可按用户组预设、按账号单独调整，也可用 `unlimited` 解除某个主体的限制；空文档等于全部沿用内置额度。被限流的主体随响应下发 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（超限另带 `Retry-After`，实现见 `backend/internal/catalog/http.go`）；`unlimited` 主体完全不计数，因此不下发这组头。计数仍是各副本独立的内存固定窗口，多实例共享计数与写接口的重型限流未落地。
-- **SEO**：元数据页 SSR 可被爬虫收录。`robots.txt` 仅用于索引控制，不承担媒体访问权限判定。
-- **版权提示**：媒体预览/下载页需展示版权与合规提示，下载行为需二次确认。
+- 游客可直接打开公开实体和搜索结果；可见性在服务端判定，关联读取与正文读取保持一致。
+- 邀请与注册开关的界面、接口和实际核销一致。
+- 媒体权限不能被对象直链或秒传绕过；授权用户可完成上传、绑定与回读。
+- 编辑保留来源与修订，身份合并不能仅凭题名相近。操作审计的范围与丢行边界见[审计契约](architecture/audit-log.md)。
+- 限流、依赖故障与空数据分别显示，并提供适当重试。容量与费用须以真实负载测量，见[查询规模与接口边界](architecture/catalog-core-implementation.md#查询规模费用与接口边界)。
+- 元数据页支持搜索引擎收录；`robots.txt` 只控制索引，不能承担媒体授权。
+- 媒体读取页面提供版权与合规提示，下载操作有明确确认。
 
----
+验收应使用实际身份、实际对象和目标实例回读；某次测试通过不自动证明其他实例具备相同配置或已执行迁移。
 
-## 4. 验收标准
+## 4. 待评估的产品完善
 
-- [ ] 游客可直接打开任意 Work/Release/Agent 详情与搜索结果，200 正常，无登录跳转
-- [ ] 游客可读取绑定到公开实体的资产；未绑定或绑定不可见实体的资产返回 404。未登录上传或绑定返回 401；具备相应权限后可完成操作
-- [ ] 后台关闭 `invite_required` 后游客可无邀请注册，开启后必填邀请码
-- [ ] 后台关闭 `registration_enabled` 后注册按钮禁用并提示“注册已关闭”
-- [ ] 绕过存储服务访问判定的私有对象直链不可读；若其绑定实体公开，访问是否允许仍按 MEDIA-01 判定
+下列保留为后续验收需求，不表示已完整实现或已批准新的实施方案：
 
----
+- 跨层级连续建档、来源复用、客户端草稿恢复及并发冲突差异处理，用多版本 CD+BD、跨专辑歌曲、小说和影视样本验证全过程。
+- 导入预览的来源差异、疑似重复与可解释的数据质量任务；合并依赖外部 ID、归属和来源，补录保留既有证据与重定向，失败批次可幂等恢复。
+- 详情、比较、大目录和身份解析的延迟与请求量基线；根据实测决定缓存或虚拟列表，身份变化清除私有缓存，故障与空数据分别显示。
 
-## 5. 变更记录
-
-- 2026-09-25：删除「定位纠偏」表与已过时的旧端点说明，合并重复的落地约束、邀请演进章节与同口径变更记录，全文按新编号收敛。
-- 2026-09-23：按存储服务现行实现修正媒体读取口径——下载权限由绑定实体可见性决定，公开绑定资产不要求登录。
-- 2026-08-20：初版，确立元数据开放、媒体受控与邀请风控定位。
+定义治理的待评估范围见[架构基准](architecture/spec-driven-requirements.md#5-待评估的定义治理)，服务 UI 和发布边界见[拆分契约](architecture/service-split-migration.md#5-尚未完成的边界工作)。

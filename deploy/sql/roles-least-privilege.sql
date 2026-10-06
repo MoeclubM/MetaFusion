@@ -29,8 +29,8 @@
 --   这正是 P0 要堵住的"跨服务读写"。第 4 节的 CRUD 与默认权限已经备好：把启动迁移拆出去之后，
 --   执行第 6 节的 Tier 2 降级段即可切成纯 CRUD，无需再改授权清单。
 --
--- 顺带保留的库级权限：CREATE ON DATABASE —— 四个服务的启动路径都会执行
---   `CREATE SCHEMA IF NOT EXISTS`（对象已存在时 PostgreSQL 依然检查库级 CREATE）。
+-- 顺带保留的库级权限：CREATE ON DATABASE —— auth/community/storage 的启动路径仍执行
+--   `CREATE SCHEMA IF NOT EXISTS`（对象已存在时 PostgreSQL 依然检查库级 CREATE）；目录 HTTP 只读校验。
 --   最坏后果是某服务能在库里新建自己的 schema，不能读写别人的 schema 对象。
 --
 -- 跨域例外（不在本脚本的按服务授权里，见 docs/architecture/database-roles.md 第 4 节）：
@@ -208,13 +208,9 @@ $ops$;
 --       ② 授权顺序：表不存在时第 4b 节只能授 schema 权限，漏跑一次会让审计行静默写失败
 --          （业务不受影响、留痕整段缺失），而没有任何检查会红。
 --
---     为什么默认关闭（实测，不是保守）：预建要成立，前提是四个服务的启动 DDL 在表已存在时
---     **真的空转**；但契约 DDL 里那条 CREATE INDEX IF NOT EXISTS 并不空转——PostgreSQL 对
---     CREATE INDEX **先检查表所有权、再看索引是否存在**，因此表一旦归 mf_audit_owner，
---     四个服务启动全部报 pq: must be owner of table audit_log (42501)（2026-09-19 本机真库实测，
---     见 docs/architecture/database-roles.md 第 4 节）。反过来，事后抢归属会打断当前能起来的那个服务。
---     所以：**契约 DDL 加上"表不存在才建"的守卫之前，本段不能开**（守卫补丁原文见同文档第 4 节）。
---     守卫落地后：本段开起来 + 四份副本同步 → owner 固定、权限一次授完、任何启动顺序断言都成立。
+--     当前契约 DDL 已有表存在性守卫，预建不会重复执行 CREATE INDEX。默认关闭是因为
+--     预建或调整 audit 归属属于显式 bootstrap 动作；普通重跑只收敛权限，不隐式改 owner。
+--     新库或归属不正确的既有库显式开启本段，再执行第 4b 节授权和隔离校验。
 --
 --     开启方式：psql ... -v audit_bootstrap=1 -f sql/roles-least-privilege.sql
 --
@@ -276,8 +272,7 @@ $audit_notice$;
 COMMIT;
 \else
 \echo '[3b] 跳过预建（未给 -v audit_bootstrap=1）：只做第 4b 节的按服务授权，不动 audit 归属。'
-\echo '     默认跳过的原因：契约 DDL 里 CREATE INDEX IF NOT EXISTS 在表已存在时仍要求表所有权，'
-\echo '     预建会让四个服务启动全部 42501 must be owner of table audit_log；见 database-roles.md 第 4 节。'
+\echo '     当前 DDL 已有存在性守卫；新库或归属未固定的实例须显式 bootstrap，再验收只追加权限。'
 \endif
 
 -- ------------------------------------------------------------------------------
@@ -461,8 +456,8 @@ ORDER BY a.rolname;
 --
 -- 6.2 完全回滚（回到四服务共用 metafusion 的旧状态；先让服务换回原连接串并确认健康，
 --     顺序不能反——反了会让在跑的服务当场 42501）：
---   -- ① 等所有服务都换了连接串（业务容器已不再接受 DB_*：用 git 忽略的本地覆盖文件
---      为四个服务补 DB_* 后重建并确认健康；直接置空 *_DATABASE_URL 只会让服务连不上库）
+--   -- ① 在各 *_DATABASE_URL 中显式配置目标回退身份，重建并确认服务已换连接串。
+--      四个运行 DSN 仍必填；不能用 DB_* 回退，也不能通过置空 DSN 切换身份。
 --   -- ② 撤权
 --   REVOKE ALL ON ALL TABLES IN SCHEMA catalog FROM mf_catalog;
 --   REVOKE ALL ON ALL SEQUENCES IN SCHEMA catalog FROM mf_catalog;

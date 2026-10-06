@@ -1,23 +1,22 @@
-# 媒体架构、用户前端与服务边界评估
+# 媒体编目与展示
 
-> 后续实现已补齐显式发行组、同 Work 的有序表达组合、跨关系码无环/引用范围规则、模板条件与区块配置，以及带直接来源的单条收录编辑。现行字段、端点和 000019 升级边界以[核心实现](./catalog-core-implementation.md#表达组合版本组与收录编辑)为准；下文保留样本与身份判据，部署状态以目标实例为准。
+本文维护实体身份判据、跨媒体建模例子与展示要求。固定模型见[架构基准](./spec-driven-requirements.md)，字段与读取契约见[核心实现](./catalog-core-implementation.md)，操作步骤见[公开编目教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。例子说明结构选择，真实条目须按当前来源建档。
 
-复核日期：2026-10-01。本文替代本文件原先的业务 types、定义草稿/发布/回滚快照，作为媒体建模与展示建议的维护入口。规范以[架构基准](./spec-driven-requirements.md)为准，服务归属以[拆分契约](./service-split-migration.md)为准，接口与字段以实际处理器和目标实例 definitions 为准。本次核查针对本地源码与隔离测试库，不代表已部署或已补录真实内容。
+## 1. 身份判据
 
-## 1. 结论与参考样本
+| 记录方式 | 何时使用 | 例子 |
+| --- | --- | --- |
+| 实体 | 有持续身份，可独立修订、引用、合并或复用 | 游戏 Work、路线 ContentUnit、实际发行 Release |
+| 属性 | 标量或小型结构，通常不需独立生命周期 | 日期、语言、时长、品番 |
+| 词表项 | 需要统一取值和四语名称，不需独立事实关系 | 载体格式、图片用途 |
+| 结构关系 | 表达归属、目录位置或有序收录 | 章节属于作品、轨位收录表达 |
+| 语义关系 | 两端有独立身份，连接不改变所有权 | 配乐用于游戏、改编自、演员出演角色 |
 
-当前八实体骨架足以保存问题中的作品、章节、表达、多发行版本、多载体和跨作品收录。确认的缺口集中在部分用户页面未充分消费已有结构、公开聚合读路径的可见性，以及教程、技能和工具仍沿用旧协议。先补齐这些问题，再考虑有真实样本证明必要的结构扩展。
+先查外部 ID、合并重定向、同作品下的稳定标识和来源。题名相近只生成待核对候选，不能自动合并。译名、平台、介质、销售地区或修订日期本身不产生新 Work；实质内容变化才考虑新 Expression，公开产品或发行条件变化才考虑新 Release。只有可独立编目的组成创作才建另一 Work，不为填满层级造空节点。
 
-2026-10-01 读取的参考页说明：
+来源 URL 也不是产品的唯一身份：一个商品页可同时描述多个版本。以 [Bushiroad Music 商品目录](https://bushiroad-music.com/musics/) 和 [Bangumi 条目](https://bgm.tv/subject/633836) 为例，应分别核对商品标识、载体、实际内容与逐集署名；公告中的未来发行可以建档，但不能记为已经上市。
 
-- [Bangumi 633836](https://bgm.tv/subject/633836) 是《Re:ゼロから始める異世界生活 4th season 奪還編》，有概览、章节、角色、制作人员、关联及按集限定的署名。角色和制作人员需要可导航的实体与带上下文的关系。
-- [Bushiroad Music 入口](https://bushiroad-music.com/musics/) 分别按作品企划和艺人浏览。企划可用 Collection，艺人用 Agent，分别汇总其作品、发行和参与关系。
-- [Split Single 商品页](https://bushiroad-music.com/musics/brmm-11112/) 列出 BRMM-11112 / BRMM-11113 两种 BD 限定盘。两版 CD 均收录 Poppin’Party 的「BRAVE JEWEL」翻唱和 Roselia 的「ときめきエクスペリエンス！」翻唱；A 版 BD 是台北演出，B 版 BD 是东京演出。初回卡、各店赠品、两版同时购买赠盒有不同条件。页面标示发售日为 2026-11-18，截至复核日仍是已公告的未来发行。
-- [Pastel Aura 商品页](https://bushiroad-music.com/musics/brmm-11089/) 列出通常盘 BRMM-11090 与附五种立牌的限定盘 BRMM-11089，CD 均含五首歌，但售价和各店赠品不同。标示发售日为 2027-01-13；可以按公告建档，但不能把已公告当成已经上市。
-
-以下地区版、黑胶、小说及电影例子是建模示意，不表示上述官方商品实际存在这些版本。
-
-## 2. 八种身份：归属与收录分开
+## 2. 归属与收录分开
 
 ```mermaid
 flowchart LR
@@ -32,134 +31,87 @@ flowchart LR
   C[Collection 企划或系列] -.有序聚合.-> W
 ```
 
-| 层级 | 例子与职责 | 编目边界 |
+| 身份 | 示例与边界 |
+| --- | --- |
+| Agent | 艺人、作者、角色各有身份；同一人的作曲、演唱或声优职位是关系 |
+| Collection | 跨媒体企划、系列；企划不等于专辑，包装盒不必造作品 |
+| Work | 歌曲、独立编排的专辑、一季动画、小说；歌曲与主打它的单曲商品分开 |
+| ContentUnit | 稳定章节、分集或路线；独立歌曲不复制成专辑章节 |
+| Expression | 某次录音、译文、剪辑；换介质或编码不自动产生新表达 |
+| Release | 通常盘、限定盘、地区产品、正式数字发布 |
+| Medium | CD1、演出 BD、纸册、数字集；附赠 BD 与主 CD 各有内容树 |
+| Track | CD 第 2 轨、LP A1、BD 章节、书中位置；contents 说明实际收录的表达 |
+
+ContentUnit 父子必须同 Work，Medium 父子同 Release，Track 父子同 Medium，均不得成环。Expression.work_id、Medium.release_id、Track.medium_id 是不可变归属。
+
+Release 没有单一 work_id，通过 subjects 声明所收录表达的 Work。多个 subjects 不产生多个父 Work，Track 引用外部歌曲也不改变其归属。subjects 和 contents 是唯一收录事实，统一关系 API 只读投影，不复制可编辑外键。
+
+## 3. 跨媒体建模例子
+
+### 3.1 专辑：通常、限定、地区与介质
+
+示例专辑建一个 Work，以有序 includes 关联独立歌曲 Work；每次实际录音有可复用 Expression。
+
+| 示例版本 | Release 的独立事实 | Medium 与实际收录 |
 | --- | --- | --- |
-| Agent | Roselia 团体、小说作者、动画角色各有身份 | 一个人的作曲、演唱、声优职位是关系，不是多个主体 |
-| Collection | BanG Dream! 跨媒体企划、小说系列 | 企划不等于某张专辑；纯包装盒不必造作品 |
-| Work | 歌曲、具有独立编排的专辑、一季动画、小说 | 同题名不等于同作品；歌曲与主打它的单曲商品分开 |
-| ContentUnit | 小说第三章、动画第 78 话 | 同 Work 的稳定部分；独立歌曲不再复制成专辑的章节 |
-| Expression | 某次录音、中文译文、导演剪辑 | 换介质或编码不自动产生新的创作表达 |
-| Release | 通常盘、BD 限定盘、台湾发行、正式数字发布 | 同一公告页可能描述多个产品；来源 URL 不是商品唯一身份 |
-| Medium | CD1、演出 BD、LP1、纸册、数字集 | 属于一个 Release；附赠 BD 与主 CD 有各自内容树 |
-| Track | CD 第 2 轨、黑胶 A1、BD 章节、书中章节位置 | 载体内位置；contents 才说明实际收录哪个表达 |
+| 通常盘 | 品番、发行者、日期与来源 | CD → Track → 各录音 Expression |
+| 限定盘 | 品番、版别与附件条件 | 相同 CD 内容复用录音；新增 BD 单独建内容树 |
+| 地区发行 | 地区、发行者、标识与本版收录 | 本版曲序与加曲，不复制旧版 Track |
+| 黑胶版 | 独立公开产品 | LP Medium，A/B 面可作父 Track，A1/B1 为子 Track |
 
-`ContentUnit.parent_id` 必须同 Work，`Medium.parent_id` 必须同 Release，`Track.parent_id` 必须同 Medium，父子无环。Expression.work_id、Medium.release_id、Track.medium_id 是不可变归属。
-
-Release 没有单一 work_id，须经 subjects 声明所有实际被收录表达所属的 Work。跨作品 CD/BD、精选集与盒装都遵循这一规则。subjects 和 contents 是收录事实的权威存储；`relationship_rules` 与 `/entities/{id}/links` 只读投影结构与语义关系，不能再复制一套可编辑外键事实。
-
-## 3. 每类内容的完整例子
-
-### 3.1 专辑：通常、限定、地区和不同介质
-
-《Pastel Aura》建一个专辑 Work，用有序 includes 关联五首独立歌曲 Work，每首实际录音建 Expression。每个版本的实际内容分别存储：
-
-| 示例版本 | Release | Medium 与实际收录 | 附赠 |
-| --- | --- | --- | --- |
-| 官方通常盘 | BRMM-11090、发售日、价格、发行者 | CD → 五个 Track → 各录音 Expression | 来源支持的封入卡与本版店铺赠品 |
-| 官方立牌限定盘 | BRMM-11089、不同价格和版别 | CD → 同一组五首录音，复用 Expression | 五种立牌写 attachments，店铺赠品写 store_bonuses |
-| 假设的 MV BD 限定版 | 新 Release、独立品番 | 主 CD + 附赠 BD；BD Track → MV 的 Expression | subjects 加入 MV Work，卡片仍是附件 |
-| 假设的台湾发行版 | 独立地区、发行者、品番/条码 | 本版 CD 曲序；加曲增本版 Track | 地区、价格、译文和收录按来源填写 |
-| 假设的黑胶版 | 独立 Release | LP1 Medium；面 A/B 可作父 Track，A1/B1 作子 Track | number 保留印刷编号，position 只决定顺序 |
-
-CD 题名、印刷署名、时长与定位可能随发行不同，可写在 Track/收录属性；Expression 保留可复用的录音身份。确有重制声音/创作差异时另建 Expression，以 revision_of 或 GUI 新增的 remaster_of 联系原表达。
+CD 印刷题名、署名、时长与定位可随发行变化，写入对应 Track 或收录属性。number 保留印刷编号，position 只决定顺序。确有重制声音或创作差异才另建 Expression，并通过已有或新声明的关系连接原表达。
 
 ### 3.2 双乐队单曲：CD 相同，附赠 BD 不同
 
-《BRAVE JEWEL / ときめきエクスペリエンス！》可有商品编排 Work，与两首歌曲 Work 建有序关系。两首翻唱分别是原歌曲 Work 下的新 Expression，保留表演者和 cover_of 来源关系。
+商品编排 Work 可与两首歌曲 Work 建有序关系，翻唱属于原歌曲 Work 下的新 Expression，并保留表演者与来源。A、B 两版各建 Release，共用 CD 录音，各自 BD 指向对应演出 Work/Expression，subjects 补齐实际作品。
 
-限定 A、B 各一 Release；CD 的两个 TrackContent 复用相同录音。A 的 BD 指向台北演出 Work/Expression，B 的 BD 指向东京演出 Work/Expression，各自 subjects 声明相应作品。官方只公告整场演出时可先建整场 Track，未公布的 BD 章节或 setlist 不猜填。
+官方只公告整场演出时，可先建整场 Track，未公开的章节或 setlist 不猜填。随机卡记录随机条件与版本，单店赠品记录渠道与购买条件；两版同时购买赠盒不属于任意单版默认附件，可在 store_bonuses.condition 保留来源原文。可配置字段不意味着已有促销规则引擎。
 
-随机卡记录随机条件和版本，单店赠品记录渠道/购买条件。两版同时购买赠盒不属于任意单版默认附件，可先在 store_bonuses.condition 原文记录。需要机器可读的跨商品活动时，可在 GUI 扩展字段组与 Release 引用；这不等于系统已经有促销规则引擎。
+### 3.3 歌曲跨单曲、专辑与精选集
 
-### 3.3 歌曲自身是作品，跨单曲、专辑和精选集收录
+歌曲 Work 的录音 E1 可被单曲 CD 第 1 轨、专辑 CD 第 4 轨和精选集 LP A2 共同引用。三处有独立 Track/locator，三个 Release.subjects 都包含歌曲 Work。
 
-歌曲《示例歌曲》Work → 录音室 Expression E1。单曲 CD 第 1 轨、专辑 CD 第 4 轨、精选集黑胶 A2 的 contents 都引用 E1，各自拥有独立 Track/locator，三个 Release.subjects 都列入该歌曲 Work。
+现场、翻唱或实质不同剪辑使用新的 Expression；单曲 B 面是另一首歌则另建 Work。歌曲页反查具体 Release/Medium/Track，发行页从 Track 导航到录音与歌曲。商品编排 Work 仅在确有独立创作身份时建立。
 
-现场版 E2、翻唱版 E3、instrumental 或实质不同剪辑是不同 Expression；单曲 B 面是另一首歌，另建 Work。歌曲页“收录于”反查具体 Release/Medium/Track，发行页从 Track 回到录音与歌曲。单曲商品编排 Work 是可选的独立创作身份，不因每次上架而强制生成。
+### 3.4 小说：卷章、译本与本版页码
 
-### 3.4 小说：卷章、译本和本版页码
+小说 Work 下建卷章 ContentUnit 树，某章分别关联原文和译文 Expression，以 translation_of 联系并署名译者。原文文库与译文平装为不同 Release，纸册 Medium 的 TrackContent 引用本版表达，页码存 locator.page_start/page_end、relative_to=medium。
 
-《示例小说》Work 下建卷/章 ContentUnit 树，第三章分别关联日文正文 E1 与繁中译文 E2，用 translation_of 联系表达并署名译者。日文文库版和繁中平装版是不同 Release；纸册 Medium 的 TrackContent 指向本版表达，页码写 locator.page_start/page_end，relative_to=medium。
+独立卷可各有 Work，由系列 Collection 聚合；ContentUnit 不能跨 Work 挂父节点。电子书用章节或路径定位，不伪造纸本页码，定位字段按 definitions 配置。
 
-如果每卷有独立创作身份，系列 Collection 聚合多个卷 Work，每卷自有章节树。ContentUnit 不能跨 Work 挂父节点。电子书用章节/路径定位，不伪造纸本页码；字段与定位方案可在 GUI 配置。
+### 3.5 动画：季、集、WEB、BD 与 DVD
 
-### 3.5 动画：季、集、WEB、BD 和 DVD
+具有独立身份的一季用 Work，分集为 ContentUnit；编号、题名与逐集日期放在对应单元，多季由 Collection 聚合。原版与有实质修订的 BD 版分别用 Expression，同剪辑仅换介质可复用。
 
-参考 Bangumi 条目对应一季 Work，分集为 ContentUnit；编号、题名、逐集日期放在对应单元。多季有独立身份时由 Collection 聚合多个 Work。
-
-配信原版与有内容修订的 BD 版分别建 Expression。正式网络发布、BD 盒装、DVD 版是不同 Release；每张盘或数字集是 Medium；TrackContent 指向本版实际集的 Expression。同剪辑仅换介质可复用表达。语言、字幕、时长与规格按 definitions 填；按集的编剧/导演关系连到 ContentUnit，角色用 Agent 与 character_in，配音用 character/language/context 区分。
+正式网络发布、BD 盒装和 DVD 为不同 Release，盘或数字集为 Medium，contents 指向实际分集表达。逐集编剧或导演连到 ContentUnit，角色为 Agent；配音通过声明的 character/language/context 区分。
 
 ### 3.6 电影：剪辑与文件来源
 
-《示例电影》Work 可没有 ContentUnit。院线剪辑 E1、导演剪辑 E2 是 Expression，正式 WEB、BD、DVD 产品分别建 Release/Medium。BD 含幕后访谈或 MV 时建立其 Work/Expression，并补 subjects。
+电影 Work 可没有 ContentUnit；院线版与导演剪辑为 Expression，正式 WEB、BD、DVD 产品各有 Release/Medium。附带访谈或 MV 有独立 Work/Expression，subjects 补齐。
 
-WEB-DL、REMUX、1080p HEVC、某压制组文件是资源来源/技术规格。只有对应真实公开发布形态时才建 Release，重新编码不造新作品/剪辑。文件、哈希、权限、绑定归 storage；目录 locator 不保存对象存储物理路径。新增目录字段不会自动获得技术分析或转码执行能力。
+WEB-DL、REMUX、1080p HEVC 或压制组文件说明资源来源与技术规格。仅对应真实公开发布形态时建立 Release，重新编码不造新作品或剪辑。文件、哈希、访问权限和绑定归存储服务，locator 不保存物理路径；新增目录字段不会自动获得技术分析或转码能力。
 
-### 3.7 企划、人物、角色、写真与游戏
+### 3.7 企划、人物、写真与游戏
 
-BanG Dream! 类企划用 Collection 聚合动画、音乐和演出 Work；艺人 Agent 汇总参与和成员关系。个人写真无需商业发行即可建作者 Agent 与写真 Work，有公开版本再补 Release。游戏路线用 ContentUnit，有实际内容差异的正文用 Expression，不同平台公开产品用 Release。描述性分类用开放标签，不能为适配媒体强塞不准确的旧业务类型。
+跨媒体企划用 Collection 聚合动画、音乐和演出 Work，Agent 汇总参与和成员关系。个人写真无需商业发行即可建立作者与 Work，有实际公开版本再补 Release。
 
-## 4. 后台 GUI 扩展范围
+游戏稳定路线、章节或任务可用同 Work 的 ContentUnit；有实质差异的内容用 Expression，不同平台公开产品用 Release。配乐是独立 Work，通过 soundtrack_of 连接。平台只有在需要独立身份、历史和多种关系的真实样本出现后，才讨论新增身份。通用游戏不自动分类为独立游戏，也不从类别推断存在路线。
 
-当前没有实体业务 types。可写属性由 fields.<code>.applicable_kinds 决定，标签不决定字段集。DefinitionsEditor 可维护 fields、vocabularies、relations、templates、schemes 及固定结构的显示名称。
+## 4. 定义与展示边界
 
-新增“重制自”关系的操作：
+后台可配置字段、词表、语义关系、方案、模板及结构显示名；可写属性只由 applicable_kinds 决定。固定八骨架、外键、收录容器和字段值类型属于代码契约，不能仅经 GUI 新增骨架或跨域归属。新关系需要稳定码、四语名称、合法端点和约束，先影响预检再以当前 ETag 保存。模板选择、区块和表达组合的实现细节见核心实现。
 
-1. 在 /admin 定义管理添加稳定码 remaster_of，填写四语正向名、反向名和显示分组名。
-2. 两端选 Expression，按语义设置无环性、基数、署名/聚合选项；附加信息引用已声明字段。
-3. 用影响检查回放既有实体与关系；提交完整 document、当前 expected_etag、编辑说明与来源，服务端事务内复检并替换生效配置。
-4. 在实体关系编辑器连接 E2→E1，详情按服务端名称/分组展示，无需修改前端关系码清单。
+展示须遵守以下规则：
 
-新的载体格式词项、页码/时间码子字段、展示顺序均可经 GUI 配置。固定八骨架、外键、收录容器和字段值类型是代码边界，不能在 GUI 新增第九种骨架或让 Track 跨 Medium。
+- 八实体共用 `/catalog/[id]`，目录、内容表达、版本和收录位置用不同名称，不为不同媒体重复建地址或事实。
+- 无可见内容时隐藏空目录；读取失败显示重试并保留已成功部分，不能据此认定尚未编目。
+- 收录与比较保留定位、附加属性和实际 Medium 格式；发行 format 分面由载体派生，不能写成 Release 属性。
+- 切换条目或身份后，旧请求不得覆盖当前内容，私有缓存随身份改变清除。
+- 大目录复用分页、TOC 和去重批量读取；隐藏引用及其属性、locator 和历史快照统一裁剪，公开视图不能覆盖隐藏事实。
+- 小说或数字出版物使用中性的载体、收录位置与内容表达术语，不因缺少音乐轨道显示“没有内容”。
 
-可选 creation_form 字段和词表描述歌曲、专辑、小说或电影等创作形态；词项由管理员在 GUI 维护，旧记录依据来源逐项补值。模板按 kind、显式 match 条件与 priority 选择，并列时回退通用事实布局；不按已填属性猜测类别。GUI 可配置字段、分区、顺序及受支持的 blocks，关系的作用域、共同无环组与顺序约束也已声明化。它仍不能任意编写页面布局，创作形态和开放标签均不改变固定身份、归属或可写字段范围。
+## 5. 验证与数据补录
 
-ETag 只防并发覆盖，不是定义版本。当前没有定义历史、服务端草稿、差异或回滚端点。未使用的定义可删除，停用项能否删除须看实际影响检查；不要用旧“必须保留所有停用定义”口号替代当前校验。
+回归覆盖多版本 CD+BD、跨专辑歌曲、小说章节、动画分集和电影剪辑的保存、回读、修改与比较，并检查分页、读取失败、身份切换、隐藏表达及历史收录保护。按[项目验证规则](../../AGENTS.md#4-按改动范围验证)运行必要检查，浏览器核中英文及窄屏布局。
 
-## 5. 用户前端：已有能力与本轮修复
-
-八实体规范地址统一为 /catalog/[id]，kind 只选择布局。Work 内容目录、Release 专用逐碟布局、TOC 快照、表达批量详情、版本对比和动态关系编辑已存在，不应按旧 /works、/releases、/mediums 再开发一套。
-
-| 确认问题 | 修复与意义 |
-| --- | --- |
-| Medium 通用详情只有 Track 卡片，Track 自身不能完整浏览 contents | 补表达链接、页码/时间码与收录附加属性，逐个位置可追溯实际内容 |
-| 子章节/子载体/子轨及轨树顺序展示不足 | 补父子导航与排序，保留正式 number |
-| 收录反查从 Release 读格式 | 改从实际 Medium 读格式并链接 Track；CD/黑胶/BD 不再混淆 |
-| Compare 不充分呈现定位与附加属性 | 对比逐轨定位及收录属性，载体格式走词表本地化 |
-| Compare 的四类差异摘要仍读取旧 release 响应键，特定对比整页报错 | 改为当前 entity 键，中英实测同表达不同定位的对比恢复 |
-| 切换条目或登录身份后，旧请求可能回写先前资料 | 详情与作品目录读取按条目、身份隔离，请求序号与缓存键阻止晚到响应覆盖当前页面；对比页登出立即清除私有名称 |
-| 目录、关系或反向收录读取失败时被吞成空集合 | 显示部分资料读取失败与重试提示，保留已成功读取的内容，不以故障证明尚未编目 |
-| GUI 结构字段标签没有完整消费 definitions 名称 | 改为服务端四语标签，后台改名可反映到编辑器 |
-| 大目录逐行解析表达会产生大量请求，失败后引用难以恢复 | 去重后按最多 500 个一片批量读取，最多两片并发；保留定位信息并提供明确重试 |
-| 下架 Expression 被公开反查、兄弟收录、对比或 Track 历史快照返回 | 统一表达当前可见性过滤，修订快照批量裁剪，保护隐藏引用及其 locator/属性，底层事实保留 |
-| 裁剪后的公开视图被整实体 PUT 保存可能删去隐藏事实 | 普通编辑者删改不可见历史收录返回 forbidden，有权查看完整事实的创建者或审核者处理 |
-| 交换导出把所有读取错误当 404，部分 JSON 类型故障会外发内部字段名 | 不存在/不可见仍为 404，数据库与内部反序列化故障返回通用 500；身份批量解析遇故障整批失败 |
-| 教程和技能教写 types、旧 URL 与定义草稿/发布/回滚 | 同步字段适用范围、规范路由与单份定义保存协议 |
-
-发行列表的 format 分面是从 Medium 派生的合法筛选，保留 CD+BD 按任一介质匹配；不能误删，也不能把 format 写进 Release 属性。
-
-下一步产品优先级：作品页突出内容、版本、参与者；发行选择显示品番、地区、日期、实际载体；对比区分同录音换轨位、换录音、额外 BD、仅特典差异。staff/角色可沿现有关系分组增加筛选与按集展开。大目录先复用现有分页、TOC 和批量读取，再按实际测量优化虚拟列表。429/5xx 应有可重试错误状态，不应说成“尚未编目”。缺失曲目、封面或来源属于数据质量，须按来源补录。
-
-## 6. 架构与发布边界
-
-目录保持模块化核心：作品、表达、发行和收录需要同一事务校验。按音乐、小说、影视拆服务会把主题曲、跨媒体企划与 BD 附赠变成跨服务一致性问题。账号、互动和存储按数据所有权解耦。
-
-现行服务边界、同步身份解析、SDK 与 UI 归属、显式迁移和独立镜像的剩余事项，只维护于[服务解耦路线](./service-decoupling-roadmap.md)。配置、备份恢复、版本锁、迁移和目标实例验收，只维护于[部署与恢复手册](./deployment-runbook.md)；实例发布状态记 docs-local。本页不复制拆分表或历史发布检查结果。
-
-## 7. 技能和工作树
-
-curator 负责实例编目/API 操作，lrm-catalog-standards 负责身份/层级判断。技能入口保留决策和参考路由，模型、API 行为、来源规范和 QA 各有一个维护位置，减少重复协议清单。
-
-本轮纠正非 200 都算不存在、旧业务类型近似指导以及硬编码全零审计结论。404 表示不存在/不可见；401/403 是凭据/权限问题，429 要退避，5xx 是故障。工具未检查的项目须明确标记；非原子合并不能冒用 self 来源或忽略删除失败继续写入。
-
-技能同步单份 definitions/ETag、真实修订形状、Picture 资产与图片版本字段、所有 kind 的 Compare 响应和可配置限流；限流计数仍按副本独立，不能因配置存在数据库就声称共享计数。导入来源已有 Bangumi、DLsite、DMM，以 /importer/sources 为准；Preview 的 auto 自动识别来源，Import 应回传预览中的明确 source。GUI 可补字段的种子缺项与固定结构限制分别说明，不再指导用其它关系日期、附件、重叠曲序或复制表达凑事实。
-
-工作树清理同时检查 tracked/untracked/ignored 文件、独有提交、分支占用、锁和其他任务引用。干净且已合入的 detached 树仅是清理候选；占用 main、有独有提交或用户改动的树应保留。git worktree prune --dry-run 只判断过期登记，不代表仍存在的 checkout 可以删除。具体本机路径和当前分支状态只记 docs-local，不作为跨部署契约。
-
-## 8. 验证与交付边界
-
-媒体目录回归须覆盖：大目录分页与批量表达读取、取数失败后重试、身份切换后的晚到响应、隐藏表达与历史收录保护，以及同表达不同定位的版本对比。当前自动回归入口为后端目录测试与前端 `tests/`；实际浏览器按样本查看作品、发行、载体、收录位置、中英文与窄屏布局。
-
-按[项目验证规则](../../AGENTS.md#4-按改动范围验证)执行类型检查、测试与构建；涉及线上数据或结构时，再执行部署手册的备份恢复、账本、引用体检和真实对象回读。每次发布的命令结果、版本与实例证据只记 docs-local，不沿用旧批次通过计数。
-
-代码修复不会自动更新实例 definitions 或内容数据。真实曲目、特典、地区与逐集 staff 仍需依据官方来源，按目标实例 ETag/version 执行补录与回读。
+代码变更不会自动更新实例 definitions 或内容。真实曲目、特典、地区与逐集 staff 须按来源、目标实例 ETag/version 补录并回读；涉及结构或线上数据时执行[部署与恢复手册](./deployment-runbook.md)的备份、账本、引用体检和对象验收。实例发布证据只记 docs-local。
