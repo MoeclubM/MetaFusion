@@ -65,7 +65,7 @@ jobs:
   # 同 SHA 后端门禁：镜像推送前先证明本次提交的 Go 代码在真库上可测可构建
   #（与 CI backend job 同口径；-race 与 OpenAPI 双向覆盖留在 CI，发布门禁只守必要项）。
   backend-check:
-    name: Same-SHA backend (Go + DB)
+    name: Same-SHA backend (Go + DB + OpenSearch)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -78,8 +78,20 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      opensearch:
+        image: opensearchproject/opensearch:2.14.0
+        env:
+          discovery.type: single-node
+          OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+          DISABLE_INSTALL_DEMO_CONFIG: "true"
+          DISABLE_SECURITY_PLUGIN: "true"
+        ports: ["9200:9200"]
+        options: >-
+          --health-cmd "curl -fsS http://localhost:9200/_cluster/health"
+          --health-interval 10s --health-timeout 5s --health-retries 20
     env:
       MF_V2_TEST_DSN: postgres://postgres:test-only-password@127.0.0.1:5432/mf_v2_test?sslmode=disable
+      MF_OPENSEARCH_TEST_URL: http://127.0.0.1:9200
       DB_HOST: 127.0.0.1
       DB_PORT: "5432"
       DB_USER: postgres
@@ -95,7 +107,7 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
           cache: true
-      - name: go test (with DB)
+      - name: go test (with DB and OpenSearch)
         run: go test ./...
       - name: go vet
         run: go vet ./...
