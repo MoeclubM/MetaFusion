@@ -1,3 +1,4 @@
-# 历史 README 第 46 行只有环境变量名与公开地址；误把 AUTH_JWT_PUBLIC_KEY 配置标识符识别为密钥。
-# 仅忽略该提交、该规则和该行的指纹，保留其他文档及后续提交的凭据检查。
+# 以下文档行只有环境变量名与公开地址；误把 AUTH_JWT_PUBLIC_KEY 配置标识符识别为密钥。
+# 仅忽略所列提交、规则和行的指纹，保留其他文档及后续提交的凭据检查。
 4af667ed5b554df55d683eb40e2f0f10b6aea11d:README.md:generic-api-key:46
+3e4bf9a5a1c9ce62d15a840c57aad6228fad7416:docs/architecture/service-split-migration.md:generic-api-key:63
