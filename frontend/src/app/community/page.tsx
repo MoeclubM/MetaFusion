@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, useRef, Suspense } from "react";
-import { safeCount } from "@/lib/api/fields";
+import { requireArray, safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
+import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, ALL_FORUM_BOARD, getBoardSync, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
 import { LoadingFallback } from "@/components/common/LoadingFallback";
@@ -123,10 +123,25 @@ function CommunityContent() {
  const [isComposerOpen, setIsComposerOpen] = useState(false);
  const [composerExpanded, setComposerExpanded] = useState(false);
 
- const [boards, setBoards] = useState<ForumBoard[]>(FORUM_BOARDS);
+ const [boards, setBoards] = useState<ForumBoard[]>([ALL_FORUM_BOARD]);
+ const [boardsLoading, setBoardsLoading] = useState(true);
+ const [boardsFailed, setBoardsFailed] = useState(false);
+
+ const loadBoards = async (force = false) => {
+ setBoardsLoading(true);
+ setBoardsFailed(false);
+ try {
+ setBoards(await fetchBoards({ force }));
+ } catch {
+ setBoards([ALL_FORUM_BOARD]);
+ setBoardsFailed(true);
+ } finally {
+ setBoardsLoading(false);
+ }
+ };
 
  useEffect(() => {
- fetchBoards().then(setBoards).catch(() => {});
+ void loadBoards();
  }, []);
 
  const fetchTags = async (q?: string) => {
@@ -215,7 +230,7 @@ function CommunityContent() {
  `/community/topics?${params.toString()}`,
  { signal: controller.signal }
  );
- const list = Array.isArray(res.items) ? res.items : [];
+ const list = requireArray<DiscussionTopic>(res?.items, "topics.items");
  setTopics(list);
  setTotal(safeCount(res.total, list.length));
  } catch {
@@ -265,10 +280,12 @@ function CommunityContent() {
  }, [pageFromUrl]);
 
  const getBoard = (code: string) => {
- return boards.find((b) => b.code === code) || boards[0] || FORUM_BOARDS[0];
+ return getBoardSync(code, boards);
  };
 
  const currentBoard = getBoard(selectedBoard);
+ const currentBoardName = currentBoard ? boardDisplayName(currentBoard, locale, t) : selectedBoard;
+ const canCreateTopic = !boardsLoading && !boardsFailed && boards.some((b) => b.code !== "all" && b.is_enabled !== false);
  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
  // 越界页（手改 URL、或结果变少）：后端把 offset 静默收敛成空窗口，得自己给可读出口。
  const pageOutOfRange = !loading && !loadError && total > 0 && topics.length === 0 && page > totalPages;
@@ -294,7 +311,8 @@ function CommunityContent() {
  {user ? (
  <button
  onClick={() => setIsComposerOpen(true)}
- className="w-full py-2 rounded-lg bg-white hover:bg-gray-100 text-black text-sm font-bold flex items-center justify-center gap-2 transition-colors duration-fast ease-soft shadow-sm"
+ disabled={!canCreateTopic}
+ className="w-full py-2 rounded-lg bg-white hover:bg-gray-100 text-black text-sm font-bold flex items-center justify-center gap-2 transition-colors duration-fast ease-soft shadow-sm disabled:opacity-50"
  >
  <Plus className="w-4 h-4 stroke-[2.5]" />
  <span>{t("community.publishNew")}</span>
@@ -309,7 +327,7 @@ function CommunityContent() {
  <div className="space-y-1">
  <h3 className="px-2.5 text-xs font-mono font-bold tracking-widest text-text-faint uppercase flex items-center justify-between">
  <span>{t("community.boards")}</span>
- <span className="font-normal normal-case tracking-normal text-xs text-gray-600">{t("community.boardCount", {count: boards.length - 1})}</span>
+ <span className="font-normal normal-case tracking-normal text-xs text-gray-600">{boardsLoading ? t("common.loading") : boardsFailed ? "—" : t("community.boardCount", {count: boards.length - 1})}</span>
  </h3>
  <div className="space-y-0.5">
  {boards.map((board) => {
@@ -396,7 +414,8 @@ function CommunityContent() {
  setSidebarOpen(false);
  setIsComposerOpen(true);
  }}
- className="w-full py-1.5 rounded-md bg-primary text-white text-sm font-bold flex items-center justify-center gap-2"
+ disabled={!canCreateTopic}
+ className="w-full py-1.5 rounded-md bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
  >
  <Plus className="w-4 h-4" />
  <span>{t("community.publishNew")}</span>
@@ -480,7 +499,8 @@ function CommunityContent() {
 	        {user && (
 	          <button
 	            onClick={() => setIsComposerOpen(true)}
-	            className="px-4 h-11 rounded-lg bg-primary text-white text-sm font-bold inline-flex items-center gap-2 shadow-xs hover:opacity-90 transition-opacity shrink-0"
+	            disabled={!canCreateTopic}
+	            className="px-4 h-11 rounded-lg bg-primary text-white text-sm font-bold inline-flex items-center gap-2 shadow-xs hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50"
 	          >
 	            <Plus className="w-4 h-4 stroke-[2.5]" />
 	            <span className="hidden sm:inline">{t("community.newTopic")}</span>
@@ -501,14 +521,14 @@ function CommunityContent() {
 	              }}
 	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors duration-fast ease-soft cursor-pointer ${
 	                selectedBoard !== "all"
-	                  ? `${currentBoard.bgColor} ${currentBoard.borderColor} ${currentBoard.color} font-semibold shadow-xs`
+	                  ? `${currentBoard?.bgColor || "bg-surface"} ${currentBoard?.borderColor || "border-line"} ${currentBoard?.color || "text-text-body"} font-semibold shadow-xs`
 	                  : "bg-surface hover:bg-surfaceBorder border-line text-text-body"
 	              }`}
 	            >
 	              <span className="text-text-muted font-normal">{t("community.searchCategoryFilter")}</span>
 	              <span className="text-text-faint font-mono">&gt;</span>
 	              <span className="max-w-[130px] truncate">
-	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale, t)}
+	                {selectedBoard === "all" ? t("community.allBoardsOption") : currentBoardName}
 	              </span>
 	              <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
 	            </button>
@@ -707,6 +727,14 @@ function CommunityContent() {
 	  </div>
 
  <div className="py-6 space-y-5 flex-1">
+ {boardsFailed && (
+ <div role="alert" className="rounded-lg border border-line p-4 flex items-center justify-between gap-3">
+ <p className="text-sm text-danger-soft">{t("community.boardsLoadFailed")}</p>
+ <button onClick={() => void loadBoards(true)} className="text-sm text-text-body hover:text-emphasis">
+ {t("common.retry")}
+ </button>
+ </div>
+ )}
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
  <TabPanel activeKey={selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className={`hidden sm:grid ${TOPIC_COLUMNS} items-center py-2.5 bg-background/60 border-b border-line text-xs font-medium text-text-muted`}>
@@ -719,7 +747,7 @@ function CommunityContent() {
 
  {/* mobile header */}
  <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-line text-sm font-mono text-text-faint flex items-center justify-between">
- <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale, t)}</span>
+ <span>{t("community.topic")} · {currentBoardName}</span>
  <span>{t("community.topicItems", { count: total })}</span>
  </div>
 
@@ -740,7 +768,7 @@ function CommunityContent() {
  <div className="py-20 text-center text-text-faint space-y-2">
  <p className="text-sm">{t("community.noTopics")}</p>
  <p className="text-sm text-gray-600">{t("community.noTopicsHint")}</p>
- {user && (
+ {user && canCreateTopic && (
  <button onClick={() => setIsComposerOpen(true)} className="mt-3 px-3 py-1.5 rounded-md bg-white text-black text-sm font-bold inline-flex items-center gap-2">
  <Plus className="w-4 h-4" />
  {t("community.createFirstTopic")}
@@ -761,7 +789,7 @@ function CommunityContent() {
  <div className="divide-y divide-line-subtle">
  {topics.map((topic) => {
  const board = getBoard(topic.board_code);
- const Icon = resolveBoardIcon(board);
+ const Icon = board ? resolveBoardIcon(board) : Hash;
  const authorId = topic.user_id || topic.user?.id;
  return (
  <div key={topic.id} className={`group flex sm:grid ${TOPIC_COLUMNS} items-stretch hover:bg-emphasis/[0.02] transition-colors duration-fast ease-soft`}>
@@ -771,9 +799,9 @@ function CommunityContent() {
  {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-warn-soft text-xs font-mono">📌 {t("community.pinned")}</span>}{topic.title}
  </Link>
  <div className="flex items-center gap-2 flex-wrap">
- <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
+ <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board ? `${board.bgColor} ${board.borderColor} ${board.color}` : "border-line text-text-muted"}`}>
  <Icon className="w-4 h-4" />
- {boardDisplayName(board, locale, t)}
+ {board ? boardDisplayName(board, locale, t) : topic.board_code}
  </span>
  {topic.entity_id && topic.entity_title && (
  <Link

@@ -6,7 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, setTopicPinned, ApiError } from "@/lib/api";
+import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, setTopicPinned, ApiError } from "@/lib/api";
+import { requireArray } from "@/lib/api/fields";
 import { can, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
 import ReportButton from "@/components/report/ReportButton";
@@ -44,7 +45,8 @@ export default function TopicDetailPage() {
  const [loading, setLoading] = useState(true);
  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
  const [shareFeedback, setShareFeedback] = useState<Record<string, string>>({});
- const [boards, setBoards] = useState<ForumBoard[]>(FORUM_BOARDS);
+ const [boards, setBoards] = useState<ForumBoard[]>([]);
+ const [boardsFailed, setBoardsFailed] = useState(false);
  const [isComposerOpen, setIsComposerOpen] = useState(false);
  const [composerExpanded, setComposerExpanded] = useState(false);
  const [replyTo, setReplyTo] = useState<{ post_number: number; username?: string; content: string } | null>(null);
@@ -60,7 +62,17 @@ export default function TopicDetailPage() {
  const canModeratePosts = can(user, COMMUNITY_POST_MODERATE);
  const canPinTopic = can(user, COMMUNITY_TOPIC_PIN);
 
- useEffect(() => { fetchBoards().then(setBoards).catch(()=>{}); }, []);
+ const loadBoards = async (force = false) => {
+ setBoardsFailed(false);
+ try {
+ setBoards(await fetchBoards({ force }));
+ } catch {
+ setBoards([]);
+ setBoardsFailed(true);
+ }
+ };
+
+ useEffect(() => { void loadBoards(); }, []);
 
  // 取数失败与"这个主题不存在"是两种状态：之前 catch 只 console.error → topic 保持 null →
  // 429/5xx/断网都渲染成「未找到该讨论主题。」，既说错原因又没有重试出口。
@@ -71,27 +83,11 @@ export default function TopicDetailPage() {
  setLoadError("");
  try {
  const data = await fetchApi<DiscussionTopic>(`/community/topics/${topicId}`);
- const raw = data as any;
- let normalized: ForumPost[] = [];
- if (raw.posts && raw.posts.length > 0) {
- normalized = raw.posts;
- } else if (raw.comments && raw.comments.length > 0) {
- normalized = [
- { id: raw.id, topic_id: raw.id, post_number: 1, user_id: raw.user_id, content: raw.content, created_at: raw.created_at, user: raw.user } as any,
- ...raw.comments.map((c: any, i: number) => ({
- id: c.id,
- topic_id: raw.id,
- post_number: i + 2,
- user_id: c.user_id,
- content: c.content,
- reply_to_post_number: null,
- created_at: c.created_at,
- user: c.user,
- })),
+ // 当前契约：主题正文在主题对象，posts 数组只包含带真实楼号的回帖。
+ const normalized: ForumPost[] = [
+ { id: data.id, topic_id: data.id, post_number: 1, user_id: data.user_id, content: data.content, created_at: data.created_at, user: data.user },
+ ...requireArray<ForumPost>(data?.posts, "topic.posts"),
  ];
- } else {
- normalized = [{ id: raw.id, topic_id: raw.id, post_number: 1, user_id: raw.user_id, content: raw.content, created_at: raw.created_at, user: raw.user } as any];
- }
  setTopic(data);
  setPosts(normalized);
  } catch (err) {
@@ -228,6 +224,14 @@ export default function TopicDetailPage() {
  <Navbar />
 
  <PageShell width="page">
+ {boardsFailed && (
+ <div role="alert" className="mb-4 rounded-lg border border-line p-4 flex items-center justify-between gap-3">
+ <p className="text-sm text-danger-soft">{t("community.boardsLoadFailed")}</p>
+ <button onClick={() => void loadBoards(true)} className="text-sm text-text-body hover:text-emphasis">
+ {t("common.retry")}
+ </button>
+ </div>
+ )}
  <div className="flex flex-col lg:flex-row gap-6 items-start">
  {/* Left / Main Post Stream */}
  <div className="flex-1 space-y-6 w-full min-w-0">
@@ -243,10 +247,10 @@ export default function TopicDetailPage() {
  </Link>
  <span className="text-gray-600">/</span>
  <span
- className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}
+ className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded border text-xs font-mono ${board ? `${board.bgColor} ${board.borderColor} ${board.color}` : "border-line text-text-muted"}`}
  >
- <span className={`w-1.5 h-1.5 rounded-full ${board.color.replace('text-', 'bg-')}`} />
- <span>{boardDisplayName(board, locale, t)}</span>
+ {board && <span className={`w-1.5 h-1.5 rounded-full ${board.color.replace('text-', 'bg-')}`} />}
+ <span>{board ? boardDisplayName(board, locale, t) : topic.board_code}</span>
  </span>
  {topic.tags && topic.tags.length > 0 && (
  <span className="flex items-center gap-2 flex-wrap">

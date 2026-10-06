@@ -399,7 +399,7 @@ export function DefinitionsEditor() {
       setBase(etag);
     }
   }, [published, etag, d]);
-  // 权限码判定与旧令牌的角色回退统一走 can()。
+  // 权限码判定统一走 can()；未授予权限的令牌不按角色补权。
   const manageDefinitions = can(user, CATALOG_DEFINITIONS_MANAGE);
   if (!manageDefinitions) return <p>{t("catalog.adminRequired")}</p>;
   if (!d) return <p>{t("catalog.loading")}</p>;

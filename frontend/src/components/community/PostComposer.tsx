@@ -10,7 +10,7 @@ import {
   createTopic,
   createPost,
 } from "@/lib/api";
-import { Entity, fetchAllPages } from "@/components/catalog/api";
+import { Entity, api } from "@/components/catalog/api";
 import {
   Bold,
   Italic,
@@ -211,7 +211,7 @@ export default function PostComposer({
 
   // ── createTopic-only state ──
   const [newTitle, setNewTitle] = useState("");
-  const [newBoardCode, setNewBoardCode] = useState(defaultBoardCode || "announcement");
+  const [newBoardCode, setNewBoardCode] = useState(defaultBoardCode || "");
   const [workSearchQuery, setWorkSearchQuery] = useState("");
   const [searchedWorks, setSearchedWorks] = useState<Entity[]>([]);
   const [selectedWork, setSelectedWork] = useState<Entity | null>(null);
@@ -288,8 +288,8 @@ export default function PostComposer({
       return;
     }
     const timer = setTimeout(() => {
-      fetchAllPages<Entity>(`/catalog/entities?kind=work&q=${encodeURIComponent(workSearchQuery.trim())}&limit=10`)
-        .then((items) => setSearchedWorks(items || []))
+      api<{ items: Entity[] }>(`/catalog/entities?kind=work&q=${encodeURIComponent(workSearchQuery.trim())}&limit=10`)
+        .then(({ items }) => setSearchedWorks(items))
         .catch(() => setSearchedWorks([]));
     }, 300);
     return () => clearTimeout(timer);
@@ -307,7 +307,7 @@ export default function PostComposer({
   }, [boardDropdownOpen]);
 
   // ── Derived ──
-  const boardOptions = boards.filter((b) => b.code !== "all");
+  const boardOptions = boards.filter((b) => b.code !== "all" && b.is_enabled !== false);
   const filteredBoards = boardOptions.filter((b) => {
     if (!boardQuery.trim()) return true;
     const q = boardQuery.toLowerCase();
@@ -315,8 +315,11 @@ export default function PostComposer({
     const desc = boardDisplayDesc(b, locale, t).toLowerCase();
     return name.includes(q) || desc.includes(q) || b.code.toLowerCase().includes(q);
   });
-  const selectedBoardObj =
-    boards.find((b) => b.code === newBoardCode) || boardOptions[0] || boards[0] || null;
+  const selectedBoardObj = boardOptions.find((b) => b.code === newBoardCode);
+
+  useEffect(() => {
+    if (!selectedBoardObj) setNewBoardCode(boardOptions[0]?.code || "");
+  }, [boards, newBoardCode]);
 
   const filteredAvailableTags = availableTags
     .filter((tag) => {
@@ -364,7 +367,7 @@ export default function PostComposer({
   // ── Submits ──
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) return;
+    if (!selectedBoardObj || !newTitle.trim() || !newContent.trim()) return;
     setSubmitting(true);
     try {
       await createTopic({
@@ -705,7 +708,7 @@ export default function PostComposer({
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !selectedBoardObj}
                 className="px-5 h-10 rounded-lg bg-white hover:bg-gray-200 text-black font-semibold flex items-center gap-2 transition-colors duration-fast ease-soft disabled:opacity-50 text-sm shadow-xs cursor-pointer"
               >
                 <Send className="w-4 h-4" />

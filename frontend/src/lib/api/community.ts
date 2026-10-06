@@ -87,7 +87,6 @@ export interface DiscussionTopic { is_pinned?:boolean; pinned_at?:string;
   created_at: string;
   updated_at: string;
   user?: User;
-  comments?: Comment[];
   posts?: ForumPost[];
   tags?: Tag[];
 }
@@ -104,16 +103,6 @@ export interface CreateTopicPayload {
 export interface CreatePostPayload {
   content: string;
   reply_to_post_number?: number | null;
-}
-
-export interface Comment {
-  id: string;
-  topic_id?: string;
-  user_id: string;
-  parent_id?: string;
-  content: string;
-  created_at: string;
-  user?: User;
 }
 
 // ── 实体短评与关联合集（community 服务 /community/entities/:id/*）──
@@ -225,21 +214,41 @@ const BOARD_PALETTE: Record<string, { color: string; bgColor: string; borderColo
   teal: { color: "text-success", bgColor: "bg-teal-500/15", borderColor: "border-teal-500/30" },
 };
 
-export function normalizeBoard(raw: any): ForumBoard {
+interface ForumBoardResponse {
+  code: string;
+  names: Record<string, string>;
+  descriptions: Record<string, string>;
+  color: string;
+  icon: string;
+  sort_order: number;
+  is_enabled: boolean;
+  show_in_feed: boolean;
+}
+
+export function normalizeBoard(raw: ForumBoardResponse): ForumBoard {
+  if (!raw || typeof raw.code !== "string" || !raw.code.trim()) {
+    throw new Error("invalid_response: boards.code");
+  }
+  if (
+    typeof raw.is_enabled !== "boolean" || typeof raw.show_in_feed !== "boolean" ||
+    !Number.isSafeInteger(raw.sort_order)
+  ) {
+    throw new Error("invalid_response: boards.settings");
+  }
   const palette = BOARD_PALETTE[raw.color] || BOARD_PALETTE.emerald;
   return {
     code: raw.code,
-    nameKey: raw.nameKey || `board.${raw.code}`,
-    descKey: raw.descKey || `board.${raw.code}Desc`,
-    names: (raw.names as Record<string, string>) || undefined,
-    descriptions: (raw.descriptions as Record<string, string>) || undefined,
+    nameKey: `board.${raw.code}`,
+    descKey: `board.${raw.code}Desc`,
+    names: raw.names,
+    descriptions: raw.descriptions,
     color: palette.color,
     bgColor: palette.bgColor,
     borderColor: palette.borderColor,
     icon: raw.icon || "BookOpen",
-    sort_order: raw.sort_order ?? 0,
-    is_enabled: raw.is_enabled ?? true,
-    show_in_feed: raw.show_in_feed ?? true,
+    sort_order: raw.sort_order,
+    is_enabled: raw.is_enabled,
+    show_in_feed: raw.show_in_feed,
   };
 }
 
@@ -283,12 +292,10 @@ function localizedBoardText(
   return fallback;
 }
 
-const VIRTUAL_ALL_BOARD: ForumBoard = {
+export const ALL_FORUM_BOARD: ForumBoard = {
   code: "all",
   nameKey: "board.all",
   descKey: "board.allDesc",
-  names: { "zh-CN": "全部分区", "en-US": "All Boards" },
-  descriptions: { "zh-CN": "全站论坛讨论总览", "en-US": "All forum boards overview" },
   color: "text-text-body",
   bgColor: "bg-gray-500/20",
   borderColor: "border-gray-500/40",
@@ -301,133 +308,19 @@ let boardsCacheAt = 0;
 
 const BOARDS_TTL_MS = 5 * 60 * 1000;
 
-// nameKey/descKey 复用既有翻译：board.announcement / board.casual / board.qa / board.reviews / board.bug_report / board.comment
-const FALLBACK_BOARDS: ForumBoard[] = [
-  VIRTUAL_ALL_BOARD,
-  {
-    code: "announcement",
-    nameKey: "board.announcement",
-    descKey: "board.announcementDesc",
-    names: { "zh-CN": "站点公告", "en-US": "Announcements" },
-    descriptions: { "zh-CN": "站点公告与运营通知", "en-US": "Announcements & operations" },
-    color: "text-warn",
-    bgColor: "bg-amber-500/15",
-    borderColor: "border-amber-500/30",
-    icon: "Megaphone",
-    sort_order: 10,
-    is_enabled: true,
-    show_in_feed: true,
-  },
-  {
-    code: "casual",
-    nameKey: "board.casual",
-    descKey: "board.casualDesc",
-    names: { "zh-CN": "闲聊杂谈", "en-US": "Casual Chat" },
-    descriptions: { "zh-CN": "轻松闲聊与站内日常交流", "en-US": "Casual chat & discussions" },
-    color: "text-alt",
-    bgColor: "bg-purple-500/15",
-    borderColor: "border-purple-500/30",
-    icon: "Coffee",
-    sort_order: 20,
-    is_enabled: true,
-    show_in_feed: true,
-  },
-  {
-    code: "qa",
-    nameKey: "board.qa",
-    descKey: "board.qaDesc",
-    names: { "zh-CN": "求助答疑", "en-US": "Q&A" },
-    descriptions: { "zh-CN": "使用问题、编目与功能答疑", "en-US": "Questions, cataloging & help" },
-    color: "text-success",
-    bgColor: "bg-teal-500/15",
-    borderColor: "border-teal-500/30",
-    icon: "Hash",
-    sort_order: 30,
-    is_enabled: true,
-    show_in_feed: true,
-  },
-  {
-    code: "reviews",
-    nameKey: "board.reviews",
-    descKey: "board.reviewsDesc",
-    names: { "zh-CN": "考据评注", "en-US": "Archive Reviews" },
-    descriptions: { "zh-CN": "版本考证、原盘评析与文献释读", "en-US": "Edition analysis & archive reviews" },
-    color: "text-success",
-    bgColor: "bg-emerald-500/15",
-    borderColor: "border-emerald-500/30",
-    icon: "BookOpen",
-    sort_order: 40,
-    is_enabled: true,
-    show_in_feed: true,
-  },
-  {
-    code: "bug_report",
-    nameKey: "board.bug_report",
-    descKey: "board.bug_reportDesc",
-    names: { "zh-CN": "反馈与建议", "en-US": "Feedback & Bug Reports" },
-    descriptions: { "zh-CN": "缺陷反馈、功能建议与复现信息", "en-US": "Bug reports & feature feedback" },
-    color: "text-danger",
-    bgColor: "bg-rose-500/15",
-    borderColor: "border-rose-500/30",
-    icon: "Bug",
-    sort_order: 50,
-    is_enabled: true,
-    show_in_feed: true,
-  },
-  {
-    code: "comment",
-    nameKey: "board.comment",
-    descKey: "board.commentDesc",
-    names: { "zh-CN": "评论专用", "en-US": "Comments" },
-    descriptions: { "zh-CN": "作品与讨论的评论承载区，不进入信息流与全站聚合", "en-US": "Comment carrier for works & topics, excluded from feeds" },
-    color: "text-info",
-    bgColor: "bg-sky-500/15",
-    borderColor: "border-sky-500/30",
-    icon: "MessageCircle",
-    sort_order: 60,
-    is_enabled: true,
-    show_in_feed: false,
-  },
-];
-
-export const FORUM_BOARDS: ForumBoard[] = FALLBACK_BOARDS;
-
 export async function fetchBoards(opts?: { force?: boolean }): Promise<ForumBoard[]> {
   const now = Date.now();
   if (!opts?.force && boardsCache && now - boardsCacheAt < BOARDS_TTL_MS) return boardsCache;
-  try {
-    const raw = await fetchApi<any[]>("/community/boards");
-    const normalized = raw.map((r: any) => normalizeBoard(r));
-    const result: ForumBoard[] = [VIRTUAL_ALL_BOARD, ...normalized.filter((b) => b.code !== "all")];
-    boardsCache = result;
-    boardsCacheAt = now;
-    try {
-      if (typeof window !== "undefined") localStorage.setItem("mf_boards_cache", JSON.stringify({ at: now, boards: result }));
-    } catch {}
-    return result;
-  } catch {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("mf_boards_cache");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed.boards && Array.isArray(parsed.boards) && now - parsed.at < BOARDS_TTL_MS * 3) {
-            boardsCache = parsed.boards;
-            boardsCacheAt = parsed.at;
-            return parsed.boards as ForumBoard[];
-          }
-        }
-      } catch {}
-    }
-    boardsCache = FALLBACK_BOARDS;
-    boardsCacheAt = now;
-    return FALLBACK_BOARDS;
-  }
+  const raw = await fetchApi<unknown>("/community/boards", { signal: AbortSignal.timeout(15000) });
+  const normalized = requireArray<ForumBoardResponse>(raw, "boards").map(normalizeBoard);
+  const result = [ALL_FORUM_BOARD, ...normalized.filter((b) => b.code !== "all")];
+  boardsCache = result;
+  boardsCacheAt = now;
+  return result;
 }
 
-export function getBoardSync(code: string, boards?: ForumBoard[]): ForumBoard {
-  const list = boards || boardsCache || FALLBACK_BOARDS;
-  return list.find((b) => b.code === code) || list.find((b) => b.code === "announcement") || VIRTUAL_ALL_BOARD;
+export function getBoardSync(code: string, boards: ForumBoard[]): ForumBoard | undefined {
+  return boards.find((b) => b.code === code);
 }
 
 /**
@@ -461,21 +354,7 @@ export async function shareContent(opts: { title: string; text?: string; url: st
     }
   } catch {}
 
-  // 3) 最后兜底：创建一个隐藏 textarea 执行 copy
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = url;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    return 'copied';
-  } catch {
-    return 'failed';
-  }
+  return 'failed';
 }
 
 export function buildShareUrl(topicId: string, highlightPostId?: string): string {
