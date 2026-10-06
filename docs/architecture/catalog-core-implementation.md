@@ -12,7 +12,7 @@
 | 发行收录 | `release_subjects` | Release.subjects |
 | 轨位收录与定位 | `track_contents` | Track.contents 或单条收录编辑 |
 | 署名、改编、聚合等语义 | `catalog.relations` | 关系写入口 |
-| 实体属性中的声明引用 | `catalog.entities.attrs` 与当前 definitions | 实体属性写入口 |
+| 实体属性中的声明引用 | `catalog.entities.document` 的 `attributes` 与当前 definitions | 实体属性写入口 |
 
 普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 取事务级 advisory lock。乐观版本防止静默覆盖，复合外键和延迟触发器拒绝跨域父子与循环。修订和 outbox 与事实同事务写入，事件按 event_id 幂等消费。
 
