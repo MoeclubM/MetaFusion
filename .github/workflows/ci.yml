@@ -221,7 +221,6 @@ jobs:
           svcs = doc.get("services", {}) or {}
           banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
           banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
-                       "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY",
                        "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
           bad = []
           for name in ("backend", "auth", "community", "storage"):

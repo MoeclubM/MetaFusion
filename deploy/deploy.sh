@@ -313,7 +313,6 @@ doc = json.load(sys.stdin)
 svcs = doc.get("services", {})
 banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
 banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
-              "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY",
               "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
 bad = []
 for name in ("backend", "auth", "community", "storage"):
@@ -344,11 +343,24 @@ print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核�
 # 就非零退出。"迁移没跑却报部署成功"是必须避免的失败模式：compose run 只替换 CMD、不换
 # ENTRYPOINT，少了 --entrypoint 参数会被交给 /app/server，一条迁移都不会执行
 # （backend/Dockerfile 的 server 阶段是 ENTRYPOINT ["/app/server"]）。
+function stop_catalog_writes() {
+    echo "🛑 迁移前停止 backend，避免旧写入端在协议切换后继续写入..."
+    if ! docker compose $COMPOSE_ENV -f docker-compose.yml "$@" stop backend; then
+        echo "❌ 无法确认 backend 已停写：迁移中止，请先停止所有目录写入端" >&2
+        return 1
+    fi
+    echo "   backend 已停止；失败不会自动重启，请保持所有目录写入端停写直至迁移与检查通过"
+}
+
 function migrate_up_checked() {
     # The consolidated baseline rejects incomplete pre-020 ledgers. Old
     # contract upgrades belong to the pre-baseline release and its runbook.
+    stop_catalog_writes "$@" || return 1
     echo "🗄️  执行目录库版本化迁移..."
-    run_migrate up "$@"
+    if ! run_migrate up "$@"; then
+        echo "❌ 迁移失败：保持 backend 停写，核对账本与备份并处理后再部署" >&2
+        return 1
+    fi
 
     local status
     if ! status=$(run_migrate status "$@"); then
@@ -378,13 +390,12 @@ function seed_checked() {
     run_migrate seed "$@"
 }
 
-# 悬挂引用体检（报告项）：库里有悬挂引用时 mf-migrate check-refs 非零，但“引用目标行
-# 已不存在”不阻断定义发布，因此部署流程里只报告、不中断——看到警告先修数据或显式确认
-# （./deploy.sh check-refs 重验）后再部署。硬门禁语义由独立的 check-refs 动作提供。
+# 悬挂引用体检是部署硬门禁：非零即阻断启动，backend 保持停写，处理后必须重验通过。
 function check_refs_report() {
-    echo "🔍 悬挂引用体检（调用 mf-migrate check-refs，报告项）..."
+    echo "🔍 悬挂引用体检（调用 mf-migrate check-refs，部署门禁）..."
     if ! run_migrate check-refs "$@"; then
-        echo "⚠️  悬挂引用体检未通过：见上输出；发布不阻断，但请先修数据或显式确认后再部署" >&2
+        echo "❌ 悬挂引用体检未通过：保持 backend 停写，处理上面的问题并重验通过后再部署" >&2
+        return 1
     fi
 }
 
@@ -505,9 +516,12 @@ case "$ACTION" in
     migrate)
         CMD=${TARGET:-"up"}
         if [ "$CMD" = "up" ]; then
-            # up 走带校验的入口；down/status/force 是运维手工动作，保持原样。
+            # up 走带停写与校验的入口，完成后不自动启动 backend。
             migrate_up_checked
         else
+            if [ "$CMD" = "down" ]; then
+                stop_catalog_writes
+            fi
             echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
             run_migrate "$CMD"
         fi
@@ -522,7 +536,7 @@ case "$ACTION" in
 
     check-refs)
         # 部署前置检查的硬门禁形态：库干净返回 0，有悬挂引用返回非零。
-        # 修完数据或决定接受现状后，用它重验再部署。
+        # 处理数据后必须重验通过，再部署。
         echo "🔍 悬挂引用体检（mf-migrate check-refs）..."
         run_migrate check-refs
         ;;

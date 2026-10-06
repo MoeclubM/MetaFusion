@@ -19,7 +19,7 @@ python3 scripts/check_release_manifest.py --strict --expect-tag sha-<short-sha> 
 1. 确认 tracked 文件无他人待提交修改，目标实例与清单一致。升级前用 `scripts/backup.sh --no-prune` 生成数据库、角色、配置和对象备份，保留最后可恢复副本。
 2. 校验 `checksums.sha256`，用 `scripts/restore_drill.sh --run <backup-run> --scratch <isolated-db> --tables <affected-tables> --yes` 在独立库恢复并核对；对象演练按存储运行约定执行。
 3. 涉及 JSON、来源或归属契约切换时，停止所有旧目录写入进程，记录受影响表行数和既有行指纹。备份后仍有写入时，备份不是切换时的完整快照，须在停写窗口补齐。
-4. 执行匹配发布的升级。`pull` 顺序为显式 `up` → 回读账本 → `seed` → `check-refs` → 启动服务 → 校验并切换网关。
+4. 执行匹配发布的升级。`prod/pull` 准备好当前迁移器后，先停止 `backend`，再执行显式 `up` → 回读账本 → `seed` → `check-refs` → 启动服务 → 校验并切换网关。外部导入或其他目录写入进程也须停写；脚本只负责本编排的 `backend`。
 
 ```bash
 IMAGE_TAG=sha-<short-sha> deploy/deploy.sh pull
@@ -29,7 +29,11 @@ IMAGE_TAG=sha-<short-sha> deploy/deploy.sh pull
 
 HTTP 启动只做只读兼容检查，不执行 DDL、种子发布或全库回放。手工运维时 `mf-migrate up`、`seed`、`check-refs` 是不同任务；不能通过重启或健康响应推断它们已完成。种子对存量定义、货架和外部库只补缺失项，保留人工配置和停用状态。
 
-`check-refs` 检查属性实体引用、归属、subjects、contents 和关系端点。非零表示有悬挂引用；体检不替代数据库约束、账本或用户事实核验。
+`mf-migrate` 的操作超时默认 15 分钟；大库应先在备份恢复库测量 022 建索引和 023 引用规范化的耗时，必要时调整。全局 `-timeout` 必须放在命令前，例如 `mf-migrate -timeout 30m up`、`mf-migrate -timeout 30m check-refs -json`，不接受零或负时长。直接使用 Compose 时同样放在命令前：`docker compose -f deploy/docker-compose.yml run --rm --no-deps backend-migrate -timeout 30m up`，并先停写。
+
+`deploy.sh migrate up/down` 也会先停止 `backend`，完成后不自动启动。迁移、账本、种子或引用检查失败时，保持所有目录写入端停写，核对失败原因、账本与备份并处理；不得仅重启旧后端继续写入新协议数据。
+
+`check-refs` 检查属性实体引用、归属、subjects、contents 和关系端点。非零可能是悬挂引用或检查本身失败，均阻断 `prod/pull` 启动；处理后必须重验通过。体检不替代数据库约束、账本或用户事实核验。
 
 ## 验收与回退
 

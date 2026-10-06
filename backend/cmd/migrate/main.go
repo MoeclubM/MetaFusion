@@ -20,11 +20,15 @@ import (
 
 func main() {
 	cfg := config.Load()
+	operationTimeout := flag.Duration("timeout", 15*time.Minute, "单次迁移、种子或检查操作的超时，必须大于 0（例如 30m）")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "MetaFusion 独立版本化数据库迁移管理工具 (Database Schema Migrator)\n\n")
 		fmt.Fprintf(os.Stderr, "用法:\n")
-		fmt.Fprintf(os.Stderr, "  mf-migrate [command] [args]\n\n")
+		fmt.Fprintf(os.Stderr, "  mf-migrate [flags] [command] [args]\n\n")
+		fmt.Fprintf(os.Stderr, "全局参数（必须放在 command 前）:\n")
+		flag.PrintDefaults()
+		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "命令:\n")
 		fmt.Fprintf(os.Stderr, "  up              执行所有待处理的数据库迁移 (默认)\n")
 		fmt.Fprintf(os.Stderr, "  down            回滚上一版本的数据库迁移\n")
@@ -35,6 +39,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "                  可选 -json 输出机器可读报告\n\n")
 	}
 	flag.Parse()
+	if *operationTimeout <= 0 {
+		log.Fatal("-timeout 必须大于 0")
+	}
 
 	args := flag.Args()
 	cmd := "up"
@@ -69,7 +76,7 @@ func main() {
 	}
 
 	m := migrator.New(db, migrations.FS)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), *operationTimeout)
 	defer cancel()
 
 	switch cmd {
@@ -134,8 +141,8 @@ func main() {
 		}
 		if len(report.Items) > 0 {
 			// 非零退出：体检的判据是"数据是否干净"，与定义发布的判据（定义是否非法）分开——
-			// 悬挂引用不阻断发布，但部署前应该先修数据或明确接受这次警告。
-			log.Fatalf("发现 %d 条悬挂引用：引用目标行已不存在，新定义回放时会报 invalid_reference（发布不阻断，但请先修数据或显式确认）", len(report.Items))
+			// 部署流程保留停写状态，处理数据并重验通过后才能启动新版。
+			log.Fatalf("发现 %d 条悬挂引用：引用目标行已不存在，新定义回放时会报 invalid_reference；部署检查未通过，请处理后重验", len(report.Items))
 		}
 		log.Println("悬挂引用体检通过: 0 条")
 
