@@ -1,5 +1,4 @@
 {
-  "landing.heroSubtitle": "音楽・アニメ・映像作品・書籍を整理し、版・収録内容・参加者の関係を確認できます。",
   "landing.enter": "閲覧をはじめる",
   "landing.join": "参加する",
   "landing.docsTitle": "MetaFusion ドキュメント",
@@ -1962,7 +1961,6 @@
   "catalog.removeFilter": "絞り込みを解除：{filter}",
   "catalog.clearFilters": "絞り込みをすべて解除",
   "home.sections": "ホームのセクション",
-  "home.browseHint": "セクション別に作品を閲覧するか、検索で項目を探せます。",
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.pageControls": "ページコントロール",
   "landing.exploreArchive": "探索する",

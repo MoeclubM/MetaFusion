@@ -159,7 +159,6 @@ export default function HomePage() {
             <h1 className="font-display text-xl font-bold tracking-tight text-text-strong">
               {t(user ? "home.recommended" : "navigation.home")}
             </h1>
-            <p className="hidden sm:block mt-1 text-xs leading-relaxed text-text-muted">{t("home.browseHint")}</p>
           </div>
           {user && (
             <button

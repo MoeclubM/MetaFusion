@@ -50,7 +50,6 @@ function RootLandingInner() {
           <Database className="w-3.5 h-3.5 shrink-0" aria-hidden /><span>{t("landing.tagline")}</span>
         </div>
         <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-text-strong mb-4 font-display">MetaFusion</h1>
-        <p className="text-base sm:text-lg md:text-xl text-text-body leading-relaxed mb-8">{t("landing.heroSubtitle")}</p>
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-8">
           <Link href="/home" className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-8 min-h-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm shadow-lg shadow-primary/20 transition-colors duration-fast ease-soft">
             <Compass className="w-4 h-4" aria-hidden /><span>{t("landing.enter")}</span>

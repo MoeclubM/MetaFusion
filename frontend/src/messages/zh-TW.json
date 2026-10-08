@@ -1,5 +1,4 @@
 {
-  "landing.heroSubtitle": "編目音樂、動畫、影視與書籍，查看版本、曲目及參與者關係。",
   "landing.enter": "開始瀏覽",
   "landing.join": "加入我們",
   "landing.docsTitle": "MetaFusion 說明文件",
@@ -1962,7 +1961,6 @@
   "catalog.removeFilter": "移除篩選：{filter}",
   "catalog.clearFilters": "清除全部篩選",
   "home.sections": "首頁分區",
-  "home.browseHint": "按分區瀏覽作品，或使用搜尋尋找條目。",
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.pageControls": "頁面控制項",
   "landing.exploreArchive": "探索",
