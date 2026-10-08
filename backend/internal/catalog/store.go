@@ -515,30 +515,8 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.CreatedBy = old.CreatedBy
 			e.Version = old.Version + 1
 		}
-		if !u.Can(PermissionLifecycleManage) {
-			if old.ID != "" && !canEditEntity(u, old) {
-				return errForbidden
-			}
-			// 无实体编辑权者走审核制：只能存草稿或提交审核，不能发布，也不可触碰已发布条目。
-			if !u.Can(PermissionEntityEdit) {
-				if old.Status == "published" {
-					return errForbidden
-				}
-				if e.Status != "draft" && e.Status != "pending_review" {
-					return errForbidden
-				}
-			}
-			// 持实体编辑权者（旧 editor）可维护公开条目；发布他人的草稿、降级与删除
-			// 仍由 catalog.lifecycle.manage（旧 admin-only）处理。
-		}
-		if e.Status == "" {
-			e.Status = "draft"
-		}
-		if e.Status == "deleted" || e.Status == "merged" || e.RedirectID != "" {
-			return fmt.Errorf("use_lifecycle_endpoint")
-		}
-		if old.Status == "published" && e.Status != "published" {
-			return fmt.Errorf("use_lifecycle_endpoint")
+		if err = prepareEntityWriteStatus(old, &e, u); err != nil {
+			return err
 		}
 		assignInclusionSources(&e, input.Sources)
 		if err = preserveHiddenTrackContents(ctx, tx, old, e, u); err != nil {
@@ -546,14 +524,9 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		}
 		e.Title = strings.TrimSpace(e.Title)
 		e.UpdatedAt = time.Now().UTC()
-		ref := reference(ctx, tx, &u)
-		if e.Status == "published" {
-			ref = reference(ctx, tx, nil)
-		}
-		// 零翻译可发布：published 要求至少一条翻译（含原文语种行），否则多语言
-		// 展示无回退依据。此处显式拦截——只影响本次写入，不追溯存量。
-		if e.Status == "published" && len(e.Translations) == 0 {
-			return fmt.Errorf("translation_required")
+		ref, err := entityWriteReference(ctx, tx, e, u)
+		if err != nil {
+			return err
 		}
 		historical := input.internal || !create
 		mediumFormat := ""
@@ -600,30 +573,8 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err = v.Document.retiredEntity(e, old); err != nil {
 			return err
 		}
-		if e.WorkID != "" {
-			if err = ref(e.WorkID, []string{"work"}); err != nil {
-				return err
-			}
-		}
-		if e.ReleaseID != "" {
-			if err = ref(e.ReleaseID, []string{"release"}); err != nil {
-				return err
-			}
-		}
-		if e.MediumID != "" {
-			if err = ref(e.MediumID, []string{"medium"}); err != nil {
-				return err
-			}
-		}
-		if e.ParentID != "" {
-			if err = ref(e.ParentID, []string{e.Kind}); err != nil {
-				return err
-			}
-		}
-		if e.ContentUnitID != "" {
-			if err = ref(e.ContentUnitID, []string{"content_unit"}); err != nil {
-				return err
-			}
+		if err = validateEntityStructuralReferences(e, ref); err != nil {
+			return err
 		}
 		stored := e
 		stored.WorkID = ""

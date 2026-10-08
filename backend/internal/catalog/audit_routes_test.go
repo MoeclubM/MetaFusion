@@ -91,6 +91,7 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 	want := map[string]string{
 		"POST /api/catalog/entities":                        "entity.created",
 		"PUT /api/catalog/entities/:id":                     "entity.updated",
+		"PATCH /api/catalog/tracks/:id/status":              "entity.status_changed",
 		"POST /api/catalog/entities/:id/lifecycle":          "entity.lifecycle_changed",
 		"POST /api/catalog/entities/:id/unpublish":          "entity.unpublished",
 		"PUT /api/catalog/me/home-preferences":              "preference.home_updated",

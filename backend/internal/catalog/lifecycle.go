@@ -24,8 +24,8 @@ type LifecycleEdit struct {
 //     已发布条目不可经 Save 改回 draft（use_lifecycle_endpoint）；
 //   - deleted/merged：主人仍可经 Get 直读（visible 对主人放行），公开 List
 //     与匿名 Get 不可见；merged 经 Resolve 跟随 RedirectID。
-// 本文件是**所有**状态跃迁的唯一入口：Save 拒绝 deleted/merged 与 published 降级，
-// 因此状态列只会由 Lifecycle（删除/合并）与 Unpublish（下架）改写。
+// 本文件负责终态与发布后的降级。Save 与 Track 的专用状态写入共用状态门禁，
+// 不能代替 Lifecycle（删除/合并）或 Unpublish（下架）。
 // 归档（保留展示但冻结编辑）尚未设计，不属于当前状态机。
 
 func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u User) (Entity, error) {

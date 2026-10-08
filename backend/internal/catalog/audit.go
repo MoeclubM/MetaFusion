@@ -24,6 +24,7 @@ func AuditActions() map[string]string {
 	return map[string]string{
 		"POST /api/catalog/entities":                        "entity.created",
 		"PUT /api/catalog/entities/:id":                     "entity.updated",
+		"PATCH /api/catalog/tracks/:id/status":              "entity.status_changed",
 		"POST /api/catalog/tracks/:id/contents":             "inclusion.created",
 		"PUT /api/catalog/tracks/:id/contents/:position":    "inclusion.updated",
 		"DELETE /api/catalog/tracks/:id/contents/:position": "inclusion.deleted",

@@ -1,5 +1,10 @@
 package catalog
 
+import (
+	"context"
+	"fmt"
+)
+
 // 目录编辑的权限档位。业务函数只问"持有哪个权限码能做什么"，不比角色字符串，
 // 也没有角色兜底（判定只看令牌里的 permissions，见 permission.go）：
 //
@@ -22,4 +27,57 @@ func canEditEntity(u User, e Entity) bool {
 		return e.Status == "published" || ownedBy(e, u)
 	}
 	return ownedBy(e, u) && e.Status != "published"
+}
+
+// prepareEntityWriteStatus is shared by whole-entity and status-only edits.
+// Publication and demotion permissions must not depend on the payload shape.
+func prepareEntityWriteStatus(old Entity, next *Entity, u User) error {
+	if !u.Can(PermissionLifecycleManage) {
+		if old.ID != "" && !canEditEntity(u, old) {
+			return errForbidden
+		}
+		if !u.Can(PermissionEntityEdit) {
+			if old.Status == "published" || next.Status != "draft" && next.Status != "pending_review" {
+				return errForbidden
+			}
+		}
+	}
+	if next.Status == "" {
+		next.Status = "draft"
+	}
+	if next.Status == "deleted" || next.Status == "merged" || next.RedirectID != "" ||
+		old.Status == "published" && next.Status != "published" {
+		return fmt.Errorf("use_lifecycle_endpoint")
+	}
+	return nil
+}
+
+// Published writes resolve validated references against anonymous visibility.
+// Status-only edits supply full facts, including unchanged inclusions.
+func entityWriteReference(ctx context.Context, q queryer, e Entity, u User) (func(string, []string) error, error) {
+	reader := &u
+	if e.Status == "published" {
+		if len(e.Translations) == 0 {
+			return nil, fmt.Errorf("translation_required")
+		}
+		reader = nil
+	}
+	return reference(ctx, q, reader), nil
+}
+
+func validateEntityStructuralReferences(e Entity, ref func(string, []string) error) error {
+	for _, item := range []struct {
+		id   string
+		kind string
+	}{
+		{e.WorkID, "work"}, {e.ReleaseID, "release"}, {e.MediumID, "medium"},
+		{e.ParentID, e.Kind}, {e.ContentUnitID, "content_unit"},
+	} {
+		if item.id != "" {
+			if err := ref(item.id, []string{item.kind}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

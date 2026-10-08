@@ -503,6 +503,28 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	cat.POST("/tracks/:id/contents", required(""), contentEdit("add"))
 	cat.PUT("/tracks/:id/contents/:position", required(""), contentEdit("replace"))
 	cat.DELETE("/tracks/:id/contents/:position", required(""), contentEdit("delete"))
+	cat.PATCH("/tracks/:id/status", required(""), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: c.Param("id")})
+		var in TrackStatusEdit
+		if !body(c, &in) {
+			return
+		}
+		if err := validateTrackStatusEdit(in); err != nil {
+			respond(c, nil, err)
+			return
+		}
+		// This read is only an audit summary. The status writer reads full facts
+		// from its own transaction and never copies a filtered public payload.
+		var before *Entity
+		if prev, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); err == nil {
+			before = &prev
+		}
+		e, err := s.EditTrackStatus(c.Request.Context(), c.Param("id"), in, *user(c))
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(before, &e)})
+		}
+		respond(c, e, err)
+	})
 	cat.GET("/entities/:id/resolve", func(c *gin.Context) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, e, err)
