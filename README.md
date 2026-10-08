@@ -41,6 +41,8 @@ MetaFusion 是开放的多媒介元数据目录，记录作品、内容表达、
 
 架构、约束与尚未实现的需求见 [内部文档索引](docs/README.md)，当前边界见 [服务拆分契约](docs/architecture/service-split-migration.md)。
 
+本地启动、配置分工、集成测试条件与生成物检查见 [开发指南](docs/development.md)。
+
 ## 自建与部署
 
 主仓与 auth、community、storage、gateway、docs 仓库须按 `deploy/versions.lock` 并列检出。配置由 `.env.example` 建立；四个业务服务必须显式提供各自 DATABASE_URL，签发私钥仅归账号服务。真实配置、凭据与数据库导出不提交。
@@ -54,6 +56,6 @@ MetaFusion 是开放的多媒介元数据目录，记录作品、内容表达、
 
 ## 贡献
 
-协作、验证和提交规则见 [AGENTS.md](AGENTS.md)。提交使用 Conventional Commits；动态元数据名称从 definitions 获取，界面文案走四语字典。Issue 与 Pull Request 使用 GitHub CLI 管理，Git 同步使用已验证的分支与提交。
+协作、验证和提交规则见 [AGENTS.md](AGENTS.md)。提交使用 Conventional Commits；动态元数据名称从 definitions 获取，界面文案走四语字典。
 
 项目使用 [Apache-2.0 许可证](LICENSE)。

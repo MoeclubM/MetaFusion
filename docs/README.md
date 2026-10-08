@@ -2,6 +2,7 @@
 
 | 主题 | 权威入口 |
 | --- | --- |
+| 本地开发与检查 | [开发指南](development.md)，命令和环境分工以源码、manifest 与 CI 核对 |
 | 产品需求 | [需求文档](requirements.md) |
 | 目录模型与动态定义 | [架构基准](architecture/spec-driven-requirements.md)、[核心实现](architecture/catalog-core-implementation.md) |
 | 媒体身份、版本与用户展示 | [媒体编目与展示](architecture/media-catalog.md) |
@@ -12,5 +13,7 @@
 | 尚未完成的服务边界 | [拆分契约](architecture/service-split-migration.md#5-尚未完成的边界工作) |
 | 公开教程与 API | 独立仓库 [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) |
 | 编目技能 | 独立仓库 [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) |
+
+本目录维护开发、架构与运维契约；公开教程和 API 请求不在这里另存副本，待完成边界也不另建路线文档。规范中的待评估需求不表示已经实现。
 
 具体实例状态和本机开发记录在不提交的 `docs-local/`。当前契约以处理器、已执行迁移和目标实例响应核对。

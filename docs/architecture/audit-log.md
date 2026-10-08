@@ -3,7 +3,9 @@
 本文维护四服务统一审计的表结构、动作码、写入、读取、脱敏与验证契约。DDL 在独立仓库复制，
 自动检查保证一致；业务修订与 OAuth 子域事务审计另有职责，不能把统一审计称为完整业务账本。
 
-## 1. 表结构（唯一来源，逐字复制到四个服务）
+## 1. 规范 DDL 与同步落点
+
+以下定义共享表契约；执行落点见 §6.1，授权与 owner 收敛唯一由 `deploy/sql/roles-least-privilege.sql` 管理。`scripts/check_audit_schema.py` 比对预建块与各仓副本的 SQL 语句，不证明目标实例结构或权限已匹配。新库预建须显式启用 `audit_bootstrap`，表已存在时的守卫只避免重复 DDL，不负责修复缺列、缺索引或错误 owner。
 
 ```sql
 -- 表由部署时的 mf_audit_owner 预建；四个服务的运行角色执行这段 DDL 时整段空转。
@@ -63,7 +65,7 @@ $audit_ddl$;
 | `error_code` | 失败时的稳定错误码（与响应体 `error` 字段一致），成功时为空 | |
 | `request_method` / `route` | HTTP 方法 + **路由模板**（如 `/api/admin/users/:id/role`） | 存模板不存原始路径：原始路径没有额外信息，模板才可聚合 |
 | `http_status` | 响应码 | |
-| `request_id` | `X-Request-Id` 头，缺省生成 uuid 并回写同名响应头 | 与网关/应用日志关联 |
+| `request_id` | 透传 `X-Request-Id`，缺省生成并回写关联标识；格式由各入口生成器决定 | 与网关/应用日志关联，不依赖 UUID 格式 |
 
 **不建**的列与理由：不存请求体原文（脱敏不可靠、体积不可控）；不存响应体（同上）；
 不存操作者邮箱（敏感值，§4）。
@@ -85,7 +87,7 @@ $audit_ddl$;
 - `Recorder`：一个后台 goroutine + 有界 channel（容量 1024）。
   - `Record(entry)`：**非阻塞**入队；入队失败（队列满）时打 error 级日志并丢弃，**绝不阻塞业务响应**。
   - 落库失败：error 级日志 + 丢弃，**不回滚业务写入**。
-  - `RecordSync(ctx, entry) error`：同步写，仅供测试与"必须强一致"的少数动作使用。
+  - `RecordSync(ctx, entry) error`：同步写接口；当前用于测试，没有业务强一致例外。
 - 中间件 `audit.Middleware(rec, actions)`：挂在服务的写路由之前。
   - 请求进入：构造草稿（service / actor / IP / UA / request_id / method / route / action）。
   - `c.Next()` 返回后：填 `http_status` 与 `result`（<400 → success，否则 failure；
@@ -118,41 +120,26 @@ OAuth 子域的 auth.oauth_audit 继续在业务事务内写入，历史行不�
 
 ## 5. 读取面
 
-**唯一读取路由**：`GET /api/admin/audit-logs`（账号服务）。路由只有一条，作用域分两档，
-取决于调用者是否持权限码 `auth.audit.read`：这条路由既服务管理台排障，也服务本人的
-「我的操作记录」（站点设置页）。
+读取统一使用账号服务的 `GET /api/admin/audit-logs`，管理台与本人「我的操作记录」共用此入口，作用域按 `auth.audit.read` 区分：
 
 | 档次 | 闸门 | 作用域 |
 | --- | --- | --- |
 | 全量 | 登录 + `auth.audit.read` | 下表所有过滤条件都能用，含 `actor_user_id` / `actor` 跨用户过滤 |
 | 自助 | 仅登录（`requireUser`） | 强制 `actor_user_id` = 调用者本人；其余过滤条件（service / action / target / result / 时间 / request_id）照常可用 |
 
-自助档的两条硬规则：
-
-- **越权过滤回 403，不做静默改写**。非特权调用者若指定别人的 `actor_user_id`，或用 `actor`
-  前缀（前缀无法约束到"只有我"：`bob` 传 `actor=b` 会命中 `bobby`），一律 `403 forbidden`，
-  而不是把条件悄悄换成自己——静默改写会让调用方以为它在查别人、实际拿到的是自己的行，
-  与"非法 `page` 不回落 `page=1`"是同一条理由：不要让调用方读错数据还以为成功。
-  带上**自己**的 `actor_user_id` 是允许的，结果与不带一致（客户端可以统一带这个参数）。
-- **第三方 OAuth 令牌拒绝**（`403`）。审计行含登录 IP、User-Agent、凭据类型与失败原因，
-  构成本人的安全历史；把它交给一个当初只为"展示身份"而授权的应用，超出了 scope 的含义。
-  账号服务的身份闸门和该路由作用域仍须分别通过。
-
-匿名一律 `401 authentication_required`（两种档次都要先有身份，区别只在能不能看别人）。
+自助调用可省略 `actor_user_id` 或显式指定本人；指定他人或提供非空 `actor` 前缀均返回 `403 forbidden`，不静默改写越权条件。第三方 OAuth 身份不能读取此安全历史，返回 403；匿名返回 `401 authentication_required`。身份闸门与查询作用域分别校验。
 
 | 参数 | 说明 |
 | --- | --- |
 | `service` | 精确匹配，可重复/逗号分隔 |
 | `action` | 精确匹配，可重复/逗号分隔 |
-| `actor_user_id` | uuid 精确匹配（非法 uuid → 400 `invalid_query`） |
-| `actor` | 操作者用户名前缀匹配（`ILIKE 'x%'`），大小写不敏感 |
+| `actor_user_id` | UUID 精确匹配；自助只接受本人（非法 UUID → 400 `invalid_query`） |
+| `actor` | 仅全量档使用的操作者用户名前缀（`ILIKE 'x%'`），大小写不敏感 |
 | `target_type` / `target_id` | 精确匹配 |
 | `result` | `success` / `failure`，其它值 → 400 `invalid_query` |
 | `from` / `to` | RFC3339 时间，闭区间；非法 → 400 `invalid_query` |
 | `request_id` | 精确匹配（与日志关联） |
 | `page` / `per_page` | 默认 1 / 50，`per_page` 上限 200，越界 → 400 `invalid_query` |
-
-表中 `actor_user_id` 与 `actor` 两行**只在全量档可用**：自助档拿它们指向他人一律 403（见上）。
 
 响应：`{"items":[…],"total":N,"page":1,"per_page":50}`，排序 `occurred_at DESC, id DESC`（稳定分页）。
 
@@ -160,13 +147,11 @@ OAuth 子域的 auth.oauth_audit 继续在业务事务内写入，历史行不�
 
 匿名/系统操作的 `actor_username` 是空串（该列 NOT NULL DEFAULT ''），只有 `credential_type`（`anonymous`）能区分"匿名"与"用户名恰好为空"。
 
-账号服务提供统一读取面，管理员与本人视角共用同一路由，作用域由服务端按身份收敛。
-
 管理台：账号服务 `admin/` 的最小只读页（列表 + 过滤 + 分页），不做导出/图表/详情抽屉。
 本人视角：站点设置页的「我的操作记录」（列表 + 分页，不做过滤/导出），展示 `service`、
 `action`、对象、结果、凭据类型、来源 IP 与 `changes` 摘要；请求不带 `actor_*` 参数。
 
-**说"完整"时的边界**（界面文案必须同步，别把它讲成逐条完整的账本）：
+读取与界面表述须保留以下完整性边界：
 
 - 审计是旁路、最终一致（§3）：队列满或落库失败会丢行，且不补写；
 - `changes` 是脱敏 + 截断后的摘要（§4），实体改动的完整前后值在 `catalog.revisions.snapshot`；
@@ -184,7 +169,7 @@ OAuth 子域的 auth.oauth_audit 继续在业务事务内写入，历史行不�
 | community | `migrations/000007_audit_log.up.sql` | 启动与迁移工具读同一份（`internal/store.Init`） |
 | storage | `internal/store/migrations/000002_audit_log.up.sql` | 启动时按版本号顺序应用 |
 
-四个服务都**不修改**已应用的迁移文件（改了会让校验和/记账不一致）；四份 DDL **逐字一致**。
+已发布迁移不可改写；预建块与各仓执行落点的规范 SQL 语句须一致，说明注释与包裹形式可以不同。后续结构变更须增加迁移并同步契约和检查，不通过改旧文件修复存量库。
 
 ### 6.1.1 建表守卫
 

@@ -45,7 +45,7 @@ Tier 2 的目标是运行角色仅有 CRUD。按服务实施 owner 迁移与只�
 
 ### 4.1 共享审计表
 
-审计 DDL 取事务锁后，仅在 `to_regclass('audit.audit_log') IS NULL` 时创建表与索引。表已存在时整段空转，避免非 owner 执行 CREATE INDEX；规范 DDL 只维护于[审计契约](./audit-log.md#1-表结构唯一来源逐字复制到四个服务)。
+审计 DDL 取事务锁后，仅在 `to_regclass('audit.audit_log') IS NULL` 时创建表与索引。表已存在时不执行建表和建索引，避免非 owner 执行 CREATE INDEX；规范与同步落点见[审计契约](./audit-log.md#1-规范-ddl-与同步落点)。存在性守卫不验证表结构，源码副本检查也不能代替目标实例验收。
 
 审计 schema 与表归 mf_audit_owner，运行角色不能是该 owner；owner 的隐式权限不能靠 REVOKE 消除。默认授权脚本不改变 audit 归属，须显式 `-v audit_bootstrap=1` 预建或收敛，再验 F 段。该参数只控制共享审计，本域对象仍按脚本第 2 节收敛。
 

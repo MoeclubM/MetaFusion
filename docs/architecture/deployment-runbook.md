@@ -14,6 +14,8 @@ python3 scripts/check_release_manifest.py --strict --expect-tag sha-<short-sha> 
 
 清单 v2 必须包含 backend、frontend、migrator 的真实 digest。`deploy.sh pull` 按 digest 拉取三个镜像，从锁定检出构建兄弟服务及其 UI；迁移器必须与后端同源。部署要求四个服务各自的 DSN，运行角色与库 owner 分离，私钥仅归 auth；配置检查不得打印凭据。
 
+首次安装先从根目录 `.env.example` 建立本地配置，准备数据库和各域运行身份，按[授权步骤](./database-roles.md#6-授权验收与回退)执行角色脚本并验证隔离。共享审计预建须显式传 `-v audit_bootstrap=1`；普通重跑不会自动收敛其 owner。随后用 `prod/pull` 应用目录迁移与种子、启动服务，验收通过后由 `/setup` 创建首个管理员。不要将未初始化数据库交给 HTTP 进程自动建库。
+
 ## 备份与升级
 
 1. 确认 tracked 文件无他人待提交修改，目标实例与清单一致。升级前用 `scripts/backup.sh --no-prune` 生成数据库、角色、配置和对象备份，保留最后可恢复副本。
@@ -25,7 +27,7 @@ python3 scripts/check_release_manifest.py --strict --expect-tag sha-<short-sha> 
 IMAGE_TAG=sha-<short-sha> deploy/deploy.sh pull
 ```
 
-源码构建使用 `prod`，本地开发使用 `dev` 或 `fast`。旧单体的一次性 `cutover/retire` 入口已移除。尚未完成拆分的实例应使用对应历史发布的搬运工具，完成数据与权限验收后再进入当前路径。
+源码构建使用 `prod`。`dev` 启动开发覆盖编排，`fast` 增量构建更新；两者均不执行目录迁移、种子和引用检查，只适用于数据库已准备好且契约兼容的环境，详见[开发指南](../development.md)。旧单体的一次性 `cutover/retire` 入口已移除；未完成拆分的实例先使用对应历史发布工具完成搬运与权限验收。
 
 HTTP 启动只做只读兼容检查，不执行 DDL、种子发布或全库回放。手工运维时 `mf-migrate up`、`seed`、`check-refs` 是不同任务；不能通过重启或健康响应推断它们已完成。种子对存量定义、货架和外部库只补缺失项，保留人工配置和停用状态。
 
