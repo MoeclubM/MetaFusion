@@ -37,6 +37,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`） |
 | 数据库与完整性约束 | `backend/migrations/*.sql` 是目录库结构迁移源，使用 `mf-migrate up` 显式执行；空库内容种子使用 `mf-migrate seed`，HTTP 服务启动只做兼容性只读检查；复合外键与校验逻辑见 `backend/internal/catalog/store.go`，只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
+| 用户和开发者文档 | `../metafusion-docs/`（独立仓库）：使用指南、编目规范、对外 API 与 Agent 接入；项目内部开发、迁移与部署记录仍在主仓 `docs/` |
 | 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[部署与恢复手册](docs/architecture/deployment-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage` |
 | 解耦状态与剩余工作 | [拆分契约](docs/architecture/service-split-migration.md)的“尚未完成的边界工作”：当前边界、服务 UI / 协议复用与待完成项；不另维护重复路线文档 |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
@@ -44,7 +45,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 技术栈：Go + Next.js / Bun + PostgreSQL + RustFS（S3）+ OpenSearch 2.x。
 
-涉及 API 或数据行为时，以目标实例响应 + 实际处理器 + 已执行迁移为准；有矛盾记差异、停掉依赖写入，不改文案掩盖。接口或外部行为变化时，只同步直接受影响的 OpenAPI 与开发文档。
+涉及 API 或数据行为时，以目标实例响应 + 实际处理器 + 已执行迁移为准；有矛盾记差异、停掉依赖写入，不改文案掩盖。接口或外部行为变化时，只同步直接受影响的 OpenAPI、用户和开发者文档及主仓内部契约说明。
 
 - 加迁移时的固定耦合：`.github/workflows/ci.yml` 里 `mf-migrate down` 那一步的判据是"**最新一条迁移必须不可逆**"，并 grep 它的版本名。因此每新增一条 `NNNNNN_*.up.sql` 都要同步把该步骤的 grep 改成新的最新版本（当前锚点是 `000023_reference_canonicalization`），否则 CI 会在 down 步骤红——而本机没有 PostgreSQL 时不会发现。
 
