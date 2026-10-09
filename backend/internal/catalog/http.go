@@ -426,7 +426,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		// kinds 支持多次出现或逗号分隔：多值命中在 SQL 侧完成。
 		o.Kinds = queryList(c, "kinds")
-		// tags 支持多次出现或逗号分隔，任一命中即返回。
+		o.TagsMode = c.Query("tags_mode")
+		if o.TagsMode != "" && o.TagsMode != "any" && o.TagsMode != "all" {
+			respond(c, nil, errParam(codeInvalidQueryParam))
+			return
+		}
+		// tags 支持多次出现或逗号分隔，默认任一命中，可选全部命中。
 		for _, raw := range c.QueryArray("tags") {
 			for _, tag := range strings.Split(raw, ",") {
 				if t := strings.TrimSpace(tag); t != "" {

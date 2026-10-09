@@ -704,9 +704,10 @@ type ListOptions struct {
 	SearchIDs []string
 	// Kinds 命中任一结构层级。
 	Kinds []string
-	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
+	// Tags 按 TagsMode（any / all，默认 any）过滤 attributes.tags，走 jsonb 容器包含，
 	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
-	Tags []string
+	Tags     []string
+	TagsMode string
 	// OriginalLanguage 按 document->>'original_language' 精确匹配：八层级通用列，
 	// 探索页侧栏的原语言筛选即它（值如 ja/zh/en，大小写按入库原样比）。
 	OriginalLanguage string
@@ -919,7 +920,7 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		}
 	}
 	if len(o.Tags) > 0 {
-		// 任一标签命中即可。用容器包含（@>）而非展开比较，以命中
+		// 用容器包含（@>）而非展开比较，以命中
 		// entities_attribute_tags 函数 GIN 索引。
 		ors := make([]string, 0, len(o.Tags))
 		for _, tag := range o.Tags {
@@ -930,7 +931,11 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 			ors = append(ors, fmt.Sprintf("document->'attributes'->'tags' @> $%d::jsonb", len(*args)))
 		}
 		if len(ors) > 0 {
-			parts = append(parts, "("+strings.Join(ors, " OR ")+")")
+			join := " OR "
+			if o.TagsMode == "all" {
+				join = " AND "
+			}
+			parts = append(parts, "("+strings.Join(ors, join)+")")
 		}
 	}
 	return parts, nil

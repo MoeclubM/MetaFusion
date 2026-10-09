@@ -153,7 +153,13 @@ func (c *OpenSearchClient) searchPage(ctx context.Context, o ListOptions, u *Use
 	if o.HasPictures {
 		filters = append(filters, map[string]any{"term": map[string]any{"has_pictures": true}})
 	}
-	terms("tags", o.Tags)
+	if o.TagsMode == "all" {
+		for _, tag := range o.Tags {
+			term("tags", tag)
+		}
+	} else {
+		terms("tags", o.Tags)
+	}
 	if u == nil {
 		term("status", "published")
 	} else if !u.Can(PermissionLifecycleManage) {

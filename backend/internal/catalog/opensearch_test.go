@@ -126,6 +126,56 @@ func TestOpenSearchUnavailableIsExplicit(t *testing.T) {
 	}
 }
 
+func TestOpenSearchTagMatchingModes(t *testing.T) {
+	for _, mode := range []string{"", "any", "all"} {
+		t.Run("mode_"+mode, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload struct {
+					Query struct {
+						Bool struct {
+							Filter []map[string]map[string]any `json:"filter"`
+						} `json:"bool"`
+					} `json:"query"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Error(err)
+					return
+				}
+				var matches []string
+				for _, filter := range payload.Query.Bool.Filter {
+					if tag, ok := filter["term"]["tags"].(string); ok {
+						matches = append(matches, tag)
+					}
+					if tags, ok := filter["terms"]["tags"].([]any); ok {
+						if mode == "all" || len(tags) != 2 || tags[0] != "A" || tags[1] != "B" {
+							t.Errorf("unexpected OR filter: %v", tags)
+						}
+						matches = append(matches, "any")
+					}
+				}
+				want := "any"
+				if mode == "all" {
+					want = "A,B"
+				}
+				if strings.Join(matches, ",") != want {
+					t.Errorf("tag filters = %v, want %s", matches, want)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"hits":{"total":{"value":0,"relation":"eq"},"hits":[]}}`))
+			}))
+			defer server.Close()
+			client, err := NewOpenSearchClient(server.URL, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.ready.Store(true)
+			if _, err := client.searchPage(context.Background(), ListOptions{Query: "example", Limit: 24, Tags: []string{"A", "B"}, TagsMode: mode}, nil, searchCursor{}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestEnsureIndexUsesCurrentGeneration(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -72,7 +72,8 @@ function ExploreInner() {
   const currentKind = searchParams.get("kind") || "all";
   const currentStatus = searchParams.get("status") || "published";
   const currentQ = searchParams.get("q") || "";
-  // 标签筛选：可多选，命中任一即返回（与后端 tags 参数语义一致）。
+  // 标签可多选；默认任一命中，all 要求同时包含全部选中标签。
+  const currentTagsMode = searchParams.get("tags_mode") || "any";
   const currentTags = useMemo(
     () => searchParams.getAll("tags").flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean),
     [searchParams],
@@ -193,6 +194,7 @@ function ExploreInner() {
     if (currentStatus) params.set("status", currentStatus);
     if (currentQ) params.set("q", currentQ);
     currentTags.forEach((tag) => params.append("tags", tag));
+    if (currentTagsMode !== "any") params.set("tags_mode", currentTagsMode);
     if (currentOriginalLanguage) params.set("original_language", currentOriginalLanguage);
     if (currentHasPictures) params.set("has_pictures", "1");
     if (sortParam) params.set("sort", sortParam);
@@ -249,7 +251,7 @@ function ExploreInner() {
       })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [currentKind, currentStatus, currentQ, currentTags, currentOriginalLanguage, currentHasPictures, cursorParam, offset, sortParam, orderParam, locale, searchLocale, reloadKey, router]);
+  }, [currentKind, currentStatus, currentQ, currentTags, currentTagsMode, currentOriginalLanguage, currentHasPictures, cursorParam, offset, sortParam, orderParam, locale, searchLocale, reloadKey, router]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -306,7 +308,7 @@ function ExploreInner() {
 
   const clearFilters = () => {
     const next = new URLSearchParams(searchParams.toString());
-    for (const key of ["q", "kind", "status", "tags", "original_language", "has_pictures", "page", "cursor"]) next.delete(key);
+    for (const key of ["q", "kind", "status", "tags", "tags_mode", "original_language", "has_pictures", "page", "cursor"]) next.delete(key);
     router.push(next.size ? "/explore?" + next.toString() : "/explore");
   };
 
@@ -365,6 +367,7 @@ function ExploreInner() {
     currentStatus,
     currentQ,
     currentTags.join(","),
+    currentTagsMode,
     currentPage,
     sortKey,
   ].join("|");
@@ -480,6 +483,18 @@ function ExploreInner() {
                 )}
               </div>
               <div className="p-2.5">
+                <fieldset className="mb-3">
+                  <legend className="mb-1.5 text-xs font-medium text-text-body">{t("catalog.tagMatchMode")}</legend>
+                  <div className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-surfaceSubtle p-1">
+                    {(["all", "any"] as const).map((mode) => (
+                      <label key={mode} className={`focus-within:ring-2 focus-within:ring-primary flex cursor-pointer items-center justify-center gap-1 rounded-md px-1 py-2 text-xs transition-colors ${currentTagsMode === mode ? "bg-primary/15 text-primary font-semibold" : "text-text-muted hover:text-text-strong"}`}>
+                        <input type="radio" name="tags-mode" value={mode} checked={currentTagsMode === mode} onChange={() => updateFilters({ tags_mode: mode === "any" ? "" : mode })} className="sr-only" />
+                        <span>{t(mode === "all" ? "catalog.tagMatchAll" : "catalog.tagMatchAny")}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(currentTagsMode === "all" ? "catalog.tagMatchAllHint" : "catalog.tagMatchAnyHint")}</p>
+                </fieldset>
                 {/* 标签云本地搜索：只过滤面板展示，不发请求。 */}
                 <div className="relative flex items-center mb-2">
                   <Search className="absolute left-2.5 w-3.5 h-3.5 text-text-muted pointer-events-none" />
@@ -646,6 +661,9 @@ function ExploreInner() {
 
             {appliedFilters.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
+                {currentTags.length > 1 && (
+                  <span className="text-xs font-medium text-text-body">{t("catalog.tagMatchSummary", { mode: t(currentTagsMode === "all" ? "catalog.tagMatchAll" : "catalog.tagMatchAny") })}</span>
+                )}
                 <span className="sr-only">{t("catalog.activeFilters", { count: appliedFilters.length })}</span>
                 {appliedFilters.map((filter) => (
                   <button

@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+func TestListFilterTagMatchingModes(t *testing.T) {
+	for _, mode := range []string{"", "any", "all"} {
+		t.Run("mode_"+mode, func(t *testing.T) {
+			joined, args := listFilterSearchSQL(t, listFilterSearchDefinitions(), ListOptions{Tags: []string{"A", "B"}, TagsMode: mode})
+			join := " OR "
+			if mode == "all" {
+				join = " AND "
+			}
+			want := "(document->'attributes'->'tags' @> $1::jsonb" + join + "document->'attributes'->'tags' @> $2::jsonb)"
+			if !strings.Contains(joined, want) || len(args) != 2 {
+				t.Fatalf("mode %q: unexpected predicate %s, args %v", mode, joined, args)
+			}
+		})
+	}
+}
+
 // listFilterSearchDefinitions 构造覆盖全部新语法的 definitions 快照：
 // 实体 attributes 内的 group（pack）、list（attachments/store_bonuses），
 // 以及 locator / inclusion_attributes / subject_attributes 三个结构入口。
