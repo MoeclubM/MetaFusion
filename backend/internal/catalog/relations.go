@@ -51,7 +51,7 @@ func getManyFrom(ctx context.Context, q queryer, ids []string, u *User) (map[str
 	if len(uniq) == 0 {
 		return out, nil
 	}
-	rows, err := q.QueryContext(ctx, "SELECT id::text, document, status, created_by::text FROM catalog.entities WHERE id IN ("+entityPlaceholders(uniq, 1)+")", entityArgs(uniq)...)
+	rows, err := q.QueryContext(ctx, "SELECT id::text, document, status, created_by::text FROM catalog.entities WHERE id = ANY($1::uuid[])", pq.Array(uniq))
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func getManyFrom(ctx context.Context, q queryer, ids []string, u *User) (map[str
 // fillStructural 按 kind 批量补齐结构侧表字段（content_unit/expression 的 work 与父级、
 // medium/track 的所属与父子、track 的收录内容、release 的 subjects）。
 // document 里这些字段落库时被清空，只解 JSON 会拿到空值，因此任何要消费结构字段的
-// 读取路径都必须经此补齐；全部按 kind 一次 IN 查询，不逐条访问。
+// 读取路径都必须经此补齐；按 kind 分批查询，避免全库检查超过 PostgreSQL 参数上限。
 // 取 queryer 而非 *sql.DB：启动期定义回放在事务外跑，而 Publish 的回放要在事务快照内看同一批数据。
 func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[string]Entity, error) {
 	byKind := map[string][]string{}
@@ -102,21 +102,29 @@ func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[
 		if len(sub) == 0 {
 			return nil
 		}
-		statement := query + " IN (" + entityPlaceholders(sub, 1) + ")"
+		statement := query + " = ANY($1::uuid[])"
 		if len(suffix) > 0 {
 			statement += suffix[0]
 		}
-		r, qerr := q.QueryContext(ctx, statement, entityArgs(sub)...)
-		if qerr != nil {
-			return qerr
-		}
-		defer r.Close()
-		for r.Next() {
-			if err := scan(r); err != nil {
-				return err
+		for start := 0; start < len(sub); start += refLookupChunk {
+			end := min(start+refLookupChunk, len(sub))
+			r, qerr := q.QueryContext(ctx, statement, pq.Array(sub[start:end]))
+			if qerr != nil {
+				return qerr
+			}
+			for r.Next() {
+				if err := scan(r); err != nil {
+					r.Close()
+					return err
+				}
+			}
+			qerr = r.Err()
+			r.Close()
+			if qerr != nil {
+				return qerr
 			}
 		}
-		return r.Err()
+		return nil
 	}
 	put := func(id string, e Entity) {
 		if _, ok := out[id]; ok {
@@ -173,7 +181,7 @@ func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[
 		return nil, err
 	}
 	if len(byKind["track"]) > 0 {
-		r, err := q.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes,sources FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		r, err := q.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes,sources FROM catalog.track_contents WHERE track_id = ANY($1::uuid[]) ORDER BY track_id, position", pq.Array(byKind["track"]))
 		if err != nil {
 			return nil, err
 		}
