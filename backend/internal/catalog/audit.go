@@ -57,6 +57,7 @@ func AuditActions() map[string]string {
 // "这条写路由为什么不记"必须有据可查，而不是被人忘掉。模块开关墓碑
 func AuditExempt() map[string]string {
 	return map[string]string{
+		"POST /api/catalog/entities/candidates":      "身份候选查询：POST 承载查重条件，在同一只读快照内查找并解析身份，不写目录数据",
 		"POST /api/catalog/expressions/details":      "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
 		"POST /api/catalog/relationships/query":      "批量关系查询：POST 承载实体集合与筛选条件，目录数据仅在只读事务中读取，零写入",
 		"POST /api/importer/preview":                 "来源预览：出站抓取 + 组装草稿，零落库（落库入口是 POST /api/importer/import）",

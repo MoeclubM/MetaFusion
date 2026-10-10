@@ -690,6 +690,16 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		page, err := s.EntityLinks(c.Request.Context(), c.Param("id"), limit, offset, user(c))
 		respond(c, page, err)
 	})
+	cat.POST("/entities/candidates", routeLimiter(120), func(c *gin.Context) {
+		var in IdentityCandidateQuery
+		if !body(c, &in) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		v, err := s.FindIdentityCandidates(ctx, in, user(c))
+		respond(c, v, err)
+	})
 	cat.POST("/relationships/query", routeLimiter(60), func(c *gin.Context) {
 		var in RelationshipQueryRequest
 		if !body(c, &in) {

@@ -61,6 +61,14 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 	if contractVersion != 23 {
 		return fmt.Errorf("incompatible_schema: catalog schema contract 23 required (run mf-migrate up)")
 	}
+	var candidateLookupReady bool
+	if err := s.DB.QueryRowContext(ctx, `SELECT to_regprocedure('catalog.identity_candidate_terms(jsonb)') IS NOT NULL
+		AND EXISTS(SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('catalog.entities_identity_candidates_idx') AND indisvalid)`).Scan(&candidateLookupReady); err != nil {
+		return err
+	}
+	if !candidateLookupReady {
+		return fmt.Errorf("incompatible_schema: identity candidate lookup required (run mf-migrate up)")
+	}
 	var etag string
 	var currentContract bool
 	// The migration ledger belongs to the DB owner; the runtime role has no

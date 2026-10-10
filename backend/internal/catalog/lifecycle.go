@@ -286,10 +286,14 @@ func (s *Store) reverseAliases(ctx context.Context, canonical string, seen map[s
 
 // Resolve preserves old identifiers without rewriting the evidence of a merge.
 func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error) {
+	return resolveFrom(ctx, s.DB, id, u)
+}
+
+func resolveFrom(ctx context.Context, q queryer, id string, u *User) (Entity, error) {
 	seen := map[string]bool{}
 	for !seen[id] {
 		seen[id] = true
-		e, err := get(ctx, s.DB, id)
+		e, err := get(ctx, q, id)
 		if err != nil {
 			return e, err
 		}
@@ -300,7 +304,7 @@ func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error)
 		if !visible(e, u) {
 			return Entity{}, sql.ErrNoRows
 		}
-		return visibleEntityContents(ctx, s.DB, e, u)
+		return visibleEntityContents(ctx, q, e, u)
 	}
 	return Entity{}, errRedirectCycle
 }

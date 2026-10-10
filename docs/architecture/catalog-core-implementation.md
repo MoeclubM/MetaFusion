@@ -70,6 +70,14 @@ Agent 使用只读 `POST /api/catalog/relationships/query`：
 
 读取副本确认完成标记后可提供搜索。`/health.search_ready` 表示索引就绪，`/ready` 只检查 PostgreSQL；发布验收必须另验搜索，见部署手册。
 
+## 并发编目查重
+
+`POST /api/catalog/entities/candidates` 在同一个 PostgreSQL repeatable-read 只读事务中查匹配原始实体、补结构作用域并解析 canonical。024 迁移发布 `identity_title`、`identity_candidate_terms` 与 GIN 表达式索引，实体 document 写入同步维护索引；启动须确认函数和有效索引存在，不能靠异步 OpenSearch 索引的零命中推断实体不存在。
+
+题名及多语言别名按大小写、空白归一；外部 ID 和标量/标量数组属性精确匹配，条件 OR，Expression 可限 Work。返回当前调用者可见的摘要、快照命中总数与 complete；超上限、不可解析 canonical、数据库或协议故障均阻断依赖写入。工具 `mf-find-identity` 与 `mf-platform entity.create` 只走此接口，不再跨 offset 页扫描同 kind 的全量数据；接口缺失不回退旧扫描。
+
+快照只覆盖一次查重，不预留后续创建身份。同一对象的任务仍需避免重复分派，创建幂等键只保障同一载荷重放，不保证不同任务键的语义去重。冲突或未知写结果先回读，不能更换键或把 pending 宣称为未写入。
+
 ## 查询规模、费用与接口边界
 
 当前已有搜索与事实存储分离、索引增量更新、按页批量回读和关系批量查询。默认编排仍是起步配置：OpenSearch 单节点、1 主分片、0 副本、512m heap，PostgreSQL 每进程连接池上限 20，限流计数各进程独立。增加后端副本不会自动获得全局额度或搜索高可用。
