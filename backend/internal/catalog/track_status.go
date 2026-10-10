@@ -38,7 +38,7 @@ func (s *Store) EditTrackStatus(ctx context.Context, id string, in TrackStatusEd
 		return Entity{}, fmt.Errorf("invalid_id")
 	}
 	var next Entity
-	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		if err := lockDefinitionsShared(ctx, tx); err != nil {
 			return err
 		}

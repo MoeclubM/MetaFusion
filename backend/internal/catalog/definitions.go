@@ -56,7 +56,7 @@ func (s *Store) DefinitionImpactFor(ctx context.Context, d Definitions, u User) 
 // and replaces the one live document. No previous document is retained.
 func (s *Store) SaveDefinitions(ctx context.Context, d Definitions, expectedETag string, u User, note string, sources []Source) (DefinitionConfig, error) {
 	var saved DefinitionConfig
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionDefinitionsManage) {
 			return errForbidden
 		}

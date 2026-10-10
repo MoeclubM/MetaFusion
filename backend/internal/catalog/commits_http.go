@@ -8,6 +8,12 @@ import (
 )
 
 func respondCommit(c *gin.Context, v CommitReceipt, err error) {
+	if errors.Is(err, errTransactionBusy) {
+		auditlog.Fail(c, "transaction_busy")
+		c.Header("Retry-After", "1")
+		c.JSON(503, gin.H{"error": "transaction_busy", "applied": false})
+		return
+	}
 	var identity *commitIdentityError
 	if errors.As(err, &identity) {
 		auditlog.Fail(c, "identity_candidates_changed")

@@ -333,11 +333,11 @@ func (s *Store) PushCommit(ctx context.Context, in CatalogCommit, u User, previe
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	out := CommitReceipt{ID: in.ID, Applied: !preview, Refs: map[string]string{}, Items: []CommitItem{}}
-	err := s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `SET LOCAL lock_timeout = '3s'`); err != nil {
-			return err
-		}
+	var out CommitReceipt
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
+		// A confirmed serialization rollback restarts the complete commit. Never
+		// retain refs, items or a receipt assembled by the abandoned attempt.
+		out = CommitReceipt{ID: in.ID, Applied: !preview, Refs: map[string]string{}, Items: []CommitItem{}}
 		if !preview {
 			res, err := tx.ExecContext(ctx, `INSERT INTO catalog.commits(id,actor_id,request_hash,request,result) VALUES($1,$2,$3,$4,'null') ON CONFLICT DO NOTHING`, in.ID, u.ID, requestHash(in), encode(in))
 			if err != nil {
@@ -361,9 +361,8 @@ func (s *Store) PushCommit(ctx context.Context, in CatalogCommit, u User, previe
 				return err
 			}
 		}
-		// Determine lock domains before taking entity rows. Existing writes follow
-		// structure -> definitions -> release -> row; commits keep this order.
-		structural := false
+		// Determine scoped locks before taking rows. There is no global structure
+		// lock: SSI detects inconsistent graph and lifecycle dependencies.
 		existing := []string{}
 		releaseIDs := map[string]bool{}
 		for _, op := range in.Operations {
@@ -371,7 +370,6 @@ func (s *Store) PushCommit(ctx context.Context, in CatalogCommit, u User, previe
 				out.Refs[op.Ref] = newID()
 			}
 			if op.Target == "relation" {
-				structural = true
 				continue
 			}
 			if op.Action == "update" {
@@ -383,7 +381,6 @@ func (s *Store) PushCommit(ctx context.Context, in CatalogCommit, u User, previe
 					return errForbidden
 				}
 				existing = append(existing, op.ID)
-				structural = structural || structuralKind(e.Kind)
 				switch e.Kind {
 				case "release":
 					releaseIDs[e.ID] = true
@@ -396,19 +393,6 @@ func (s *Store) PushCommit(ctx context.Context, in CatalogCommit, u User, previe
 					}
 					releaseIDs[rid] = true
 				}
-			} else {
-				var shape struct {
-					Kind string `json:"kind"`
-				}
-				if json.Unmarshal(op.Document, &shape) != nil {
-					return fmt.Errorf("invalid_document")
-				}
-				structural = structural || structuralKind(shape.Kind)
-			}
-		}
-		if structural {
-			if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
-				return err
 			}
 		}
 		// Serialize creates sharing indexed identity terms, then check reviewed

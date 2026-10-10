@@ -30,8 +30,8 @@ type LifecycleEdit struct {
 
 func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u User) (Entity, error) {
 	var e Entity
-	// 合并会改写关系端点与结构引用，必须与关系/结构写串行。
-	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+	// SSI includes concurrent references and relation changes in lifecycle checks.
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionLifecycleManage) {
 			return errForbidden
 		}
@@ -89,7 +89,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 			}
 		}
 		// 与 Save 同一原则：版本条件进 WHERE，读版本与写入是同一次原子操作。
-		// 本路径虽走结构串行通道，但非结构 kind 的 Save 不取该锁，两边仍会竞争同一行。
+		// 事务重试之后也要复核业务版本。
 		var res sql.Result
 		if res, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$3,status=$4,document=$5,updated_at=$6 WHERE id=$1 AND version=$2", e.ID, input.ExpectedVersion, e.Version, e.Status, encode(stored), e.UpdatedAt); err != nil {
 			return err
@@ -127,9 +127,7 @@ type UnpublishEdit struct {
 // 不该让统计把它算成一次删除；修订行仍按 actor 快照列归属操作者，贡献流照常能查到。
 func (s *Store) Unpublish(ctx context.Context, id string, input UnpublishEdit, u User) (Entity, error) {
 	var e Entity
-	// 与 Lifecycle 同走结构串行通道：待改的行可能属于结构 kind（篇目/载体/轨道），
-	// 与结构写并发改同一行没有意义；乐观并发仍靠 WHERE 的版本条件兜底。
-	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionLifecycleManage) {
 			return errForbidden
 		}

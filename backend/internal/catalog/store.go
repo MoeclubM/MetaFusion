@@ -129,39 +129,14 @@ func (s *Store) Initialize(ctx context.Context) error {
 	return s.SeedContent(ctx)
 }
 
-// write 执行一次写事务（不加全局锁）。
-//
-// 十万/百万级时“所有写都串行”只是慢；到亿级就是吞吐天花板：一个 advisory 锁把整个目录
-// （含互不相干的 agent/work/expression）压成单写通道。因此默认路径不再取锁，只有可能触碰
-// 受结构约束的表（content_units/mediums/tracks 的父子环检查）或关系无环校验的写，
-// 才走 writeStructural。
+// write is for independent configuration and preferences. Catalog facts and
+// definitions use writeCatalog so cross-row invariants participate in SSI.
 func (s *Store) write(ctx context.Context, fn func(*sql.Tx) error) error {
-	return s.tx(ctx, fn, false)
-}
-
-// writeStructural 执行需要与结构校验串行的写事务。
-//
-// 锁键与 check_parent_cycle 触发器共用（740202）：并发重定父时，触发器内的递归检查才能
-// 看到别的事务刚提交的父子关系，环检测不会两边同时通过。代价是这些写彼此串行——
-// 它们只是结构编辑（篇目/载体/轨道/关系），不是目录主体。
-// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，用会话级
-// pg_advisory_lock；此处是事务级 xact 锁，键与粒度都不同。需要部署期互斥时应在编排层
-// 串行（先 migrate 后启动），不在此加锁。
-func (s *Store) writeStructural(ctx context.Context, fn func(*sql.Tx) error) error {
-	return s.tx(ctx, fn, true)
-}
-
-func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if structural {
-		if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
-			return err
-		}
-	}
 	if err = fn(tx); err != nil {
 		return err
 	}
@@ -171,14 +146,14 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool)
 // definitionsLockKey 是定义配置写入协调的 advisory 键（M02）：保存取独占，
 // 定义敏感写（实体/关系/合并改写）取共享。旧定义写穿影响检查即被串行化：
 // 配置保存等待在途写完成，在途写等待保存完成。
-// 与结构锁 740202、migrator 的 88481001、审计契约的 740205 都不同键。
+// 与 migrator 的 88481001、审计契约的 740205 都不同键。
 //
 // releaseLockClass 是发行粒度的 advisory 类键（M01）：Release.subjects 与
 // TrackContent 按 Release 互斥（删 subject 与加收录不再各看各的旧快照），
 // 不同发行互不阻塞，不恢复全库写锁。键 = (740204, hashtext(release_id))。
 //
-// 加锁顺序全局一致（结构 → 定义共享 → 发行），配置保存只取独占、不与其他锁共持，
-// 因此无死锁环；并发正确性仍需双连接受控测试（见并发测试，本机无库时跳过）。
+// 加锁顺序：身份 term（commit 创建）→ 定义共享 → 发行 → 实体行，集合稳定排序。
+// 跨行一致性由 SERIALIZABLE 校验；这里只协调定义发布与发行热点，不锁全库结构。
 const definitionsLockKey = 740203
 const releaseLockClass = 740204
 
@@ -198,8 +173,7 @@ func lockRelease(ctx context.Context, tx *sql.Tx, releaseID string) error {
 }
 
 // lockReleaseScope 取本次实体写入所属发行的 M01 锁：release 改 subjects、
-// track 改 contents，同一发行的两类写互斥；medium 不改映射且归属不可变，
-// 取同锁只为让复核稳定（结构写本就全局串行，无并发损失）。
+// track 改 contents，同一发行的两类写互斥；不同发行并行。
 // 新建 release（ID 未分配、无人可达）与归属缺失（后继报 parent_required/
 // invalid_reference）不取锁，其余一律按所属发行取。调用方保证在定义共享锁之后调用。
 func lockReleaseScope(ctx context.Context, tx *sql.Tx, e Entity) error {
@@ -226,17 +200,6 @@ func lockReleaseScope(ctx context.Context, tx *sql.Tx, e Entity) error {
 		return nil
 	}
 	return lockRelease(ctx, tx, releaseID)
-}
-
-// structuralKind 判断该 kind 的写入是否可能触碰受结构约束的表：
-// content_units/mediums/tracks 上有 check_parent_cycle 触发器，必须与环检查串行。
-// 其它 kind（agent/collection/work/expression/release）不写这三张表，无需全局锁。
-func structuralKind(kind string) bool {
-	switch kind {
-	case "content_unit", "medium", "track":
-		return true
-	}
-	return false
 }
 
 // newID 生成时间有序的 UUIDv7 作为主键。
@@ -464,12 +427,8 @@ func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, no
 	return err
 }
 func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
-	commit := s.write
-	if structuralKind(input.Entity.Kind) {
-		commit = s.writeStructural
-	}
 	var e Entity
-	err := commit(ctx, func(tx *sql.Tx) error {
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		var err error
 		e, err = s.saveEntityTx(ctx, tx, input, u)
 		return err
@@ -478,15 +437,23 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 }
 
 // saveEntityTx shares validation, facts, revisions, outbox and notifications.
-// The caller owns transaction boundaries and structural lock order.
+// The caller owns transaction boundaries and scoped lock order.
 func (s *Store) saveEntityTx(ctx context.Context, tx *sql.Tx, input Edit, u User) (Entity, error) {
-	e := input.Entity
-	err := func() error {
+	// Validation and evidence inheritance may mutate nested maps/slices. Every
+	// attempt owns a fresh copy; retries cannot change the request or prior state.
+	var e Entity
+	raw, err := json.Marshal(input.Entity)
+	if err != nil {
+		return e, err
+	}
+	if err = json.Unmarshal(raw, &e); err != nil {
+		return e, err
+	}
+	err = func() error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
-		// M02 先取定义共享（顺序：结构锁由 commit 在事务开始时已取 → 定义共享 → 发行锁，
-		// 全局一致，见 definitionsLockKey 注释）。
+		// M02：定义共享 → 发行，见 definitionsLockKey。
 		if err := lockDefinitionsShared(ctx, tx); err != nil {
 			return err
 		}

@@ -6,20 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// 结构类判断：只有写这三张表的 kind 才需要与父子环检查串行（其余 kind 并行写）。
-// 判错方向的代价不对称：多判只是慢，漏判会放过层级环。
-func TestStructuralKind(t *testing.T) {
-	for _, k := range Kinds {
-		want := k == "content_unit" || k == "medium" || k == "track"
-		if got := structuralKind(k); got != want {
-			t.Errorf("structuralKind(%s)=%v，期望 %v", k, got, want)
-		}
-	}
-	if structuralKind("") {
-		t.Fatal("空 kind 不应走串行写通道")
-	}
-}
-
 // 主键必须是 UUIDv7（时间有序）：随机 v4 在亿级下会把 B-tree 插入点打散到全表。
 func TestNewIDIsTimeOrderedV7(t *testing.T) {
 	first := newID()

@@ -34,7 +34,10 @@ func respond(c *gin.Context, v any, err error) {
 	status := 400
 	code := err.Error()
 	var pg *pq.Error
-	if errors.Is(err, errSearchUnavailable) {
+	if errors.Is(err, errTransactionBusy) {
+		status, code = http.StatusServiceUnavailable, "transaction_busy"
+		c.Header("Retry-After", "1")
+	} else if errors.Is(err, errSearchUnavailable) {
 		status, code = http.StatusServiceUnavailable, "search_unavailable"
 	} else if errors.Is(err, sql.ErrNoRows) {
 		status = 404

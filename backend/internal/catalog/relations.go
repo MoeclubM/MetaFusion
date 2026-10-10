@@ -527,7 +527,7 @@ func attrsOrEmpty(m map[string]any) map[string]any {
 
 func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (Relation, error) {
 	var r Relation
-	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+	err := s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		var err error
 		r, err = s.saveRelationTx(ctx, tx, input, u)
 		return err
@@ -542,7 +542,7 @@ func (s *Store) saveRelationTx(ctx context.Context, tx *sql.Tx, input RelationEd
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
-		// M02：关系写同样定义敏感（端点类型/属性/无环），取共享（结构锁已持有，顺序一致）。
+		// M02：关系写同样定义敏感（端点类型/属性/无环），取共享。
 		if err := lockDefinitionsShared(ctx, tx); err != nil {
 			return err
 		}
@@ -556,7 +556,7 @@ func (s *Store) saveRelationTx(ctx context.Context, tx *sql.Tx, input RelationEd
 		if err != nil {
 			return err
 		}
-		all, err := relationsForRule(ctx, tx, v.Document, r.Type)
+		all, err := relationsForSave(ctx, tx, v.Document, r)
 		if err != nil {
 			return err
 		}
@@ -633,8 +633,7 @@ func (s *Store) saveRelationTx(ctx context.Context, tx *sql.Tx, input RelationEd
 			return err
 		}
 		// 与实体写同一原则：版本条件进 WHERE，读完旧版本与写入是同一次原子操作。
-		// 本路径虽持结构写锁（关系写彼此串行），但 DeleteRelation 走普通写通道不取该锁，
-		// 两边仍能同时通过版本检查，所以不能只靠锁。
+		// SSI 重试之后仍必须复核业务版本，不能覆盖其他编辑。
 		if old == nil {
 			if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6)", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
 				return err
@@ -670,7 +669,7 @@ func (s *Store) saveRelationTx(ctx context.Context, tx *sql.Tx, input RelationEd
 }
 
 func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, note string, sources []Source, u User) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.writeCatalog(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(note, sources); err != nil {
 			return err
 		}

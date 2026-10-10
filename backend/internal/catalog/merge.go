@@ -167,7 +167,7 @@ func relationsWithAttributeReference(ctx context.Context, tx *sql.Tx, d Definiti
 // Conflicting relationship cardinality and containment are rejected, never discarded.
 func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u User, in LifecycleEdit) error {
 	// M02：合并改写同样定义敏感（类型/字段/关系重验），先取共享再读定义
-	// （结构锁由 Lifecycle 在事务开始时已取，顺序全局一致，见 store.go）。
+	// Lifecycle 已建立 SERIALIZABLE 事务，局部锁顺序见 store.go。
 	if err := lockDefinitionsShared(ctx, tx); err != nil {
 		return err
 	}

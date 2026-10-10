@@ -284,6 +284,20 @@ func OpenAPI() map[string]any {
 	schemas["RelationshipQueryPage"].(map[string]any)["required"] = []string{"subject_id", "items", "limit", "offset", "has_more"}
 	queryOp := paths["/catalog/relationships/query"].(map[string]any)["post"].(map[string]any)
 	queryOp["responses"].(map[string]any)["429"] = map[string]any{"description": "rate_limited; Retry-After reports seconds until another request is allowed"}
+	for _, path := range []string{"/catalog/commits", "/catalog/commits/preview"} {
+		op := paths[path].(map[string]any)["post"].(map[string]any)
+		op["description"] = "Structural and relation writes run concurrently under SERIALIZABLE, without a global graph lock. Only confirmed database rollbacks (40001/40P01/55P03) restart the whole transaction, up to 16 attempts within the deadline. Local release/identity/row coordination remains. Connection errors or uncertain COMMITs are never automatically replayed."
+		op["responses"].(map[string]any)["503"] = map[string]any{
+			"description": "transaction_busy: this request rolled back after bounded attempts; Retry-After: 1. Retain the same commit ID/payload. This response cannot resolve uncertainty about an earlier same-ID request; recover its receipt first.",
+			"headers":     map[string]any{"Retry-After": map[string]any{"schema": map[string]any{"type": "integer", "minimum": 1}}},
+			"content": map[string]any{"application/json": map[string]any{"schema": map[string]any{
+				"type": "object", "required": []string{"error", "applied"}, "properties": map[string]any{
+					"error":   map[string]any{"type": "string", "enum": []string{"transaction_busy"}},
+					"applied": map[string]any{"type": "boolean", "enum": []bool{false}},
+				},
+			}}},
+		}
+	}
 	params := []any{}
 	for _, p := range []struct{ name, desc string }{
 		{"kind", "Single entity kind filter"},

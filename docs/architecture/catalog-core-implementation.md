@@ -14,7 +14,7 @@
 | 署名、改编、聚合等语义 | `catalog.relations` | 关系写入口 |
 | 实体属性中的声明引用 | `catalog.entities.document` 的 `attributes` 与当前 definitions | 实体属性写入口 |
 
-普通写事务不取全局锁；需要环与结构完整性校验的写入由 `writeStructural` 取事务级 advisory lock。乐观版本防止静默覆盖，复合外键和延迟触发器拒绝跨域父子与循环。修订和 outbox 与事实同事务写入，事件按 event_id 幂等消费。
+目录事实、生命周期和定义发布统一走 `writeCatalog` 的 SERIALIZABLE 事务。结构与关系并行校验，不取全目录结构锁；数据库拒绝跨事务的依赖异常，服务端只在明确回滚后有界重试。乐观版本防止静默覆盖，复合外键和延迟触发器拒绝跨域父子与循环。修订和 outbox 与事实同事务写入，事件按 event_id 幂等消费。
 
 安装和升级只按[部署与恢复手册](./deployment-runbook.md)执行。HTTP 启动只读检查结构契约，迁移与种子显式发布；种子只补缺失项，保留人工配置、停用状态及已有模板规则。
 
@@ -82,11 +82,13 @@ Agent 使用只读 `POST /api/catalog/relationships/query`：
 
 目录新增 checkout、commits/preview、commits 与 commits/:id（均在 /api/catalog）。工作副本按每个实体/关系的 version 保存基线，不使用全目录 head 或实体 Git 裸仓；PG 仍是关系约束和事务事实源。公开协议维护在[工作副本与提交](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/api-commits.md)，本地工具在 metafusion-skills。
 
-提交最多100个有序 create/update，更新从 revisions 读取权威基线，以 JSON Pointer 稀疏字段做三方比较；数组原子，重叠不同值冲突，未改字段保留。saveEntityTx/saveRelationTx 共用已有定义、权限、结构、审计与通知校验；一笔事务存实体/关系、修订、outbox、通知和不可变回执，预览整笔回滚。025 迁移只加 commits 与 revisions.commit_id，不改已有事实或 schema_contract 23。
+提交最多100个有序 create/update，更新从 revisions 读取权威基线，以 JSON Pointer 稀疏字段做三方比较；数组原子，重叠不同值冲突，未改字段保留。saveEntityTx/saveRelationTx 共用已有定义、权限、结构、审计与通知校验；一笔事务存实体/关系、修订、outbox、通知和不可变回执，预览整笔回滚。025 迁移加 commits 与 revisions.commit_id；026 移除父子环触发器的740202锁，父级改变必须使用 SERIALIZABLE，并发布 schema_contract 26。两条迁移均不改已有实体事实。
 
 创建用题名、翻译题名、外部 ID 和 Work/Release/Medium 作用域复核 reviewed_candidate_ids。commit 创建按候选索引 term 与 kind/作用域取事务锁，后到的相同创建发现集合改变会整批拒绝；私有数据和单对象/导入入口不由此获得全局身份唯一约束，不自动按同名合并。
 
-锁顺序为结构锁（需要时）→创建身份 term（稳定排序）→definitions 共享→Release（稳定排序）→实体行（UUID 排序）。实体用 NO KEY UPDATE 行锁避免跨批次反序更新丢失或死锁。提交期限15秒，锁等待3秒，不进行隐藏写重试。definitions 每批只读一次，checkout 批量补齐实体与结构。
+局部锁顺序为创建身份 term（稳定排序）→definitions 共享→Release（稳定排序）→实体行（UUID 排序）。同发行和同身份条件仍协调，互不关联的结构与关系不会等待全库写锁。实体用 NO KEY UPDATE 行锁；关系保存只读取端点附近的计数、重复/位置依赖及从目标可达的 cycle_group 图，定义影响检查和合并回放仍检查完整依赖集。
+
+提交期限15秒、锁等待3秒，最多16次事务尝试，带短暂随机退避。仅 SQLSTATE 40001、40P01、55P03 确认回滚时重试整笔事务；每次重建 refs/items 与输入副本，成功回执只来自最终事务。耗尽返回503 transaction_busy，提交响应 applied=false、Retry-After:1。网络断开、未知 COMMIT 和业务冲突不自动重试；此前未知推送不能被后一次忙碌响应判为失败。definitions 每批只读一次，checkout 批量补齐实体与结构。
 
 Git 兼容后续可通过 [remote helper](https://git-scm.com/docs/gitremote-helpers) 将 Git 本地提交映射到此推送协议；原生协议、服务端长期分支与多个离线提交的父子链当前未实现。每实体物理仓会拆散 Release/Track/Expression 的原子关系变更，本阶段不这样存储。
 
@@ -101,11 +103,11 @@ Git 兼容后续可通过 [remote helper](https://git-scm.com/docs/gitremote-hel
 | 关系遍历 | 声明引用双向查询、端点和引用共享缓存 | 固定无附加引用和纯属性边直接 SQL 分页；混合语义页仍需扫描可见边计算 offset，高扇出重复翻页成本需压测 |
 | 多副本 | 单索引写入者、读取副本可就绪 | 全局限流、积压与故障恢复、主分片/副本布局、数据库连接总预算 |
 
-目标按上万在线用户、查询为主、部分编辑；在线数须转换为实际请求速率与批次大小。例如10000人平均10秒一次请求约1000 RPS，只是容量场景假设，页面一次动作可能发多个请求。当前生产共享主机4核、约8GiB、OpenSearch 512MiB heap，不能据功能测试承诺该场景。结构实体及关系仍争用740202全局锁，本次不通过删完整性锁换吞吐。
+目标按上万在线用户、查询为主、部分编辑；在线数须转换为实际请求速率与批次大小。例如10000人平均10秒一次请求约1000 RPS，只是容量场景假设，页面一次动作可能发多个请求。当前生产共享主机4核、约8GiB、OpenSearch 512MiB heap，不能据功能测试承诺该场景。全目录结构锁已移除，热点行/发行、事务重试成本和真实业务批次仍需容量压测。
 
 验收在独立容量环境按50→100→250→500→1000只读RPS递增，浏览/搜索/关系按真实日志配比，同时加入部分编辑。初始目标可设搜索P95<500ms、P99<1500ms、错误率<1%、搜索滞后<5秒，需真实负载校准。scripts/bench_catalog_reads.mjs 是有限时长的无写入开放速率探针，输出实际速率、客户端丢弃、错误率和P50/P95/P99，不自动改配额，不把一次测试当容量达标。示例：`node scripts/bench_catalog_reads.mjs --base https://staging.example --rps 50 --seconds 60 --concurrency 32 --entity <UUID>`；凭据用 MF_PAT 或已忽略的 --credentials 文件，专用账号预算须覆盖场景。
 
-扩容按测量决策：先分离数据库、搜索与业务进程的CPU/IO资源；热公共详情/定义用版本键缓存，私有投影不能共享；大集合浏览避免无界精确COUNT和深OFFSET；搜索按索引/heap及副本布局扩容；高扇出关系改用稳定游标；多后端副本前配置共享限流与总连接预算。数据库连接总量=副本数×每副本上限+其他服务+迁移/运维预留，不能按在线人数开连接。结构锁缩至 Work/Release/关系规则须同步更新数据库环检查、合并/删除与锁顺序，用对抗并发测试验收。
+扩容按测量决策：先分离数据库、搜索与业务进程的CPU/IO资源；热公共详情/定义用版本键缓存，私有投影不能共享；大集合浏览避免无界精确COUNT和深OFFSET；搜索按索引/heap及副本布局扩容；高扇出关系改用稳定游标；多后端副本前配置共享限流与总连接预算。数据库连接总量=副本数×每副本上限+其他服务+迁移/运维预留，不能按在线人数开连接。继续调整局部锁或依赖查询须用对抗并发测试验证父子环、关系环、基数与生命周期竞态。
 
 尚无足以承诺大规模容量的负载证据，供应商月费未提供。应按浏览、短查询、高扇出关系和写入同步的真实比例测错误率、尾延迟、池等待、CPU/IO、heap 及索引滞后；费用计入搜索节点及副本、数据库、持久盘、备份和网络，再计算每百万查询成本。功能回归通过不能证明容量达标。
 

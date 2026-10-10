@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 type entityLookup func(string) (Entity, error)
@@ -174,6 +176,47 @@ func relationsForRule(ctx context.Context, q queryer, d Definitions, typ string)
 		"JOIN catalog.entities s ON s.id=r.source_id JOIN catalog.entities t ON t.id=r.target_id "+
 		"WHERE s.status NOT IN ('deleted','merged') AND t.status NOT IN ('deleted','merged') AND r.type IN ("+
 		entityPlaceholders(codes, 1)+") ORDER BY r.id", entityArgs(codes)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRelationDocuments(rows)
+}
+
+// Ordinary saves need adjacent edges for counts/duplicates/positions, and only
+// the target's reachable graph for cycle checks. Definition and merge replay
+// still use relationsForRule when they intentionally validate the entire rule.
+func relationsForSave(ctx context.Context, q queryer, d Definitions, r Relation) ([]Relation, error) {
+	rt := d.Relations[r.Type]
+	countCodes := []string{r.Type}
+	cycleCodes := []string{}
+	for code, other := range d.Relations {
+		if code != r.Type && rt.Usage != "" && other.Usage == rt.Usage {
+			countCodes = append(countCodes, code)
+		}
+		if rt.Acyclic && sharesCycleGroup(d, r.Type, code) {
+			cycleCodes = append(cycleCodes, code)
+		}
+	}
+	rows, err := q.QueryContext(ctx, `WITH RECURSIVE reachable(id) AS (
+		SELECT $2::uuid
+		UNION
+		SELECT edge.target_id FROM reachable walk
+		JOIN catalog.relations edge ON edge.source_id=walk.id
+		JOIN catalog.entities src ON src.id=edge.source_id
+		JOIN catalog.entities tgt ON tgt.id=edge.target_id
+		WHERE edge.type=ANY($5::text[]) AND edge.id IS DISTINCT FROM $3::uuid
+		AND src.status NOT IN ('deleted','merged') AND tgt.status NOT IN ('deleted','merged')
+	)
+	SELECT edge.document FROM catalog.relations edge
+	JOIN catalog.entities src ON src.id=edge.source_id
+	JOIN catalog.entities tgt ON tgt.id=edge.target_id
+	WHERE edge.id IS DISTINCT FROM $3::uuid
+	AND src.status NOT IN ('deleted','merged') AND tgt.status NOT IN ('deleted','merged')
+	AND ((edge.type=ANY($4::text[]) AND (edge.source_id=$1::uuid OR edge.target_id=$2::uuid
+		OR (edge.source_id=$2::uuid AND edge.target_id=$1::uuid)))
+		OR (edge.type=ANY($5::text[]) AND edge.source_id IN (SELECT id FROM reachable)))
+	ORDER BY edge.id`, r.SourceID, r.TargetID, nullable(r.ID), pq.Array(countCodes), pq.Array(cycleCodes))
 	if err != nil {
 		return nil, err
 	}

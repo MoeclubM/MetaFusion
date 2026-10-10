@@ -38,7 +38,7 @@ const (
 	rateLimitMaxKeyLen = 200
 )
 
-// rateLimitLockKey 是限流配置写入协调的事务级 advisory 键。与结构锁 740202、
+// rateLimitLockKey 是限流配置写入协调的事务级 advisory 键。与身份协调锁、
 // 定义锁 740203、发行类锁 740204、审计契约 740205、migrator 88481001 都不同键：
 // 它只保护 catalog.rate_limit_policy 这一张单例表。
 const rateLimitLockKey = 740206
