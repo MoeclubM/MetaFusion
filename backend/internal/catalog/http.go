@@ -580,6 +580,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, gin.H{"items": items, "missing": missing}, nil)
 	})
+	h.registerCommits(cat)
 	cat.POST("/entities", required(""), func(c *gin.Context) {
 		// 目标在创建成功前还不存在：失败路径只留 target_type（"有人试图建实体"），
 		// 成功后再补 id 与变更摘要。

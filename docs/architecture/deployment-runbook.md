@@ -72,3 +72,9 @@ HTTP 启动只做只读兼容检查，不执行 DDL、种子发布或全库回�
 切换时停旧写入端，依次执行 up、seed、check-refs，随后启动当前版本与 OpenSearch。新版建立 v3 物理索引并原子切换搜索别名；旧索引不自动删除，确认当前索引及备份后由运维按名称清理。首次重建或故障期间 q 返回503，无关键词浏览仍可用。
 
 四个运行 DSN 均显式必填；DB_* 只供数据库容器、迁移或运维，不能代替运行配置。RustFS 凭据统一使用 `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`，同步更新备份配置；不再注入旧 ROOT 别名。内置 OpenSearch 单节点配置供起步使用，生产节点数、副本、认证和资源预算须按实测确定，见[核心实现与容量边界](./catalog-core-implementation.md#查询规模费用与接口边界)。
+
+## 目录提交迁移与连接预算
+
+025 catalog_commits 新增持久回执和修订关联，先使用同源 migrator 执行 up，再启动后端；启动检查要求 commits 表与 revisions.commit_id。回执与原始请求不得按短期幂等键清理，恢复不能只回滚实体表。旧事实不被迁移改写。Agent 工具须升级到支持 checkout/commits 的技能；旧写结果仍按原身份与键核验，不能重新创建。
+
+CATALOG_DB_MAX_OPEN_CONNS 默认20（1–256），CATALOG_DB_MAX_IDLE_CONNS 默认10（0–maxOpen），缩小 open 时同步设置 idle。多副本连接总和须给其他服务和运维留预算；提高上限不是容量优化证据。压测仅在独立容量环境运行 bench_catalog_reads.mjs。

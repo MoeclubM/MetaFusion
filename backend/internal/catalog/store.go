@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,7 +61,27 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(20)
+	maxOpen := 20
+	if value := os.Getenv("CATALOG_DB_MAX_OPEN_CONNS"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 256 {
+			db.Close()
+			return nil, fmt.Errorf("invalid_catalog_db_max_open_conns")
+		}
+		maxOpen = parsed
+	}
+	maxIdle := min(10, maxOpen)
+	if value := os.Getenv("CATALOG_DB_MAX_IDLE_CONNS"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 0 || parsed > maxOpen {
+			db.Close()
+			return nil, fmt.Errorf("invalid_catalog_db_max_idle_conns")
+		}
+		maxIdle = parsed
+	}
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxIdle)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 	db.SetConnMaxLifetime(time.Hour)
 	if err = db.PingContext(ctx); err != nil {
 		db.Close()
@@ -442,13 +464,24 @@ func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, no
 	return err
 }
 func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
-	e := input.Entity
-	// 结构类实体（篇目/载体/轨道）走串行写通道，其余 kind 并行写。
 	commit := s.write
-	if structuralKind(e.Kind) {
+	if structuralKind(input.Entity.Kind) {
 		commit = s.writeStructural
 	}
+	var e Entity
 	err := commit(ctx, func(tx *sql.Tx) error {
+		var err error
+		e, err = s.saveEntityTx(ctx, tx, input, u)
+		return err
+	})
+	return e, err
+}
+
+// saveEntityTx shares validation, facts, revisions, outbox and notifications.
+// The caller owns transaction boundaries and structural lock order.
+func (s *Store) saveEntityTx(ctx context.Context, tx *sql.Tx, input Edit, u User) (Entity, error) {
+	e := input.Entity
+	err := func() error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -461,7 +494,13 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err := lockReleaseScope(ctx, tx, e); err != nil {
 			return err
 		}
-		v, err := definitions(ctx, tx)
+		var v DefinitionConfig
+		var err error
+		if input.definitions != nil {
+			v = *input.definitions
+		} else {
+			v, err = definitions(ctx, tx)
+		}
 		if err != nil {
 			return err
 		}
@@ -472,7 +511,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			if input.ExpectedVersion != 0 {
 				return errVersionConflict
 			}
-			e.ID = newID()
+			e.ID = input.createID
+			if e.ID == "" {
+				e.ID = newID()
+			}
 			e.Version = 1
 			e.CreatedBy = u.ID
 			// R1 幂等声明与业务写入同一事务：已存在响应即重放返回（不写业务），
@@ -518,7 +560,9 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err = prepareEntityWriteStatus(old, &e, u); err != nil {
 			return err
 		}
-		assignInclusionSources(&e, input.Sources)
+		if !input.preserveContents {
+			assignInclusionSources(&e, input.Sources)
+		}
 		if err = preserveHiddenTrackContents(ctx, tx, old, e, u); err != nil {
 			return err
 		}
@@ -538,7 +582,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			mediumFormat, _ = medium.Attributes["format"].(string)
 		}
 		toValidate := e
-		if input.contentPatch != nil {
+		if input.contentPatch != nil || input.preserveContents {
 			// Preserve opaque, unchanged records in storage without revalidating
 			// their visibility or returning them to the editor.
 			toValidate, err = visibleEntityContents(ctx, tx, e, &u)
@@ -659,8 +703,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			before = &prior
 		}
 		return notifySaveOutcome(ctx, tx, before, e, u)
-	})
-	// errIdempotentReplay 是内部控制流：e 已是重放的首创结果，返回成功。
+	}()
 	if errors.Is(err, errIdempotentReplay) {
 		return e, nil
 	}
@@ -1133,7 +1176,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
 	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), r.edit_note, r.sources, r.snapshot, r.created_at
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), r.edit_note, r.sources, r.snapshot, r.created_at, COALESCE(r.commit_id::text,'')
 		FROM catalog.revisions r
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
@@ -1146,10 +1189,10 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	historicalTracks := map[string]Entity{}
 	for rows.Next() {
 		var revID, version int64
-		var actorID, actorName, note string
+		var actorID, actorName, note, commitID string
 		var sources, snapshot json.RawMessage
 		var at time.Time
-		if err = rows.Scan(&revID, &version, &actorID, &actorName, &note, &sources, &snapshot, &at); err != nil {
+		if err = rows.Scan(&revID, &version, &actorID, &actorName, &note, &sources, &snapshot, &at, &commitID); err != nil {
 			return nil, err
 		}
 		// 实体修订的 snapshot 是 Entity，逐行按实体可见性过滤；
@@ -1178,6 +1221,9 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 			"snapshot":   snapshot,
 			"created_at": at,
 		})
+		if commitID != "" {
+			out[len(out)-1]["commit_id"] = commitID
+		}
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err

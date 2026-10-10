@@ -89,6 +89,7 @@ func TestEveryWriteRouteIsRegisteredOrReasonedExempt(t *testing.T) {
 // 改任何一个已有码都会让本用例失败——那是要契约层面批准的变更，不是顺手重命名。
 func TestAuditActionCodesAreStable(t *testing.T) {
 	want := map[string]string{
+		"POST /api/catalog/commits":                         "commit.pushed",
 		"POST /api/catalog/entities":                        "entity.created",
 		"PUT /api/catalog/entities/:id":                     "entity.updated",
 		"PATCH /api/catalog/tracks/:id/status":              "entity.status_changed",
@@ -130,11 +131,11 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 // 却因为在豁免表里而静默不留痕。
 func TestAuditExemptRoutesAreReadOnlyByDesign(t *testing.T) {
 	exempt := AuditExempt()
-	if len(exempt) != 6 {
+	if len(exempt) != 8 {
 		t.Fatalf("豁免表条数变了（%d）：新增豁免要在测试里说明它为什么零写入", len(exempt))
 	}
 	// relationships/query 与 entities/candidates 仅在 repeatable-read 的只读事务中读目录投影。
-	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity", "POST /api/catalog/entities/candidates", "POST /api/catalog/relationships/query", "POST /api/admin/catalog-definitions/impact"} {
+	for _, key := range []string{"POST /api/catalog/checkout", "POST /api/catalog/commits/preview", "POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity", "POST /api/catalog/entities/candidates", "POST /api/catalog/relationships/query", "POST /api/admin/catalog-definitions/impact"} {
 		if strings.TrimSpace(exempt[key]) == "" {
 			t.Fatalf("%s 必须带豁免理由", key)
 		}

@@ -144,6 +144,8 @@ services:
       # 刻意不再注入（2026-09 审计 O01）——进程环境一旦持有管理凭据，SQL 层隔离即被绕过。
       # 运行服务只接受本域 DSN，管理身份只用于迁移作业。
       - DATABASE_URL=${CATALOG_DATABASE_URL:?CATALOG_DATABASE_URL must be set}
+      - CATALOG_DB_MAX_OPEN_CONNS=${CATALOG_DB_MAX_OPEN_CONNS:-20}
+      - CATALOG_DB_MAX_IDLE_CONNS=${CATALOG_DB_MAX_IDLE_CONNS:-10}
       # OpenSearch 是正式文本查询服务；外部集群可覆盖 URL 和认证。
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
       - OPENSEARCH_USERNAME=${OPENSEARCH_USERNAME:-}

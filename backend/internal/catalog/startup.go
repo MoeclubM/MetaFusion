@@ -24,6 +24,7 @@ import (
 // requiredCatalogTables 是 HTTP 服务运行必需的表：缺任一即不兼容（起不来比半残好查）。
 var requiredCatalogTables = []string{
 	"catalog.entities",
+	"catalog.commits",
 	"catalog.relations",
 	"catalog.definition_config",
 	"catalog.rate_limit_policy",
@@ -60,6 +61,13 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 	}
 	if contractVersion != 23 {
 		return fmt.Errorf("incompatible_schema: catalog schema contract 23 required (run mf-migrate up)")
+	}
+	var hasCommitProvenance bool
+	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='catalog' AND table_name='revisions' AND column_name='commit_id')`).Scan(&hasCommitProvenance); err != nil {
+		return err
+	}
+	if !hasCommitProvenance {
+		return fmt.Errorf("incompatible_schema: commit provenance required (run mf-migrate up)")
 	}
 	var candidateLookupReady bool
 	if err := s.DB.QueryRowContext(ctx, `SELECT to_regprocedure('catalog.identity_candidate_terms(jsonb)') IS NOT NULL

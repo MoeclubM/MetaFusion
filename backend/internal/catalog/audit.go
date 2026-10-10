@@ -22,6 +22,7 @@ import (
 // 覆盖守卫测试（audit_routes_test.go）遍历真实路由树，保证新增写端点不会漏登记。
 func AuditActions() map[string]string {
 	return map[string]string{
+		"POST /api/catalog/commits":                         "commit.pushed",
 		"POST /api/catalog/entities":                        "entity.created",
 		"PUT /api/catalog/entities/:id":                     "entity.updated",
 		"PATCH /api/catalog/tracks/:id/status":              "entity.status_changed",
@@ -57,6 +58,8 @@ func AuditActions() map[string]string {
 // "这条写路由为什么不记"必须有据可查，而不是被人忘掉。模块开关墓碑
 func AuditExempt() map[string]string {
 	return map[string]string{
+		"POST /api/catalog/checkout":                 "版本化工作副本：只读重复读事务",
+		"POST /api/catalog/commits/preview":          "运行写入校验后整笔回滚，提交、修订、消息、outbox 均不持久化",
 		"POST /api/catalog/entities/candidates":      "身份候选查询：POST 承载查重条件，在同一只读快照内查找并解析身份，不写目录数据",
 		"POST /api/catalog/expressions/details":      "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
 		"POST /api/catalog/relationships/query":      "批量关系查询：POST 承载实体集合与筛选条件，目录数据仅在只读事务中读取，零写入",

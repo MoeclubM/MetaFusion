@@ -14,6 +14,30 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestPostgresIdentityCandidateStructuralScopes(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	w1 := f.save(Entity{Kind: "work", Title: "one"})
+	w2 := f.save(Entity{Kind: "work", Title: "two"})
+	u1 := f.save(Entity{Kind: "content_unit", Title: "chapter", WorkID: w1.ID})
+	f.save(Entity{Kind: "content_unit", Title: "chapter", WorkID: w2.ID})
+	r1 := f.save(Entity{Kind: "release", Title: "release one"})
+	r2 := f.save(Entity{Kind: "release", Title: "release two"})
+	m1 := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r1.ID, Attributes: map[string]any{"format": "cd"}})
+	m2 := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r2.ID, Attributes: map[string]any{"format": "cd"}})
+	t1 := f.save(Entity{Kind: "track", Title: "Track 1", MediumID: m1.ID})
+	f.save(Entity{Kind: "track", Title: "Track 1", MediumID: m2.ID})
+	for _, tc := range []struct {
+		q  IdentityCandidateQuery
+		id string
+	}{{IdentityCandidateQuery{Kind: "content_unit", Titles: []string{"chapter"}, WorkID: w1.ID}, u1.ID}, {IdentityCandidateQuery{Kind: "medium", Titles: []string{"CD"}, ReleaseID: r1.ID}, m1.ID}, {IdentityCandidateQuery{Kind: "track", Titles: []string{"Track 1"}, MediumID: m1.ID}, t1.ID}} {
+		out, err := f.s.FindIdentityCandidates(ctx, tc.q, &f.u)
+		if err != nil || !out.Complete || out.Total != 1 || len(out.Items) != 1 || out.Items[0].Matched.ID != tc.id {
+			t.Fatalf("scope: %+v %v", out, err)
+		}
+	}
+}
+
 func TestIdentityCandidateStrictInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

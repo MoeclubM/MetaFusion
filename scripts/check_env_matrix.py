@@ -81,6 +81,8 @@ KEYS = {
     "PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "8080", "safe": True},
     "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("community", "cmd/migrate/main.go"), ("storage", "internal/config/config.go")], "default": "必填，空值拒绝启动", "safe": True},
     "OPENSEARCH_URL": {"readers": [("catalog", "cmd/server/main.go")], "default": "必填，空值拒绝启动", "safe": True},
+    "CATALOG_DB_MAX_OPEN_CONNS": {"readers": [("catalog", "internal/catalog/store.go")], "default": "20，限定1–256", "safe": True},
+    "CATALOG_DB_MAX_IDLE_CONNS": {"readers": [("catalog", "internal/catalog/store.go")], "default": "min(10,maxOpen)，限定0–maxOpen", "safe": True},
     "OPENSEARCH_USERNAME": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
     "OPENSEARCH_PASSWORD": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
     # ── 数据层隔离：每服务各自的 DSN（编排侧插值键）────────────────────────

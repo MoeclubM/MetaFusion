@@ -117,8 +117,11 @@ type Edit struct {
 	// idempotency 是 HTTP 创建端点（POST /entities）的幂等声明：HTTP 层在 body 解码后
 	// 按 Idempotency-Key 头填充（见 IdempotencyClaim），Save 在业务事务内声明/回填。
 	// PUT 更新不带（键只覆盖创建），导入链路走自己的 metafusion_import 键。
-	idempotency  *IdempotencyClaim
-	contentPatch *trackContentPatch
+	idempotency      *IdempotencyClaim
+	contentPatch     *trackContentPatch
+	preserveContents bool
+	createID         string
+	definitions      *DefinitionConfig
 }
 type Relation struct {
 	ID         string         `json:"id"`
@@ -140,6 +143,8 @@ type RelationEdit struct {
 	Sources         []Source `json:"sources"`
 	// idempotency 是 HTTP 创建端点（POST /relations）的幂等声明，用法同 Edit。
 	idempotency *IdempotencyClaim
+	createID    string
+	definitions *DefinitionConfig
 }
 type Field struct {
 	Names Names  `json:"names"`

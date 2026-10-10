@@ -24,6 +24,8 @@ type IdentityCandidateQuery struct {
 	ExternalIDs []IdentityExternalCriterion  `json:"external_ids,omitempty"`
 	Attributes  []IdentityAttributeCriterion `json:"attributes,omitempty"`
 	WorkID      string                       `json:"work_id,omitempty"`
+	ReleaseID   string                       `json:"release_id,omitempty"`
+	MediumID    string                       `json:"medium_id,omitempty"`
 	Limit       *int                         `json:"limit,omitempty"`
 }
 
@@ -119,10 +121,23 @@ func normalizeIdentityCandidateQuery(in IdentityCandidateQuery) (IdentityCandida
 	}
 	if in.WorkID != "" {
 		id, err := uuid.Parse(in.WorkID)
-		if err != nil || in.Kind != "expression" {
+		if err != nil || !contains([]string{"expression", "content_unit"}, in.Kind) {
 			return in, nil, 0, fmt.Errorf("invalid_work_id")
 		}
 		in.WorkID = id.String()
+	}
+	for _, scope := range []struct {
+		value *string
+		kind  string
+		code  string
+	}{{&in.ReleaseID, "medium", "invalid_release_id"}, {&in.MediumID, "track", "invalid_medium_id"}} {
+		if *scope.value != "" {
+			id, err := uuid.Parse(*scope.value)
+			if err != nil || in.Kind != scope.kind {
+				return in, nil, 0, fmt.Errorf("%s", scope.code)
+			}
+			*scope.value = id.String()
+		}
 	}
 	return in, docs, limit, nil
 }
@@ -160,10 +175,12 @@ func identityCandidatesFrom(ctx context.Context, q queryer, in IdentityCandidate
 	rows, err := q.QueryContext(ctx, `SELECT id::text,count(*) OVER () FROM catalog.entities
         WHERE kind=$1 AND status <> 'deleted'
         AND ($3::boolean OR status='published' OR created_by=$4::uuid)
-        AND ($5::text='' OR EXISTS(SELECT 1 FROM catalog.expressions x WHERE x.id=entities.id AND x.work_id::text=$5))
+        AND ($5::text='' OR EXISTS(SELECT 1 FROM catalog.expressions x WHERE x.id=entities.id AND x.work_id::text=$5) OR EXISTS(SELECT 1 FROM catalog.content_units x WHERE x.id=entities.id AND x.work_id::text=$5))
+        AND ($7::text='' OR EXISTS(SELECT 1 FROM catalog.mediums m WHERE m.id=entities.id AND m.release_id::text=$7))
+        AND ($8::text='' OR EXISTS(SELECT 1 FROM catalog.tracks t WHERE t.id=entities.id AND t.medium_id::text=$8))
         AND catalog.identity_candidate_terms(document) && ARRAY(
             SELECT DISTINCT unnest(catalog.identity_candidate_terms(value)) FROM jsonb_array_elements($2::jsonb))
-        ORDER BY id LIMIT $6`, in.Kind, string(encoded), manage, userID, in.WorkID, limit+1)
+        ORDER BY id LIMIT $6`, in.Kind, string(encoded), manage, userID, in.WorkID, limit+1, in.ReleaseID, in.MediumID)
 	if err != nil {
 		return out, err
 	}

@@ -526,10 +526,19 @@ func attrsOrEmpty(m map[string]any) map[string]any {
 }
 
 func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (Relation, error) {
+	var r Relation
+	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+		var err error
+		r, err = s.saveRelationTx(ctx, tx, input, u)
+		return err
+	})
+	return r, err
+}
+
+func (s *Store) saveRelationTx(ctx context.Context, tx *sql.Tx, input RelationEdit, u User) (Relation, error) {
 	r := input.Relation
 	r.Attributes = attrsOrEmpty(r.Attributes)
-	// 无环校验依赖"同类型边全集"的读一致性：并发写入必须串行，否则两边都能通过环检测。
-	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
+	err := func() error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -537,7 +546,13 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err := lockDefinitionsShared(ctx, tx); err != nil {
 			return err
 		}
-		v, err := definitions(ctx, tx)
+		var v DefinitionConfig
+		var err error
+		if input.definitions != nil {
+			v = *input.definitions
+		} else {
+			v, err = definitions(ctx, tx)
+		}
 		if err != nil {
 			return err
 		}
@@ -550,7 +565,10 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			if input.ExpectedVersion != 0 {
 				return errVersionConflict
 			}
-			r.ID = newID()
+			r.ID = input.createID
+			if r.ID == "" {
+				r.ID = newID()
+			}
 			r.Version = 1
 			// R1 幂等声明与业务写入同一事务（用法同 Save，见 idempotency.go）。
 			if input.idempotency != nil {
@@ -644,13 +662,13 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			return notifyIncludedRelation(ctx, tx, r, src, tgt, u)
 		}
 		return nil
-	})
-	// errIdempotentReplay 是内部控制流：r 已是重放的首创结果，返回成功。
+	}()
 	if errors.Is(err, errIdempotentReplay) {
 		return r, nil
 	}
 	return r, err
 }
+
 func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, note string, sources []Source, u User) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(note, sources); err != nil {

@@ -1,0 +1,65 @@
+package catalog
+
+import (
+	"errors"
+
+	"github.com/gin-gonic/gin"
+	auditlog "github.com/metafusion/metafusion-app/internal/audit"
+)
+
+func respondCommit(c *gin.Context, v CommitReceipt, err error) {
+	var identity *commitIdentityError
+	if errors.As(err, &identity) {
+		auditlog.Fail(c, "identity_candidates_changed")
+		c.JSON(409, gin.H{"error": "identity_candidates_changed", "applied": false, "identity_review": identity})
+		return
+	}
+	var conflict *commitConflictError
+	if errors.As(err, &conflict) {
+		auditlog.Fail(c, "commit_conflict")
+		c.JSON(409, gin.H{"error": "commit_conflict", "applied": false, "conflict": conflict.Conflict})
+		return
+	}
+	if errors.Is(err, errDefinitionsConflict) {
+		auditlog.Fail(c, "definitions_conflict")
+		c.JSON(409, gin.H{"error": "definitions_conflict", "applied": false})
+		return
+	}
+	respond(c, v, err)
+}
+
+func (h HTTP) registerCommits(cat *gin.RouterGroup) {
+	s := h.Store
+	cat.POST("/checkout", required(""), routeLimiter(120), func(c *gin.Context) {
+		var in CheckoutRequest
+		if !body(c, &in) {
+			return
+		}
+		out, err := s.Checkout(c.Request.Context(), in, *user(c))
+		respond(c, out, err)
+	})
+	cat.POST("/commits/preview", required(""), routeLimiter(30), func(c *gin.Context) {
+		var in CatalogCommit
+		if !body(c, &in) {
+			return
+		}
+		out, err := s.PushCommit(c.Request.Context(), in, *user(c), true)
+		respondCommit(c, out, err)
+	})
+	cat.POST("/commits", required(""), routeLimiter(60), func(c *gin.Context) {
+		var in CatalogCommit
+		if !body(c, &in) {
+			return
+		}
+		auditlog.Describe(c, auditlog.Detail{TargetType: "commit", TargetID: in.ID})
+		out, err := s.PushCommit(c.Request.Context(), in, *user(c), false)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "commit", TargetID: in.ID, Changes: map[string]any{"operation_count": len(out.Items)}})
+		}
+		respondCommit(c, out, err)
+	})
+	cat.GET("/commits/:id", required(""), func(c *gin.Context) {
+		out, err := s.CommitReceipt(c.Request.Context(), c.Param("id"), *user(c))
+		respond(c, out, err)
+	})
+}
