@@ -2049,5 +2049,6 @@
   "admin.console.overviewFailed": "部分資料未能載入，請重新整理重試。",
   "admin.console.previewMerge": "預覽合併",
   "admin.console.mergeConfirm": "來源實體將重新導向目標實體，歷史修訂保留。請核對方向、名稱和識別碼。",
-  "admin.console.disabled": "未部署"
+  "admin.console.disabled": "未部署",
+  "developer.mcp.manage": "MCP 授權管理"
 }

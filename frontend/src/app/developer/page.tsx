@@ -194,6 +194,9 @@ export default function DeveloperPage() {
             <h1 className="text-xl sm:text-2xl font-semibold text-text-strong">{t("developer.title")}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <a href="/mcp/manage" className="px-3 py-1.5 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body text-[11px] transition-colors">
+              {t("developer.mcp.manage")}
+            </a>
             <a
               href={`${DOCS_SERVICE_URL}/api-overview`}
               target="_blank"

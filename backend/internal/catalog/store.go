@@ -61,7 +61,7 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	maxOpen := 20
+	maxOpen := 64
 	if value := os.Getenv("CATALOG_DB_MAX_OPEN_CONNS"); value != "" {
 		parsed, err := strconv.Atoi(value)
 		if err != nil || parsed < 1 || parsed > 256 {
@@ -70,7 +70,7 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		}
 		maxOpen = parsed
 	}
-	maxIdle := min(10, maxOpen)
+	maxIdle := min(32, maxOpen)
 	if value := os.Getenv("CATALOG_DB_MAX_IDLE_CONNS"); value != "" {
 		parsed, err := strconv.Atoi(value)
 		if err != nil || parsed < 0 || parsed > maxOpen {

@@ -18,7 +18,9 @@ func TestRouteLimiterAdvertisesRemainingBudget(t *testing.T) {
 
 	call := func() *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/limited", nil))
+		req := httptest.NewRequest(http.MethodGet, "/api/limited", nil)
+		req.RemoteAddr = "192.0.2.55:1000"
+		r.ServeHTTP(w, req)
 		return w
 	}
 	headerInt := func(w *httptest.ResponseRecorder, name string) int {

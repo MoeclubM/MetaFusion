@@ -130,6 +130,7 @@ func patHash(token string) string {
 type patIdentity struct {
 	UserID      string
 	Username    string
+	Groups      []string
 	Permissions []string
 	// TokenName 是令牌名（调用日志归因用）：内省新字段，老账号服务不下发时为空，
 	// 日志里 credential_name 即空（类型 pat 仍在，不丢行）。
@@ -143,7 +144,7 @@ type patIdentity struct {
 func (p patIdentity) catalogUser() *User {
 	return &User{
 		ID: p.UserID, Username: p.Username,
-		Permissions: p.Permissions, FromPAT: true, TokenName: p.TokenName,
+		Permissions: p.Permissions, Groups: p.Groups, FromPAT: true, TokenName: p.TokenName,
 	}
 }
 
@@ -224,6 +225,7 @@ type patIntrospectResponse struct {
 	Valid       bool          `json:"valid"`
 	UserID      string        `json:"user_id"`
 	Username    string        `json:"username"`
+	Groups      []string      `json:"groups"`
 	Permissions []string      `json:"permissions"`
 	ExpiresAt   *patTimestamp `json:"expires_at"`
 	TokenName   string        `json:"token_name"`
@@ -304,6 +306,7 @@ func (p *PATIntrospector) fetch(ctx context.Context, token string) (patCacheEntr
 		UserID:      doc.UserID,
 		Username:    doc.Username,
 		Permissions: doc.Permissions,
+		Groups:      doc.Groups,
 		TokenName:   doc.TokenName,
 	}
 	if doc.ExpiresAt != nil {

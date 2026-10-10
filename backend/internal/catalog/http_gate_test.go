@@ -77,14 +77,14 @@ func TestProtectedRouteGates(t *testing.T) {
 // 用例之间共享配额会让断言依赖执行顺序。
 func resetPreviewBucket() {
 	routeAttempts.Range(func(k, _ any) bool {
-		if s, ok := k.(string); ok && strings.HasSuffix(s, "|/api/importer/preview") {
+		if s, ok := k.(string); ok && strings.HasPrefix(s, "u:u-rl|") {
 			routeAttempts.Delete(k)
 		}
 		return true
 	})
 }
 
-// 预览端点带 10/min 限流（与 /compare 同档）：第 11 次请求被 429 挡住并给 Retry-After。
+// 预览端点使用统一默认限流：第 181 次请求被 429 挡住并给 Retry-After。
 // 计数桶按 IP+路由，本用例进出都清桶，避免影响其它用例。
 func TestImporterPreviewIsRateLimited(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -92,7 +92,7 @@ func TestImporterPreviewIsRateLimited(t *testing.T) {
 	defer resetPreviewBucket()
 	u := &User{ID: "u-rl", Permissions: []string{PermissionImportSubmit}}
 	engine := gateEngine(u)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < DefaultRateLimitPerMinute; i++ {
 		w := httptest.NewRecorder()
 		engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/importer/preview", strings.NewReader("{")))
 		if w.Code != http.StatusBadRequest {
@@ -102,7 +102,7 @@ func TestImporterPreviewIsRateLimited(t *testing.T) {
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/importer/preview", strings.NewReader("{")))
 	if w.Code != http.StatusTooManyRequests || !strings.Contains(w.Body.String(), "rate_limited") {
-		t.Fatalf("11th request: status=%d body=%s want 429 rate_limited", w.Code, w.Body.String())
+		t.Fatalf("request beyond default limit: status=%d body=%s want 429 rate_limited", w.Code, w.Body.String())
 	}
 	if w.Header().Get("Retry-After") == "" {
 		t.Fatal("429 must carry Retry-After")

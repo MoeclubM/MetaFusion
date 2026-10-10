@@ -41,6 +41,8 @@
 | auth | `/login`、`/setup`、`/auth-user-assets/_next/static/*` | 独立账号自助应用，转发 auth-user；专属静态前缀避免同域冲突 |
 | community | `/admin/community/*` | 独立互动管理台，转发 community-admin |
 | storage | `/admin/storage/*` | 独立存储管理台，转发 storage-admin |
+| mcp | `/mcp`、`/mcp/*` | 独立云端 MCP、授权与权限管理，业务调用转现有 API |
+| mcp | `/.well-known/oauth-protected-resource/mcp`、`/.well-known/oauth-authorization-server/mcp/oauth` | MCP OAuth 发现，不与账号 OIDC 混用 |
 
 `/api/users/*` 有多种归属，不能按顶层前缀整体改上游。网关仓 `cutover-check.sh` 检查服务标记头，主仓 `scripts/check_gateway_matrix.py` 检查路径登记、归属和限流，`scripts/check_versions.py` 检查组合版本。新增路径须同步具体分流与契约检查，不能靠目录兜底掩盖漏项。
 
@@ -57,6 +59,8 @@ community/storage 通过目录 HTTP 解析当前实体身份与可见性，使�
 存储不复制作品、专辑或曲目表，目录不保存对象物理路径。binding_role 表示文件用途，TrackContent.locator 表示目录中的区间与位置，两者不能重复存储。资产持久化、鉴权与稳定 URL 只维护于[存储运行约定](./storage-operations.md)。
 
 ## 4. 身份与权限
+
+云端 MCP 在独立 `metafusion-mcp` 仓库维护，只拥有 `mcp` schema，保存客户端、资源绑定令牌、加密的受限 PAT 与不可变提交草稿。通过账号 HTTP 登录与 PAT 权限交集复用既有 API；不接管 Agent 的外部信息获取。运行角色只持本域 CRUD，DDL 由显式 mcp-migrate 完成。业务读写默认各 180 RPM，已验证 admin 组免业务限流；网关不再按共享出口 IP 限业务请求。当前计数为每进程固定窗口，多副本共享额度尚未实现。
 
 只有 auth 持签发私钥。目录、互动和存储验签 RS256 JWT，公钥来自静态配置或账号 JWKS；目录不派生签发私钥、不查账号表、不签发令牌。PAT 通过账号服务内省，会话续期由账号服务处理。
 

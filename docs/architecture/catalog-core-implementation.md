@@ -54,7 +54,7 @@ Agent 使用只读 `POST /api/catalog/relationships/query`：
 - 响应包含 definition_etag、pages、去重 entities 摘要与 unavailable_ids；不存在与不可见不区分。
 - 摘要覆盖主体、端点和第三方引用，只含 id、kind、version、title、original_language、translations；完整载荷另取实体。
 
-定义、主体和直接边在同一 RepeatableRead 只读事务中装配，多次请求不共享快照。客户端按 has_more 翻完每个主体，再用已访问 ID 集合逐层遍历；接口自身不递归。默认额度为每分钟 60 次，可由现行账户或组策略调整。
+定义、主体和直接边在同一 RepeatableRead 只读事务中装配，多次请求不共享快照。客户端按 has_more 翻完每个主体，再用已访问 ID 集合逐层遍历；接口自身不递归。默认读写额度各为每分钟 180 次，可由现行账户或组策略调整。
 
 它提供调用者可见且由模型或 definitions 声明的当前关系，包括结构归属、跨作品收录、语义关系及嵌套引用。文本中的隐含关联、跨服务论坛/资源数据和历史规则图不属于自动遍历范围，单请求不能导出全站图谱。
 
@@ -94,7 +94,7 @@ Git 兼容后续可通过 [remote helper](https://git-scm.com/docs/gitremote-hel
 
 ## 查询规模、费用与接口边界
 
-当前已有搜索与事实存储分离、索引增量更新、按页批量回读和关系批量查询。默认编排仍是起步配置：OpenSearch 单节点、1 主分片、0 副本、512m heap，PostgreSQL 每进程连接池默认上限20（CATALOG_DB_MAX_OPEN_CONNS，1–256；idle 默认10，可设0–maxOpen），限流计数各进程独立。增加后端副本不会自动获得全局额度或搜索高可用。
+当前已有搜索与事实存储分离、索引增量更新、按页批量回读和关系批量查询。默认编排仍是起步配置：OpenSearch 单节点、1 主分片、0 副本、512m heap，PostgreSQL 每进程连接池默认上限64（CATALOG_DB_MAX_OPEN_CONNS，1–256；idle 默认32，可设0–maxOpen），限流计数各进程独立。增加后端副本不会自动获得全局额度或搜索高可用。
 
 | 路径 | 已有能力 | 扩容前需验证 |
 | --- | --- | --- |

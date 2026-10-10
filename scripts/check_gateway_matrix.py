@@ -8,8 +8,7 @@
 检查项（任一不过以非零码退出）：
 1. 结构：花括号配平；每条 location 有 proxy_pass 或 return；proxy_pass 引用的 $变量必须在本块内 set；
    limit_req 用到的 zone 必须有同名 limit_req_zone 定义。
-2. 限流覆盖：/api/ 下的每条 location 都必须带 limit_req —— 精确匹配与正则 location 不会继承
-   location /api/ 的兜底限流，漏挂就是"看起来有、实际没有"。
+2. 业务限流：/api/ 路由不能叠加 IP limit_req；额度由验证身份后的服务维护，保留 admin 免限流。
 3. 登记：矩阵里每条 location 的路径族必须在文档 §2 表里登记（白名单见下），反向也检查表格里的
    每条路径至少被一条 location 覆盖。
 4. 归属：文档 §2 表把某前缀归给哪个服务（catalog / auth / community / storage），矩阵里该 location
@@ -49,6 +48,7 @@ OWNER_HOSTS = {
     "auth": {"auth", "auth-admin", "auth-user"},  # auth-user：账号自助应用（user/，= /login|/setup 精确路径）
     "community": {"community", "community-admin"},
     "storage": {"storage", "storage-admin"},
+    "mcp": {"mcp"},
 }
 
 WHITELIST = {
@@ -65,6 +65,7 @@ WHITELIST = {
     "/health/auth": "逐上游就绪探针",
     "/health/community": "逐上游就绪探针",
     "/health/storage": "逐上游就绪探针",
+    "/health/mcp": "MCP 就绪探针",
 }
 
 
@@ -228,8 +229,8 @@ def main():
         for var in PROXY_VAR_RE.findall(body):
             if ("set $%s" % var) not in body:
                 problems.append("%s:%d: proxy_pass 用了本块未 set 的 $%s" % (rel_matrix, lineno, var))
-        if family.startswith("/api") and not LIMIT_RE.search(body):
-            problems.append("%s:%d: location %s 在 /api/ 下却没挂 limit_req（精确匹配/正则不继承兜底限流）" % (rel_matrix, lineno, raw_path))
+        if family.startswith("/api") and LIMIT_RE.search(body):
+            problems.append("%s:%d: location %s 使用 IP 业务限流，会覆盖 admin 免限流并把云端 Agent 汇入同一出口桶" % (rel_matrix, lineno, raw_path))
 
         if family in WHITELIST:
             continue

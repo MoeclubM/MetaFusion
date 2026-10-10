@@ -43,6 +43,7 @@ SIBLING_DIRS = {
     "auth": "../metafusion-auth",
     "community": "../metafusion-community",
     "storage": "../metafusion-storage",
+    "mcp": "../metafusion-mcp",
 }
 
 # 各服务源码相对仓库根的位置：目录服务的 Go 代码在 backend/ 下，兄弟服务在各自仓库根。
@@ -70,6 +71,7 @@ ALLOWED_INFRA = {
 # 环境变量登记表：键 -> 谁读（仓库 + 文件）、默认值、默认值是否安全、哪份编排的哪个服务必须注入。
 # safe=False 只用于"缺失/为 0 时行为不安全"的键：无上限的资源占用、明文链路。
 KEYS = {
+    "MCP_MIGRATION_DATABASE_URL": {"readers": [("catalog", "../deploy/deploy.sh")], "default": "空 → 迁移前拒绝", "safe": True, "interpolate": ["deploy/docker-compose.yml"]},
     # DB_* 仅为显式目录迁移作业的管理配置，运行服务不读取。
     "DB_HOST": {"readers": [("catalog", "internal/config/config.go")], "default": "localhost", "safe": True},
     "DB_PORT": {"readers": [("catalog", "internal/config/config.go")], "default": "5432", "safe": True},
@@ -144,6 +146,9 @@ KEYS = {
 }
 
 # 已退役的编排变量：删掉之后不许再回来（它们是"注入了但全仓零读取"的死重量）。
+for key in ("MCP_PUBLIC_URL", "MCP_API_URL", "MCP_AUTH_URL", "MCP_DATABASE_URL", "MCP_ENCRYPTION_KEY", "MCP_SKILLS_REVISION", "MCP_DOCS_REVISION", "MCP_OBJECT_ORIGINS", "MCP_ALLOWED_ORIGINS"):
+    KEYS[key] = {"readers": [("mcp", "internal/server/config.go")], "default": "见 MCP Config 校验", "safe": True}
+
 RETIRED = {
     "REDIS_ADDR": "e13be7c 删除：没有任何代码读缓存地址（Redis 仍随栈启动，接线另批）",
     "ELASTICSEARCH_URL": "e13be7c 删除：旧 Elasticsearch 变量；当前检索由 OPENSEARCH_URL 可选接入，未配置时回退 PostgreSQL",

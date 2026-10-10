@@ -2049,5 +2049,6 @@
   "admin.console.overviewFailed": "一部のデータを読み込めませんでした。再読み込みしてください。",
   "admin.console.previewMerge": "統合を確認",
   "admin.console.mergeConfirm": "統合元は統合先へ転送され、変更履歴は保持されます。方向、名前、IDを確認してください。",
-  "admin.console.disabled": "未デプロイ"
+  "admin.console.disabled": "未デプロイ",
+  "developer.mcp.manage": "MCP 権限管理"
 }

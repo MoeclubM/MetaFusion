@@ -2049,5 +2049,6 @@
   "admin.console.overviewFailed": "部分数据未能加载，请刷新重试。",
   "admin.console.previewMerge": "预览合并",
   "admin.console.mergeConfirm": "源实体将重定向到目标实体，历史修订保留。请核对方向、名称和标识。",
-  "admin.console.disabled": "未部署"
+  "admin.console.disabled": "未部署",
+  "developer.mcp.manage": "MCP 授权管理"
 }

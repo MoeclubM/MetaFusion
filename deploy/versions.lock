@@ -16,7 +16,7 @@
 #       不要为了让它变绿而改 sha——那等于把锚点挪到没验证过的代码上。
 #
 # 缺口口径（2026-09-26 审计的"CI 只检出主仓库"已收窄）：.github/workflows/ci.yml 的 cross-repo job
-# 现在按这份锁的每一行（含 api-gateway 与 docs，当前共 5 个兄弟仓库）逐个 clone 到 ../ 并检出该 sha，
+# 现在按这份锁的每一行（含 api-gateway 与 docs，包括 MCP 与技能仓）逐个 clone 到 ../ 并检出该 sha，
 # 再跑 check_versions.py，因此"锁里的 sha 在远端取不到"会让 CI 红。仍未守住的是反向：CI 检出的是
 # 锁里的 sha，自然与锁一致——"本机检出比锁新/旧"只能由 deploy.sh 的那一步拦。
 #
@@ -24,9 +24,11 @@
 # 注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
 # 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
-.=8f307bb
-../metafusion-auth=fa9d99b
-../metafusion-community=0d8373e
-../metafusion-storage=2c53869
+.=12b167a
+../metafusion-auth=7851f24
+../metafusion-community=3184b05
+../metafusion-storage=be9a0e8
 ../metafusion-api-gateway=851b742
-../metafusion-docs=954024b
+../metafusion-docs=0c3b466
+../metafusion-mcp=4299312
+../metafusion-skills=9f1c5f5

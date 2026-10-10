@@ -36,7 +36,7 @@ services:
       # CF-Connecting-IP / X-Forwarded-For 换一个干净的限流桶（实测可伪造，后端日志照单全收）。
       # 入口代理走回环，收紧绑定不影响站点。
       - "127.0.0.1:${HTTP_PORT:-10100}:80"
-    # nginx.conf 声明 worker_connections 4096，而容器默认 nofile 只有 1024：并发一上来
+    # nginx.conf 声明 worker_connections 16384，而容器默认 nofile 只有 1024：并发一上来
     # nginx 拿不到 socket，直接以 503（rt=0.000）拒掉新连接——压力下表现为"服务偶发不可用"。
     # 把软硬上限抬到与 worker_connections 匹配，并在 nginx -t 时不再有 ulimit 警告。
     ulimits:
@@ -59,10 +59,51 @@ services:
         condition: service_started
       storage:
         condition: service_started
+      mcp:
+        condition: service_started
       frontend:
         condition: service_started
       docs-site:
         condition: service_started
+    networks:
+      - metafusion-net
+
+  mcp:
+    logging: *default-logging
+    build:
+      context: ${MF_MCP_DIR:-../../metafusion-mcp}
+      dockerfile: Dockerfile
+    image: metafusion-mcp:${METAFUSION_TAG:-local}
+    container_name: metafusion-mcp
+    restart: unless-stopped
+    environment:
+      - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-https://findverse.cc}
+      - MCP_API_URL=http://gateway
+      - MCP_AUTH_URL=http://auth:8081
+      - MCP_DATABASE_URL=${MCP_DATABASE_URL:-}
+      - MCP_ENCRYPTION_KEY=${MCP_ENCRYPTION_KEY:-}
+      - MCP_SKILLS_REVISION=${MCP_SKILLS_REVISION:-}
+      - MCP_DOCS_REVISION=${MCP_DOCS_REVISION:-}
+      - MCP_OBJECT_ORIGINS=${MCP_OBJECT_ORIGINS:-}
+      - MCP_ALLOWED_ORIGINS=${MCP_ALLOWED_ORIGINS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # 显式初始化 MCP schema；运行服务仅持有 mcp schema 的 CRUD 权限。
+  mcp-migrate:
+    logging: *default-logging
+    image: metafusion-mcp:${METAFUSION_TAG:-local}
+    profiles: ["tools"]
+    command: ["-migrate"]
+    environment:
+      - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-https://findverse.cc}
+      - MCP_API_URL=http://gateway
+      - MCP_AUTH_URL=http://auth:8081
+      - MCP_DATABASE_URL=${MCP_MIGRATION_DATABASE_URL:-}
+      - MCP_ENCRYPTION_KEY=${MCP_ENCRYPTION_KEY:-}
     networks:
       - metafusion-net
 
@@ -144,8 +185,8 @@ services:
       # 刻意不再注入（2026-09 审计 O01）——进程环境一旦持有管理凭据，SQL 层隔离即被绕过。
       # 运行服务只接受本域 DSN，管理身份只用于迁移作业。
       - DATABASE_URL=${CATALOG_DATABASE_URL:?CATALOG_DATABASE_URL must be set}
-      - CATALOG_DB_MAX_OPEN_CONNS=${CATALOG_DB_MAX_OPEN_CONNS:-20}
-      - CATALOG_DB_MAX_IDLE_CONNS=${CATALOG_DB_MAX_IDLE_CONNS:-10}
+      - CATALOG_DB_MAX_OPEN_CONNS=${CATALOG_DB_MAX_OPEN_CONNS:-64}
+      - CATALOG_DB_MAX_IDLE_CONNS=${CATALOG_DB_MAX_IDLE_CONNS:-32}
       # OpenSearch 是正式文本查询服务；外部集群可覆盖 URL 和认证。
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
       - OPENSEARCH_USERNAME=${OPENSEARCH_USERNAME:-}
@@ -545,6 +586,7 @@ services:
   postgres:
     logging: *default-logging
     image: postgres:16-alpine
+    command: ["postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-512}"]
     container_name: metafusion-postgres
     restart: unless-stopped
     environment:

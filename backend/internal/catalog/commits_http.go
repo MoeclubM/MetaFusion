@@ -36,7 +36,7 @@ func respondCommit(c *gin.Context, v CommitReceipt, err error) {
 
 func (h HTTP) registerCommits(cat *gin.RouterGroup) {
 	s := h.Store
-	cat.POST("/checkout", required(""), routeLimiter(120), func(c *gin.Context) {
+	cat.POST("/checkout", required(""), func(c *gin.Context) {
 		var in CheckoutRequest
 		if !body(c, &in) {
 			return
@@ -44,7 +44,7 @@ func (h HTTP) registerCommits(cat *gin.RouterGroup) {
 		out, err := s.Checkout(c.Request.Context(), in, *user(c))
 		respond(c, out, err)
 	})
-	cat.POST("/commits/preview", required(""), routeLimiter(30), func(c *gin.Context) {
+	cat.POST("/commits/preview", required(""), func(c *gin.Context) {
 		var in CatalogCommit
 		if !body(c, &in) {
 			return
@@ -52,7 +52,7 @@ func (h HTTP) registerCommits(cat *gin.RouterGroup) {
 		out, err := s.PushCommit(c.Request.Context(), in, *user(c), true)
 		respondCommit(c, out, err)
 	})
-	cat.POST("/commits", required(""), routeLimiter(60), func(c *gin.Context) {
+	cat.POST("/commits", required(""), func(c *gin.Context) {
 		var in CatalogCommit
 		if !body(c, &in) {
 			return

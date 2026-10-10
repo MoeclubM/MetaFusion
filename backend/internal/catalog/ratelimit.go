@@ -26,6 +26,8 @@ import (
 // 没有 groups，运维仍需一个能单独收紧/放宽未登录流量的开关。
 const rateLimitAnonymousGroup = "anonymous"
 
+const DefaultRateLimitPerMinute = 180
+
 const (
 	// rateLimitMaxPerMinute 是单个额度上限：超过它一定是填错（把日配额写进分钟位），
 	// 放行会让一次误填把限流整体作废、且从配置上完全看不出来。
@@ -51,6 +53,9 @@ const rateLimitLockKey = 740206
 //
 // 返回的 unlimited 为真时，调用方必须完全跳过计数（"解除限制"），limit 无意义。
 func (p RateLimitPolicy) Resolve(identities, groups []string, anonymous bool, routeDefault int) (limit int, unlimited bool) {
+	if !anonymous && contains(groups, "admin") {
+		return 0, true
+	}
 	if anonymous {
 		// 匿名只有保留组码可用：它没有账号，也没有组。
 		if r, ok := p.Groups[rateLimitAnonymousGroup]; ok {

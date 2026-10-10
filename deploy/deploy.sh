@@ -245,11 +245,11 @@ function _env_val() {
 # 缺失即非零退出，不静默回退共用身份。只判空、不打印值（验收口径：只查有无）。
 function require_business_dsns() {
     local missing=0 v val
-    for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL; do
+    for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL MCP_DATABASE_URL MCP_MIGRATION_DATABASE_URL MCP_ENCRYPTION_KEY; do
         val="${!v:-}"
         [ -n "$val" ] || val="$(_env_val "$v")"
         if [ -z "$val" ]; then
-            echo "❌ 缺少 $v：四个业务 DSN 必须逐个填入 .env（见 .env.example 数据层隔离一节）" >&2
+            echo "❌ 缺少 $v：业务 DSN 与 MCP 配置必须逐个填入 .env（见 .env.example）" >&2
             missing=1
         fi
     done
@@ -257,7 +257,17 @@ function require_business_dsns() {
         echo "   请配置各服务独立的数据库身份后重试。" >&2
         exit 1
     fi
-    echo "✅ 业务 DSN 齐全（4/4 已设置，值不打印）"
+    local sha short repo
+    for repo in metafusion-skills metafusion-docs; do
+        short=$(awk -F= -v repo="../$repo" '$1==repo {print $2}' "$SCRIPT_DIR/versions.lock")
+        [ -n "$short" ] || { echo "❌ 版本锁缺少 $repo" >&2; exit 1; }
+        sha=$(git -C "$SCRIPT_DIR/../../$repo" rev-parse "$short^{commit}") || exit 1
+        case "$repo" in
+            metafusion-skills) export MCP_SKILLS_REVISION="$sha" ;;
+            metafusion-docs) export MCP_DOCS_REVISION="$sha" ;;
+        esac
+    done
+    echo "✅ 业务 DSN 与 MCP 配置齐全；技能和文档已锁定（值不打印）"
 }
 
 # 发布清单门禁（审计 P1/A08c）：pull 面向线上，三件事缺一不可——
@@ -315,14 +325,17 @@ banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
 banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
               "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
 bad = []
-for name in ("backend", "auth", "community", "storage"):
+for name in ("backend", "auth", "community", "storage", "mcp"):
     env = (svcs.get(name, {}) or {}).get("environment", {}) or {}
     keys = set(env.keys())
     leak = sorted(keys & banned_db)
     if leak:
         bad.append("%s 持有管理凭据键：%s" % (name, ",".join(leak)))
-    if "DATABASE_URL" not in keys:
-        bad.append("%s 缺少 DATABASE_URL 键" % name)
+    dsn_key = "MCP_DATABASE_URL" if name == "mcp" else "DATABASE_URL"
+    if dsn_key not in keys:
+        bad.append("%s 缺少本域 DSN 键" % name)
+    if name == "mcp" and "MCP_MIGRATION_DATABASE_URL" in keys:
+        bad.append("mcp 常驻服务持有迁移 DSN")
     if name != "storage":
         sleak = sorted(keys & banned_s3)
         if sleak:
@@ -332,7 +345,7 @@ if bad:
     for b in bad:
         print("  - " + b)
     sys.exit(1)
-print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核对，值未打印）")
+print("业务容器凭据隔离通过：5 个服务仅本域 DSN（键名已核对，值未打印）")
 ' || {
         echo "❌ 凭据隔离断言失败：业务容器不得持有管理/对象凭据（审计 O01），部署中止" >&2
         return 1
@@ -446,12 +459,15 @@ case "$ACTION" in
         if [ -n "$TARGET" ]; then
             echo "⚡ 增量更新指定服务 [$TARGET]..."
             docker compose $COMPOSE_ENV build "$TARGET"
+            if [ "$TARGET" = "mcp" ]; then docker compose $COMPOSE_ENV run --rm --no-deps mcp-migrate; fi
             docker compose $COMPOSE_ENV up -d --no-deps "$TARGET"
         else
             echo "⚡ 增量构建并更新全部服务 (复用 BuildKit 缓存)..."
             # 不带服务名即构建**所有**带 build 段的服务：拆分后子系统在兄弟仓库，
             # 只写 backend frontend 会让互动/存储/账号停留在旧镜像。
             docker compose $COMPOSE_ENV build
+            docker compose $COMPOSE_ENV up -d postgres
+            docker compose $COMPOSE_ENV run --rm --no-deps mcp-migrate
             docker compose $COMPOSE_ENV up -d --remove-orphans
         fi
         reload_gateway
@@ -480,6 +496,8 @@ case "$ACTION" in
         seed_checked
         check_refs_report
         check_gateway_candidate
+        docker compose $COMPOSE_ENV build mcp
+        docker compose $COMPOSE_ENV run --rm --no-deps mcp-migrate
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
         tag_release_images
@@ -499,7 +517,7 @@ case "$ACTION" in
         # 三个预构建镜像均按清单摘要拉取；迁移器也必须在升级数据库前就位。
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" pull backend frontend backend-migrate
         # 兄弟服务没有 GHCR 发布物。逐个构建锁定检出，避免复用旧镜像及并行构建耗尽部署机内存。
-        for service in auth community storage docs-site auth-admin auth-user community-admin storage-admin; do
+        for service in auth community storage mcp docs-site auth-admin auth-user community-admin storage-admin; do
             docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" build "$service"
         done
         echo "🚀 启动数据库与核心基础设施..."
@@ -508,6 +526,7 @@ case "$ACTION" in
         seed_checked -f docker-compose.prod.yml -f "$PULL_OVERRIDE"
         check_refs_report -f docker-compose.prod.yml -f "$PULL_OVERRIDE"
         check_gateway_candidate
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" run --rm --no-deps mcp-migrate
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" up -d --no-build --pull never --remove-orphans
         reload_gateway
         echo "✅ 生产镜像拉取与启动完成！"

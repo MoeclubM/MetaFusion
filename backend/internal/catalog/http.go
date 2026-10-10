@@ -194,10 +194,8 @@ func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
 // 命中 unlimited 的主体完全跳过计数（"解除限制"），且不下发 X-RateLimit-* 头——
 // 没有窗口就没有"还剩几次"可言，发一个假上限比不发更容易误导调用方。
 //
-// 口径说明（最小一致化，不做 Redis 大重构）：内存固定窗口，只防单机突发；
-// 额度本身是进程外部配置（catalog.rate_limit_policy），但计数仍是各副本独立的。
-// 写接口（POST entities/relations 等）暂无独立重型限流；多实例共享计数与写接口重型限流
-// 放三期（Redis）。
+// 计数为每进程内存固定窗口。全体业务请求按主体分别共用读、写预算，
+// 只读 POST 归入读窗口。多实例全局额度需要共享计数。
 func routeLimiter(perMinute int) gin.HandlerFunc {
 	sweepStaleBuckets(&routeAttempts, &routeJanitor)
 	return func(c *gin.Context) {
@@ -216,7 +214,11 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		key := subject + "|" + c.FullPath()
+		category := "write"
+		if isReadMethod(c.Request.Method) || (c.Request.Method == "POST" && contains([]string{"/api/catalog/relationships/query", "/api/catalog/entities/candidates", "/api/catalog/entities/identity", "/api/catalog/expressions/details", "/api/catalog/checkout", "/api/catalog/commits/preview", "/api/importer/preview"}, c.FullPath())) {
+			category = "read"
+		}
+		key := subject + "|" + category
 		now := time.Now()
 		v, _ := routeAttempts.LoadOrStore(key, &routeBucket{start: now, lastSeen: now})
 		b := v.(*routeBucket)
@@ -309,6 +311,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
 	// 中间件本体与给其它路由组复用的管理员闸门都在 auth_gate.go。
 	api.Use(attachUser(s))
+	api.Use(routeLimiter(DefaultRateLimitPerMinute))
 	// 审计留痕（契约 §3）：挂在身份中间件**之后**（草稿里的 actor 要在 c.Next() 之前读得到），
 	// 且在下面所有写路由注册**之前**——gin 的 RouterGroup.Use 只对之后注册的路由生效
 	//（0be8ae9 的回归就是位置放错导致的）。只有 AuditActions 里登记的路由会写行。
@@ -343,7 +346,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 提供多语言，前端不硬编码。
 	// 本人调用日志（开发者中心「API 请求日志」）：只读自己的行，按时间倒序。
 	// 日志读不回写（requestLogMiddleware 跳过本路径），查看不污染列表。
-	cat.GET("/developer/request-logs", routeLimiter(120), requestLogEndpoint(s))
+	cat.GET("/developer/request-logs", requestLogEndpoint(s))
 	cat.GET("/definitions", func(c *gin.Context) {
 		v, err := s.Definitions(c.Request.Context())
 		if err != nil {
@@ -358,7 +361,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 分页口径：limit 越界（<=0 或 >500）静默收敛为 200，与 List 的静默收敛风格一致，
 	// 不硬拒绝；与 expressions/details 的 ids 硬拒绝（400）差异是刻意的：
 	// 后者是 POST body 批量参数，超限直接拒绝避免大查询拖库。
-	cat.GET("/tags", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/tags", func(c *gin.Context) {
 		// 与 /entities 同一道参数闸门：?q=%00 在 tags 上同样会走 ILIKE 撞库错误。
 		if err := validateTextQuery(c, "q"); err != nil {
 			respond(c, nil, err)
@@ -408,7 +411,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, gin.H{"items": items, "total": len(items)}, nil)
 	})
-	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/entities", func(c *gin.Context) {
 		// 参数闸门：非法 UTF-8/控制字符/超长值 400（见 query_params.go），分页契约
 		// 也在这一步归一（page 与 offset 冲突即 400，不再"传了 page 却按 offset 返回"）。
 		if err := validateTextQuery(c, listTextParams...); err != nil {
@@ -471,20 +474,20 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 聚合口径因此不比列表多露一行；未登录 401 authentication_required、其它目录码 403 forbidden。
 	// 放在 /entities/:id 之前：静态段与参数段在 gin 的路由树里是可共存的兄弟节点，
 	// 顺序不影响匹配（静态优先），但先声明静态路径省得日后读代码时以为 stats 会被当成 id。
-	cat.GET("/entities/stats", required(PermissionLifecycleManage), routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/entities/stats", required(PermissionLifecycleManage), func(c *gin.Context) {
 		stats, err := s.StatusCounts(c.Request.Context())
 		respond(c, stats, err)
 	})
 	cat.GET("/entities/:id", func(c *gin.Context) { e, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); respond(c, e, err) })
-	cat.GET("/releases/:id/toc", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/releases/:id/toc", func(c *gin.Context) {
 		v, err := s.ReleaseTableOfContents(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, v, err)
 	})
-	cat.GET("/releases/:id/editions", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/releases/:id/editions", func(c *gin.Context) {
 		v, err := s.ReleaseEditions(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, v, err)
 	})
-	cat.GET("/expressions/:id/composition", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/expressions/:id/composition", func(c *gin.Context) {
 		v, err := s.ExpressionComposition(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, v, err)
 	})
@@ -543,7 +546,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ResolveIdentity(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, v, err)
 	})
-	cat.POST("/entities/identity", routeLimiter(120), func(c *gin.Context) {
+	cat.POST("/entities/identity", func(c *gin.Context) {
 		var in struct {
 			IDs []string `json:"ids"`
 		}
@@ -685,7 +688,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			"subject_id": self.ID,
 		}, nil)
 	})
-	cat.GET("/entities/:id/links", routeLimiter(120), func(c *gin.Context) {
+	cat.GET("/entities/:id/links", func(c *gin.Context) {
 		limit, offset, err := listPagination(c)
 		if err != nil {
 			respond(c, nil, err)
@@ -694,7 +697,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		page, err := s.EntityLinks(c.Request.Context(), c.Param("id"), limit, offset, user(c))
 		respond(c, page, err)
 	})
-	cat.POST("/entities/candidates", routeLimiter(120), func(c *gin.Context) {
+	cat.POST("/entities/candidates", func(c *gin.Context) {
 		var in IdentityCandidateQuery
 		if !body(c, &in) {
 			return
@@ -704,7 +707,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.FindIdentityCandidates(ctx, in, user(c))
 		respond(c, v, err)
 	})
-	cat.POST("/relationships/query", routeLimiter(60), func(c *gin.Context) {
+	cat.POST("/relationships/query", func(c *gin.Context) {
 		var in RelationshipQueryRequest
 		if !body(c, &in) {
 			return
@@ -719,7 +722,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 发行详情页批量上屏：一次取多条表达实体 + 自身收录 + 同篇目兄弟收录 + 署名，
 	// 替代逐条四类 N+1 请求。用 POST + JSON body 传 ids：300 个 UUID 拼进 GET
 	// query 约 11KB，会超过 Nginx 默认 8KB 请求行限制。
-	cat.POST("/expressions/details", routeLimiter(120), func(c *gin.Context) {
+	cat.POST("/expressions/details", func(c *gin.Context) {
 		var in struct {
 			IDs []string `json:"ids"`
 		}
@@ -761,7 +764,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 登录用户按个人偏好合并：sections 覆盖同名系统货架/追加自建分区，order 重排，
 	// hidden 过滤；每条 shelf 带 source（system/custom）供前端决定能否删除。
 	// 匿名与未设置偏好者按 sort_order 默认序，且只有 system。
-	cat.GET("/shelves/feed", routeLimiter(60), func(c *gin.Context) {
+	cat.GET("/shelves/feed", func(c *gin.Context) {
 		perShelf, _ := strconv.Atoi(c.Query("per_shelf"))
 		shelves, err := s.ListShelves(c.Request.Context(), true)
 		if err != nil {
@@ -825,13 +828,13 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 可见性与实体列表同口径（未发布只有创建者与生命周期管理员看得到）。口径、分页与差异形状见
 	// contributions.go；限流与 /catalog/entities 同档（每次响应还要按页算差异）。
 	// 路径归目录服务而 /users/:id/favorites 归互动服务，网关按精确正则分流（见 deploy/nginx.conf）。
-	api.GET("/users/:id/contributions", routeLimiter(120), func(c *gin.Context) {
+	api.GET("/users/:id/contributions", func(c *gin.Context) {
 		page, _ := strconv.Atoi(c.Query("page"))
 		pageSize, _ := strconv.Atoi(c.Query("page_size"))
 		v, err := s.UserContributions(c.Request.Context(), c.Param("id"), c.DefaultQuery("tab", "all"), page, pageSize, user(c))
 		respond(c, v, err)
 	})
-	cat.GET("/compare", routeLimiter(10), func(c *gin.Context) {
+	cat.GET("/compare", func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
@@ -840,7 +843,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 预览另有分集分页与 ≤8 并发详情抓取，因此按 /compare 同档加 10/min 限流；
 	// 顺序为先鉴权后限流：限流桶按 IP+路由计数，不该被未授权流量挤占。
 	imp := api.Group("/importer")
-	imp.POST("/preview", required(PermissionImportSubmit), routeLimiter(10), func(c *gin.Context) {
+	imp.POST("/preview", required(PermissionImportSubmit), func(c *gin.Context) {
 		var in ImporterPreviewRequest
 		if !body(c, &in) {
 			return

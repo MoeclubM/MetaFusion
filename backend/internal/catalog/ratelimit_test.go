@@ -75,7 +75,7 @@ func TestRateLimitPolicyEmptyDocumentKeepsRouteDefaults(t *testing.T) {
 		anonymous  bool
 		def        int
 	}{
-		{[]string{"u-1"}, []string{"admin"}, false, 120},
+		{[]string{"u-1"}, []string{"editor"}, false, 180},
 		{[]string{"u-1"}, []string{"*"}, false, 10},
 		{nil, nil, true, 300},
 	} {
@@ -204,5 +204,15 @@ func TestRouteLimiterHonoursAccountAndGroupBudgets(t *testing.T) {
 	// 上面的匿名桶已耗尽，而 vip 桶仍在计数，正是这条判据。
 	if got := call("u-other", "vip").Code; got != http.StatusOK {
 		t.Fatalf("另一个 vip 账号 = %d，期望 200（账号之间不共享桶）", got)
+	}
+}
+
+func TestAdminGroupAlwaysBypassesBusinessRateLimit(t *testing.T) {
+	p := RateLimitPolicy{DefaultPerMinute: 1, Accounts: map[string]RateLimitRule{"u": {PerMinute: 1}}, Groups: map[string]RateLimitRule{"admin": {PerMinute: 1}}}
+	if _, unlimited := p.Resolve([]string{"u"}, []string{"admin"}, false, 180); !unlimited {
+		t.Fatal("verified admin group must bypass configured business quotas")
+	}
+	if _, unlimited := p.Resolve([]string{"u"}, []string{"*"}, false, 180); unlimited {
+		t.Fatal("wildcard permission is not admin group identity")
 	}
 }

@@ -79,4 +79,12 @@ HTTP 启动只做只读兼容检查，不执行 DDL、种子发布或全库回�
 
 025 catalog_commits 新增持久回执和修订关联，先使用同源 migrator 执行 up，再启动后端；启动检查要求 commits 表与 revisions.commit_id。回执与原始请求不得按短期幂等键清理，恢复不能只回滚实体表。旧事实不被迁移改写。Agent 工具须升级到支持 checkout/commits 的技能；旧写结果仍按原身份与键核验，不能重新创建。
 
-CATALOG_DB_MAX_OPEN_CONNS 默认20（1–256），CATALOG_DB_MAX_IDLE_CONNS 默认10（0–maxOpen），缩小 open 时同步设置 idle。多副本连接总和须给其他服务和运维留预算；提高上限不是容量优化证据。压测仅在独立容量环境运行 bench_catalog_reads.mjs。
+CATALOG_DB_MAX_OPEN_CONNS 默认64（1–256），CATALOG_DB_MAX_IDLE_CONNS 默认32（0–maxOpen），其他服务与 MCP 默认32/16。PostgreSQL 编排默认 max_connections=512。缩小 open 时同步设置 idle；副本连接总和须给迁移和运维留预算。提高上限不是容量优化证据，压测仅在独立容量环境运行 bench_catalog_reads.mjs。
+
+## 云端 MCP 接线
+
+将 `metafusion-mcp` 与 `metafusion-skills` 按 versions.lock 检出于兄弟目录。配置 MCP_PUBLIC_URL、MCP_DATABASE_URL（mf_mcp）、MCP_MIGRATION_DATABASE_URL（库 owner，仅迁移作业）、MCP_ENCRYPTION_KEY（base64 编码的32字节随机值）和 MCP_OBJECT_ORIGINS（实际对象存储 HTTPS origin）。技能与文档完整 SHA 由部署入口从已校验版本锁导出。保持原加密密钥；丢失或更换会使既有授权不可解密，需要重新授权。
+
+首次部署先备份，库 owner 执行 deploy/sql/mcp-role.sql 建角色及默认权限，再运行 mcp-migrate，最后执行 verify-mcp-role.sql。运行服务只持 mcp schema 的 CRUD；不能把迁移 DSN 注入常驻服务。常规部署入口先构建 MCP，再显式迁移，后启动业务服务。公开核验 `/health/mcp`、两份 OAuth 发现文档、未授权 `/mcp` 的401挑战及 `/mcp/manage`。
+
+账号旧显式 auth_rate_limit_per_minute=15 不会随代码默认值自动改变；升级时按已批准配置改为180。目录旧显式策略同样保留，须通过管理 API 核对实际全局、组和账号规则。admin 组免业务额度由已验证身份判断，不依据调用方传入的 role 或通配 scope。

@@ -2049,5 +2049,6 @@
   "admin.console.overviewFailed": "Some data could not be loaded. Refresh to retry.",
   "admin.console.previewMerge": "Preview merge",
   "admin.console.mergeConfirm": "The source will redirect to the target. Revision history is preserved. Check the direction, names and IDs.",
-  "admin.console.disabled": "Not deployed"
+  "admin.console.disabled": "Not deployed",
+  "developer.mcp.manage": "MCP permissions"
 }
