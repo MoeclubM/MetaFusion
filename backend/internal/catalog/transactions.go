@@ -25,8 +25,11 @@ func retryableCatalogTransaction(err error) bool {
 // and lifecycle endpoints. The callback must recreate attempt-local state and
 // perform effects only through tx; it may run again after a confirmed rollback.
 func (s *Store) writeCatalog(ctx context.Context, fn func(*sql.Tx) error) error {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
+	// PushCommit owns its 15s request deadline. Preserve the caller's deadline
+	// for administrative merges, whose reference rewrite may cover many rows.
+	// The retry budget applies after a confirmed rollback, not to a successful
+	// first attempt of an existing lifecycle operation.
+	retryDeadline := time.Now().Add(15 * time.Second)
 	for attempt := 0; attempt < catalogTransactionAttempts; attempt++ {
 		err := func() error {
 			tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -45,7 +48,7 @@ func (s *Store) writeCatalog(ctx context.Context, fn func(*sql.Tx) error) error 
 		if !retryableCatalogTransaction(err) {
 			return err
 		}
-		if attempt == catalogTransactionAttempts-1 {
+		if attempt == catalogTransactionAttempts-1 || time.Now().After(retryDeadline) {
 			return errTransactionBusy
 		}
 		// Bounded jitter prevents contending commits from restarting together.
