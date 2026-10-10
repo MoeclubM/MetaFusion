@@ -360,7 +360,11 @@ func TestPostgres32ConcurrentStructuralCommits(t *testing.T) {
 		inputs[i] = fixtureCommit(f, updateCommit(e, patchValue("/title", fmt.Sprintf("updated unit %d", i))))
 	}
 	start := make(chan struct{})
-	results := make(chan error, n)
+	type result struct {
+		input CatalogCommit
+		err   error
+	}
+	results := make(chan result, n)
 	var wg sync.WaitGroup
 	for _, in := range inputs {
 		wg.Add(1)
@@ -371,21 +375,50 @@ func TestPostgres32ConcurrentStructuralCommits(t *testing.T) {
 			if err == nil && len(out.Items) != 1 {
 				err = fmt.Errorf("unexpected receipt size %d", len(out.Items))
 			}
-			results <- err
+			results <- result{in, err}
 		}(in)
 	}
 	began := time.Now()
 	close(start)
 	wg.Wait()
 	close(results)
-	for err := range results {
-		if err != nil {
-			t.Fatal(err)
+	pending := []CatalogCommit{}
+	for result := range results {
+		if errors.Is(result.err, errTransactionBusy) {
+			// SSI may reject even disjoint writes (for example page/predicate
+			// lock escalation in a tiny fixture under -race). A bounded push is
+			// allowed to be busy; it must leave no partial receipt or revision.
+			if _, err := f.s.CommitReceipt(context.Background(), result.input.ID, f.u); !errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("busy push has receipt: %v", err)
+			}
+			var revisions int
+			if err := f.s.DB.QueryRow(`SELECT count(*) FROM catalog.revisions WHERE commit_id=$1`, result.input.ID).Scan(&revisions); err != nil || revisions != 0 {
+				t.Fatalf("busy push leaked revisions: %d %v", revisions, err)
+			}
+			pending = append(pending, result.input)
+		} else if result.err != nil {
+			t.Fatal(result.err)
+		}
+	}
+	if len(pending) > 0 {
+		// Explicit caller recovery after Retry-After, keeping the immutable ID
+		// and payload. No automatic replay of network/unknown failures.
+		time.Sleep(time.Second)
+		for _, in := range pending {
+			if out, err := f.s.PushCommit(context.Background(), in, f.u, false); err != nil || len(out.Items) != 1 {
+				t.Fatalf("same-ID busy recovery failed: %+v %v", out, err)
+			}
 		}
 	}
 	var count int
 	if err := f.s.DB.QueryRow(`SELECT count(*) FROM catalog.revisions WHERE commit_id IS NOT NULL`).Scan(&count); err != nil || count != n {
 		t.Fatalf("duplicate/lost revisions: %d %v", count, err)
 	}
-	t.Logf("%d simultaneous structural commits completed in %s (isolated local PostgreSQL correctness test)", n, time.Since(began))
+	for _, in := range inputs {
+		out, err := f.s.CommitReceipt(context.Background(), in.ID, f.u)
+		if err != nil || len(out.Items) != 1 || out.Items[0].Version != 2 {
+			t.Fatalf("missing/duplicate final receipt: %+v %v", out, err)
+		}
+	}
+	t.Logf("%d simultaneous structural commits completed in %s; busy pushes recovered with the same ID: %d (isolated local PostgreSQL correctness test)", n, time.Since(began), len(pending))
 }
