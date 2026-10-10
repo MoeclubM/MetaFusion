@@ -21,7 +21,7 @@ func TestSaveRateLimitPolicyRoundTripAndETag(t *testing.T) {
 	if base.ETag == "" {
 		t.Fatal("初始策略缺少 etag：覆盖保护没有基准")
 	}
-	if got, unlimited := base.Policy.Resolve([]string{"u"}, []string{"admin"}, false, 120); unlimited || got != 120 {
+	if got, unlimited := base.Policy.Resolve([]string{"u"}, []string{"member"}, false, DefaultRateLimitPerMinute); unlimited || got != DefaultRateLimitPerMinute {
 		t.Fatalf("空文档应沿用路由内置额度，实际 (%d, unlimited=%v)", got, unlimited)
 	}
 

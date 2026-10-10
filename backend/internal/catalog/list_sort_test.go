@@ -129,7 +129,7 @@ func TestHTTPEntityListSort(t *testing.T) {
 		t.Fatalf("sort=title 未生效: %+v", body.Items)
 	}
 	// 限流响应头随列表一起下发（四语字典承诺的那组头）。
-	if res.Header().Get("X-RateLimit-Limit") != "120" || res.Header().Get("X-RateLimit-Remaining") == "" {
+	if res.Header().Get("X-RateLimit-Limit") != "180" || res.Header().Get("X-RateLimit-Remaining") == "" {
 		t.Fatalf("缺少 X-RateLimit-* 响应头: %v", res.Header())
 	}
 
